@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ttslo import TTSLO
 from config import ConfigManager
 from kraken_api import KrakenAPI
+from validator import ConfigValidator, format_validation_result
 
 
 def test_config_manager():
@@ -185,6 +186,83 @@ def test_kraken_api_signature():
     print("✓ Kraken API signature tests passed")
 
 
+def test_config_validator():
+    """Test configuration validation."""
+    validator = ConfigValidator()
+    
+    # Test valid config
+    valid_configs = [
+        {
+            'id': 'test1',
+            'pair': 'XXBTZUSD',
+            'threshold_price': '50000',
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.1',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true'
+        }
+    ]
+    
+    result = validator.validate_config_file(valid_configs)
+    assert result.is_valid(), "Valid config should pass validation"
+    assert len(result.errors) == 0, "Valid config should have no errors"
+    
+    # Test invalid threshold price
+    invalid_configs = [
+        {
+            'id': 'test2',
+            'pair': 'XXBTZUSD',
+            'threshold_price': 'not_a_number',
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.1',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true'
+        }
+    ]
+    
+    result = validator.validate_config_file(invalid_configs)
+    assert not result.is_valid(), "Invalid config should fail validation"
+    assert len(result.errors) > 0, "Invalid config should have errors"
+    
+    # Test missing required field
+    missing_field_configs = [
+        {
+            'id': 'test3',
+            'pair': 'XXBTZUSD',
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.1',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true'
+        }
+    ]
+    
+    result = validator.validate_config_file(missing_field_configs)
+    assert not result.is_valid(), "Config with missing field should fail"
+    
+    # Test warnings (unusual logic)
+    warning_configs = [
+        {
+            'id': 'test4',
+            'pair': 'XXBTZUSD',
+            'threshold_price': '50000',
+            'threshold_type': 'above',
+            'direction': 'buy',  # Unusual: buy when price goes up
+            'volume': '0.1',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true'
+        }
+    ]
+    
+    result = validator.validate_config_file(warning_configs)
+    assert result.is_valid(), "Config with warnings should still be valid"
+    assert result.has_warnings(), "Should have warnings for unusual logic"
+    
+    print("✓ Config validator tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running TTSLO tests...\n")
@@ -195,6 +273,7 @@ def run_all_tests():
         test_dry_run_mode()
         test_missing_readwrite_credentials()
         test_kraken_api_signature()
+        test_config_validator()
         
         print("\n✅ All tests passed!")
         return 0

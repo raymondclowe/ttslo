@@ -52,12 +52,18 @@ cp config_sample.csv config.csv
 nano config.csv  # or your favorite editor
 ```
 
-### 5. Test in Dry-Run Mode
+### 5. Validate Configuration
+```bash
+python ttslo.py --validate-config
+```
+This shows errors, warnings, and what will be executed. Fix any errors before proceeding.
+
+### 6. Test in Dry-Run Mode
 ```bash
 python ttslo.py --dry-run --verbose --once
 ```
 
-### 6. Run for Real
+### 7. Run for Real
 ```bash
 # Run continuously (checks every 60 seconds)
 python ttslo.py

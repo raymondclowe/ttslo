@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from kraken_api import KrakenAPI
 from config import ConfigManager
+from validator import ConfigValidator, format_validation_result
 
 
 def get_env_var(var_name):
@@ -282,6 +283,45 @@ class TTSLO:
                     f"Error processing config {config_id}: {str(e)}",
                     config_id=config_id, error=str(e))
     
+    def validate_and_load_config(self) -> bool:
+        """
+        Validate configuration file and load configs if valid.
+        
+        Returns:
+            True if validation passed, False otherwise
+        """
+        configs = self.config_manager.load_config()
+        
+        if not configs:
+            self.log('ERROR', 'No configurations found in config file')
+            return False
+        
+        # Validate configuration
+        validator = ConfigValidator()
+        result = validator.validate_config_file(configs)
+        
+        # Log validation results
+        if result.errors:
+            for error in result.errors:
+                self.log('ERROR', 
+                        f"Config validation error [{error['config_id']}] {error['field']}: {error['message']}",
+                        config_id=error['config_id'], field=error['field'])
+        
+        if result.warnings:
+            for warning in result.warnings:
+                self.log('WARNING', 
+                        f"Config validation warning [{warning['config_id']}] {warning['field']}: {warning['message']}",
+                        config_id=warning['config_id'], field=warning['field'])
+        
+        if not result.is_valid():
+            self.log('ERROR', 'Configuration validation failed. Please fix errors.')
+            return False
+        
+        if result.has_warnings() and self.verbose:
+            print("Configuration has warnings. Review them to ensure they are expected.")
+        
+        return True
+    
     def run_once(self):
         """Run one iteration of checking all configurations."""
         configs = self.config_manager.load_config()
@@ -324,6 +364,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Validate configuration file
+  %(prog)s --validate-config
+  
   # Run once in dry-run mode with verbose output
   %(prog)s --dry-run --verbose --once
   
@@ -360,6 +403,8 @@ Environment variables:
                        help='Seconds between checks in continuous mode (default: 60)')
     parser.add_argument('--create-sample-config', action='store_true',
                        help='Create a sample configuration file and exit')
+    parser.add_argument('--validate-config', action='store_true',
+                       help='Validate configuration file and exit (shows what will be executed)')
     parser.add_argument('--env-file', default='.env',
                        help='Path to .env file (default: .env)')
     
@@ -374,6 +419,25 @@ Environment variables:
         config_manager.create_sample_config()
         print(f"Sample configuration file created: config_sample.csv")
         sys.exit(0)
+    
+    # Validate config if requested
+    if args.validate_config:
+        config_manager = ConfigManager(config_file=args.config)
+        configs = config_manager.load_config()
+        
+        if not configs:
+            print("ERROR: No configurations found in config file", file=sys.stderr)
+            print(f"Config file: {args.config}", file=sys.stderr)
+            sys.exit(1)
+        
+        validator = ConfigValidator()
+        result = validator.validate_config_file(configs)
+        
+        # Print formatted validation result
+        print(format_validation_result(result, verbose=True))
+        
+        # Exit with appropriate code
+        sys.exit(0 if result.is_valid() else 1)
     
     # Get read-only API credentials (for price monitoring)
     api_key_ro = get_env_var('KRAKEN_API_KEY')
@@ -423,6 +487,15 @@ Environment variables:
     
     # Load initial state
     ttslo.load_state()
+    
+    # Validate configuration before starting
+    if not ttslo.validate_and_load_config():
+        print("\nConfiguration validation failed. Use --validate-config to see details.", 
+              file=sys.stderr)
+        sys.exit(1)
+    
+    if args.verbose:
+        print("Configuration validation passed. Starting monitoring...\n")
     
     # Run
     if args.once:

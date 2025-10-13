@@ -73,12 +73,17 @@ btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true
 eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true
 ```
 
-3. Test your configuration in dry-run mode:
+3. Validate your configuration:
+```bash
+python ttslo.py --validate-config
+```
+
+4. Test your configuration in dry-run mode:
 ```bash
 python ttslo.py --dry-run --verbose --once
 ```
 
-4. Run continuously:
+5. Run continuously:
 ```bash
 python ttslo.py --interval 60
 ```
@@ -117,6 +122,15 @@ All events are logged to this CSV file with timestamps, log levels, and relevant
 
 ## Usage Examples
 
+### Validate Configuration File
+```bash
+python ttslo.py --validate-config
+```
+This validates your configuration and shows:
+- All errors that must be fixed
+- Warnings about unusual settings
+- A human-readable summary of what will be executed
+
 ### Run Once (Single Check)
 ```bash
 python ttslo.py --once --verbose
@@ -153,6 +167,7 @@ python ttslo.py --env-file /path/to/custom.env
 --once                  Run once and exit (default: run continuously)
 --interval SECONDS      Seconds between checks in continuous mode (default: 60)
 --create-sample-config  Create a sample configuration file and exit
+--validate-config       Validate configuration file and exit (shows what will be executed)
 --env-file FILE         Path to .env file (default: .env)
 ```
 
@@ -224,16 +239,80 @@ When ETH drops below $3,000, a TSL buy order is created with a 3% trailing offse
 
 ## Safety Tips
 
-1. **Always test with dry-run mode first**: `--dry-run --verbose --once`
-2. **Start with small volumes**: Test with minimal amounts before using real trading volumes
-3. **Monitor the logs**: Check `logs.csv` regularly for any issues
-4. **Use appropriate trailing offsets**: Too tight may trigger prematurely, too loose may not protect profits
-5. **Keep API keys secure**: Use environment variables, never hardcode credentials
+1. **Always validate your configuration first**: `--validate-config`
+2. **Test with dry-run mode**: `--dry-run --verbose --once`
+3. **Start with small volumes**: Test with minimal amounts before using real trading volumes
+4. **Monitor the logs**: Check `logs.csv` regularly for any issues
+5. **Use appropriate trailing offsets**: Too tight may trigger prematurely, too loose may not protect profits
+6. **Keep API keys secure**: Use environment variables, never hardcode credentials
+
+## Configuration Validation
+
+TTSLO automatically validates your configuration on startup and will not run if errors are found. Use `--validate-config` to check your configuration without running the application.
+
+### Common Errors Detected
+
+- **Invalid numbers**: "o.5" instead of "0.5", "abc" instead of a number
+- **Missing required fields**: Empty or missing id, pair, volume, etc.
+- **Invalid values**: threshold_type must be "above" or "below", direction must be "buy" or "sell"
+- **Unknown trading pairs**: Pair codes that don't match known Kraken pairs (shown as warning)
+- **Duplicate IDs**: Multiple configurations with the same id
+- **Negative values**: Negative prices, volumes, or offsets
+
+### Warnings
+
+The validator also provides warnings for potentially problematic configurations:
+
+- **Unusual logic**: Buying when price goes up, selling when price goes down
+- **Extreme offsets**: Very small (<0.1%) or very large (>50%) trailing offsets
+- **Unknown pairs**: Trading pairs not in the known list (may still be valid)
+- **Very small/large values**: Unusually small volumes or extreme prices
+
+### Example Validation Output
+
+```bash
+$ python ttslo.py --validate-config
+
+================================================================================
+CONFIGURATION VALIDATION REPORT
+================================================================================
+
+✓ VALIDATION PASSED
+
+Configurations checked: 2
+Errors found: 0
+Warnings found: 0
+
+================================================================================
+CONFIGURATION SUMMARY
+================================================================================
+
+[btc_profit] ✓ ACTIVE
+  Pair: XXBTZUSD
+  Trigger: When price goes above 50000
+  Action: Create SELL trailing stop loss
+  Volume: 0.1
+  Trailing offset: 5.0%
+
+[eth_dip] ✓ ACTIVE
+  Pair: XETHZUSD
+  Trigger: When price goes below 3000
+  Action: Create BUY trailing stop loss
+  Volume: 1.0
+  Trailing offset: 3.5%
+
+================================================================================
+✓ Configuration is ready to use!
+================================================================================
+```
 
 ## Troubleshooting
 
+### "Configuration validation failed" error
+Run `python ttslo.py --validate-config` to see detailed error messages. Fix all errors in your config.csv file before running.
+
 ### "API credentials required" error
-Make sure you've set `KRAKEN_API_KEY` and `KRAKEN_API_SECRET` environment variables, or use `--api-key` and `--api-secret` options.
+Make sure you've set `KRAKEN_API_KEY` and `KRAKEN_API_SECRET` environment variables.
 
 ### "No configurations found" warning
 Your `config.csv` file is empty or missing. Run `--create-sample-config` to generate a template.
@@ -241,7 +320,7 @@ Your `config.csv` file is empty or missing. Run `--create-sample-config` to gene
 ### Order creation fails
 - Check that your API key has the correct permissions
 - Verify you have sufficient balance
-- Ensure the trading pair is correct
+- Ensure the trading pair is correct (use `--validate-config` to check)
 - Check Kraken's API status
 
 ## Contributing
