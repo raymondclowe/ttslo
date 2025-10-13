@@ -210,5 +210,9 @@ __marimo__/
 config.csv
 state.csv
 logs.csv
+
+# Environment files (but keep the example)
 .env
-.env.*
+.env.local
+.env.*.local
+!.env.example
