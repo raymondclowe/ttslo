@@ -258,6 +258,26 @@ TTSLO automatically validates your configuration on startup and will not run if 
 - **Unknown trading pairs**: Pair codes that don't match known Kraken pairs (shown as warning)
 - **Duplicate IDs**: Multiple configurations with the same id
 - **Negative values**: Negative prices, volumes, or offsets
+- **Threshold already met**: Trigger price already reached by current market price
+- **Insufficient gap**: Gap between threshold and current price is less than trailing offset
+
+### Market Price Validation
+
+When API credentials are available, the validator checks configurations against current market prices:
+
+- **Threshold Already Met**: Error if "above" threshold is below current price, or "below" threshold is above current price
+  - Example: Setting threshold "above $50,000" when BTC is already at $115,000
+- **Insufficient Gap**: Error if the gap between threshold and current price is less than the trailing offset
+  - Example: Current price $100, threshold $103, but 5% trailing offset needs at least $5 gap
+- **Small Gap Warning**: Warning if gap is less than 2x the trailing offset
+  - Provides recommendation for optimal gap size
+
+To enable market price validation with `--validate-config`, set your read-only API credentials:
+```bash
+export KRAKEN_API_KEY="your_readonly_key"
+export KRAKEN_API_SECRET="your_readonly_secret"
+python ttslo.py --validate-config
+```
 
 ### Warnings
 
@@ -267,6 +287,7 @@ The validator also provides warnings for potentially problematic configurations:
 - **Extreme offsets**: Very small (<0.1%) or very large (>50%) trailing offsets
 - **Unknown pairs**: Trading pairs not in the known list (may still be valid)
 - **Very small/large values**: Unusually small volumes or extreme prices
+- **Small gaps**: Gap between threshold and current price less than 2x trailing offset
 
 ### Example Validation Output
 

@@ -296,8 +296,8 @@ class TTSLO:
             self.log('ERROR', 'No configurations found in config file')
             return False
         
-        # Validate configuration
-        validator = ConfigValidator()
+        # Validate configuration with market price checks
+        validator = ConfigValidator(kraken_api=self.kraken_api_readonly)
         result = validator.validate_config_file(configs)
         
         # Log validation results
@@ -430,7 +430,20 @@ Environment variables:
             print(f"Config file: {args.config}", file=sys.stderr)
             sys.exit(1)
         
-        validator = ConfigValidator()
+        # Try to get API credentials for market price validation
+        api_key_ro = get_env_var('KRAKEN_API_KEY')
+        api_secret_ro = get_env_var('KRAKEN_API_SECRET')
+        
+        # Create API instance if credentials available
+        kraken_api = None
+        if api_key_ro and api_secret_ro:
+            kraken_api = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+            print("Note: Validating with current market prices from Kraken API\n")
+        else:
+            print("Note: API credentials not found. Skipping market price validation.")
+            print("      Set KRAKEN_API_KEY and KRAKEN_API_SECRET for complete validation.\n")
+        
+        validator = ConfigValidator(kraken_api=kraken_api)
         result = validator.validate_config_file(configs)
         
         # Print formatted validation result

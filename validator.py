@@ -74,9 +74,15 @@ class ConfigValidator:
     VALID_DIRECTIONS = ['buy', 'sell']
     VALID_ENABLED_VALUES = ['true', 'false', 'yes', 'no', '1', '0']
     
-    def __init__(self):
-        """Initialize the validator."""
-        pass
+    def __init__(self, kraken_api=None):
+        """
+        Initialize the validator.
+        
+        Args:
+            kraken_api: Optional KrakenAPI instance for fetching current prices
+        """
+        self.kraken_api = kraken_api
+        self.price_cache = {}  # Cache prices to avoid repeated API calls
     
     def validate_config_file(self, configs: List[Dict]) -> ValidationResult:
         """
@@ -284,6 +290,31 @@ class ConfigValidator:
                            f'Must be one of: {", ".join(self.VALID_ENABLED_VALUES)} '
                            '(case-insensitive)')
     
+    def _get_current_price(self, pair: str) -> Optional[float]:
+        """
+        Get current price for a trading pair.
+        
+        Args:
+            pair: Trading pair
+            
+        Returns:
+            Current price or None if unavailable
+        """
+        if not self.kraken_api:
+            return None
+        
+        # Check cache first
+        if pair in self.price_cache:
+            return self.price_cache[pair]
+        
+        try:
+            price = self.kraken_api.get_current_price(pair)
+            self.price_cache[pair] = price
+            return price
+        except Exception:
+            # If we can't get price, return None (don't fail validation)
+            return None
+    
     def _validate_logic(self, config: Dict, config_id: str, result: ValidationResult):
         """Validate the logical consistency of the configuration."""
         # Get values (already validated individually)
@@ -292,6 +323,7 @@ class ConfigValidator:
             threshold_type = config.get('threshold_type', '').strip().lower()
             direction = config.get('direction', '').strip().lower()
             trailing_offset = float(config.get('trailing_offset_percent', 0))
+            pair = config.get('pair', '').strip().upper()
         except (ValueError, TypeError):
             return  # Skip logic validation if values are invalid
         
@@ -316,6 +348,59 @@ class ConfigValidator:
                 result.add_warning(config_id, 'trailing_offset_percent', 
                                  f'Large trailing offset ({trailing_offset}%) on a downward threshold. '
                                  'Order may trigger immediately if price has moved significantly')
+        
+        # Validate against current market price if available
+        current_price = self._get_current_price(pair)
+        if current_price is not None:
+            self._validate_market_price(config, config_id, threshold_price, threshold_type, 
+                                       direction, trailing_offset, current_price, result)
+    
+    def _validate_market_price(self, config: Dict, config_id: str, threshold_price: float,
+                               threshold_type: str, direction: str, trailing_offset: float,
+                               current_price: float, result: ValidationResult):
+        """
+        Validate threshold price against current market price.
+        
+        Args:
+            config: Configuration dictionary
+            config_id: Configuration ID
+            threshold_price: Configured threshold price
+            threshold_type: 'above' or 'below'
+            direction: 'buy' or 'sell'
+            trailing_offset: Trailing offset percentage
+            current_price: Current market price
+            result: ValidationResult to add errors/warnings to
+        """
+        pair = config.get('pair', 'unknown')
+        
+        # Check if threshold already met (trigger would fire immediately)
+        if threshold_type == 'above' and current_price >= threshold_price:
+            result.add_error(config_id, 'threshold_price',
+                           f'Threshold price {threshold_price} is already met (current price: {current_price:.2f}). '
+                           f'For "above" threshold, set price higher than current market price.')
+        
+        if threshold_type == 'below' and current_price <= threshold_price:
+            result.add_error(config_id, 'threshold_price',
+                           f'Threshold price {threshold_price} is already met (current price: {current_price:.2f}). '
+                           f'For "below" threshold, set price lower than current market price.')
+        
+        # Check for insufficient gap between threshold and current price
+        # The gap should be at least large enough to accommodate the trailing offset
+        price_diff_percent = abs((threshold_price - current_price) / current_price * 100)
+        
+        # For reasonable operation, gap should be at least 2x the trailing offset
+        min_gap_percent = trailing_offset * 2
+        
+        if price_diff_percent < trailing_offset:
+            result.add_error(config_id, 'threshold_price',
+                           f'Insufficient gap between threshold ({threshold_price}) and current price ({current_price:.2f}). '
+                           f'Gap is {price_diff_percent:.2f}% but trailing offset is {trailing_offset}%. '
+                           f'Order would trigger immediately or not work as intended.')
+        elif price_diff_percent < min_gap_percent:
+            result.add_warning(config_id, 'threshold_price',
+                             f'Small gap between threshold ({threshold_price}) and current price ({current_price:.2f}). '
+                             f'Gap is {price_diff_percent:.2f}% but trailing offset is {trailing_offset}%. '
+                             f'Consider a gap of at least {min_gap_percent:.1f}% for best results.')
 
 
 def format_validation_result(result: ValidationResult, verbose: bool = False) -> str:

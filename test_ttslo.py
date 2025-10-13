@@ -260,6 +260,46 @@ def test_config_validator():
     assert result.is_valid(), "Config with warnings should still be valid"
     assert result.has_warnings(), "Should have warnings for unusual logic"
     
+    # Test market price validation with mock API
+    mock_api = Mock(spec=KrakenAPI)
+    mock_api.get_current_price.return_value = 60000.0  # Current BTC price
+    
+    validator_with_api = ConfigValidator(kraken_api=mock_api)
+    
+    # Test threshold already met (error)
+    already_met_configs = [
+        {
+            'id': 'test5',
+            'pair': 'XXBTZUSD',
+            'threshold_price': '55000',  # Below current price for "above" threshold
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.1',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true'
+        }
+    ]
+    
+    result = validator_with_api.validate_config_file(already_met_configs)
+    assert not result.is_valid(), "Threshold already met should be an error"
+    
+    # Test insufficient gap (error)
+    insufficient_gap_configs = [
+        {
+            'id': 'test6',
+            'pair': 'XXBTZUSD',
+            'threshold_price': '61000',  # Only 1.67% gap, but 5% trailing offset
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.1',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true'
+        }
+    ]
+    
+    result = validator_with_api.validate_config_file(insufficient_gap_configs)
+    assert not result.is_valid(), "Insufficient gap should be an error"
+    
     print("✓ Config validator tests passed")
 
 
