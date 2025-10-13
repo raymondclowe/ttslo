@@ -1,0 +1,191 @@
+# TTSLO Quick Start Guide
+
+## 5-Minute Setup
+
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Get Kraken API Credentials
+1. Log in to [Kraken](https://www.kraken.com)
+2. Go to Settings → API
+3. Create API key with permissions:
+   - Query Funds
+   - Query Open Orders & Trades
+   - Create & Modify Orders
+4. Save your API Key and Private Key
+
+### 3. Set Environment Variables
+```bash
+export KRAKEN_API_KEY="your_api_key_here"
+export KRAKEN_API_SECRET="your_private_key_here"
+```
+
+### 4. Create Configuration
+```bash
+# Generate sample configuration
+python ttslo.py --create-sample-config
+
+# Copy and edit
+cp config_sample.csv config.csv
+nano config.csv  # or your favorite editor
+```
+
+### 5. Test in Dry-Run Mode
+```bash
+python ttslo.py --dry-run --verbose --once
+```
+
+### 6. Run for Real
+```bash
+# Run continuously (checks every 60 seconds)
+python ttslo.py
+
+# Run with custom interval
+python ttslo.py --interval 120
+```
+
+## Common Configurations
+
+### Protect BTC Profits Above $50k
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
+btc_profit,XXBTZUSD,50000,above,sell,0.1,5.0,true
+```
+**What it does:** When BTC reaches $50,000, creates a sell TSL order for 0.1 BTC with 5% trailing offset.
+
+### Buy ETH Dip Below $2500
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
+eth_dip,XETHZUSD,2500,below,buy,1.0,3.0,true
+```
+**What it does:** When ETH drops below $2,500, creates a buy TSL order for 1.0 ETH with 3% trailing offset.
+
+### Multiple Strategies
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
+btc_high,XXBTZUSD,60000,above,sell,0.05,5.0,true
+btc_low,XXBTZUSD,40000,below,buy,0.05,4.0,true
+eth_high,XETHZUSD,3500,above,sell,0.5,4.5,true
+sol_breakout,SOLUSD,150,above,sell,10,6.0,true
+```
+
+## Monitoring
+
+### Check Logs
+```bash
+# View recent logs
+tail -f logs.csv
+
+# Search for errors
+grep ERROR logs.csv
+
+# Check specific config
+grep "btc_profit" logs.csv
+```
+
+### Check State
+```bash
+# View current state
+cat state.csv
+
+# Check if triggers fired
+grep "true" state.csv
+```
+
+## Tips & Tricks
+
+### Test Without Risk
+Always use `--dry-run --verbose --once` first to test your configuration.
+
+### Start Small
+Begin with small volumes to test the system before committing larger amounts.
+
+### Multiple Strategies
+You can have many rows in config.csv for different pairs and conditions.
+
+### Disable Temporarily
+Set `enabled` to `false` to temporarily disable a configuration without deleting it.
+
+### Reset State
+If you want to re-enable a triggered configuration:
+```bash
+# Edit state.csv and change triggered from "true" to "false"
+nano state.csv
+```
+
+### Run as Background Service
+```bash
+# Using nohup
+nohup python ttslo.py > ttslo.out 2>&1 &
+
+# Using screen
+screen -S ttslo
+python ttslo.py
+# Ctrl+A, D to detach
+
+# Using systemd (Linux)
+# Create /etc/systemd/system/ttslo.service
+```
+
+## Troubleshooting
+
+### "API credentials required"
+Set `KRAKEN_API_KEY` and `KRAKEN_API_SECRET` environment variables.
+
+### "No configurations found"
+Your `config.csv` is missing or empty. Run `--create-sample-config`.
+
+### Order creation fails
+- Verify API key permissions
+- Check account balance
+- Confirm trading pair format (XXBTZUSD, not BTC/USD)
+
+### Wrong price detected
+- Kraken may use different pair names
+- Check exact pair name in Kraken API docs
+- Verify threshold_type is "above" or "below"
+
+## Safety Checklist
+
+- [ ] Tested with `--dry-run` first
+- [ ] Started with small volumes
+- [ ] API key has only required permissions
+- [ ] API credentials stored securely (not in code)
+- [ ] Monitoring logs.csv regularly
+- [ ] Understand trailing stop loss mechanics
+- [ ] Have backup plan if system goes down
+
+## Advanced Usage
+
+### Custom File Locations
+```bash
+python ttslo.py \
+  --config /path/to/my_config.csv \
+  --state /path/to/my_state.csv \
+  --log /path/to/my_logs.csv
+```
+
+### One-Time Check
+```bash
+# Run once and exit (useful for cron jobs)
+python ttslo.py --once
+```
+
+### Verbose Debugging
+```bash
+# See all debug messages
+python ttslo.py --verbose
+```
+
+## Need Help?
+
+- Check the main [README.md](README.md) for detailed documentation
+- Review [Kraken API documentation](https://docs.kraken.com/rest/)
+- Check logs.csv for detailed error messages
+- Review state.csv to see what has triggered
+
+---
+
+**Remember:** Trading involves risk. Always understand what you're doing and never invest more than you can afford to lose.
