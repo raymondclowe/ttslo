@@ -35,11 +35,29 @@ cd ttslo
 pip install -r requirements.txt
 ```
 
-3. Set up your Kraken API credentials as environment variables:
+3. Set up your Kraken API credentials:
+
+**Option A: Environment Variables**
 ```bash
-export KRAKEN_API_KEY="your_api_key_here"
-export KRAKEN_API_SECRET="your_api_secret_here"
+# Read-only credentials (for price monitoring)
+export KRAKEN_API_KEY="your_readonly_api_key"
+export KRAKEN_API_SECRET="your_readonly_api_secret"
+
+# Read-write credentials (for creating orders)
+export KRAKEN_API_KEY_RW="your_readwrite_api_key"
+export KRAKEN_API_SECRET_RW="your_readwrite_api_secret"
 ```
+
+**Option B: .env File**
+Create a `.env` file in the project directory:
+```
+KRAKEN_API_KEY=your_readonly_api_key
+KRAKEN_API_SECRET=your_readonly_api_secret
+KRAKEN_API_KEY_RW=your_readwrite_api_key
+KRAKEN_API_SECRET_RW=your_readwrite_api_secret
+```
+
+**Note:** The tool checks for both standard names (e.g., `KRAKEN_API_KEY`) and Copilot-prefixed names (e.g., `copilot_KRAKEN_API_KEY`) to support GitHub Copilot agent environments.
 
 ## Quick Start
 
@@ -119,9 +137,9 @@ python ttslo.py --dry-run --verbose
 python ttslo.py --config my_config.csv --state my_state.csv --log my_logs.csv
 ```
 
-### Provide API Credentials via Command Line
+### Custom .env File Location
 ```bash
-python ttslo.py --api-key YOUR_KEY --api-secret YOUR_SECRET
+python ttslo.py --env-file /path/to/custom.env
 ```
 
 ## Command-Line Options
@@ -135,18 +153,41 @@ python ttslo.py --api-key YOUR_KEY --api-secret YOUR_SECRET
 --once                  Run once and exit (default: run continuously)
 --interval SECONDS      Seconds between checks in continuous mode (default: 60)
 --create-sample-config  Create a sample configuration file and exit
---api-key KEY           Kraken API key (or set KRAKEN_API_KEY env var)
---api-secret SECRET     Kraken API secret (or set KRAKEN_API_SECRET env var)
+--env-file FILE         Path to .env file (default: .env)
 ```
 
 ## Kraken API Setup
 
+### Two API Key Pairs
+
+TTSLO uses two separate API key pairs for enhanced security:
+
+1. **Read-Only Keys** (`KRAKEN_API_KEY`, `KRAKEN_API_SECRET`)
+   - Used for price monitoring and data retrieval
+   - Safe to use during testing and debugging
+   - Required permissions: Query Funds, Query Open Orders & Trades
+
+2. **Read-Write Keys** (`KRAKEN_API_KEY_RW`, `KRAKEN_API_SECRET_RW`)
+   - Used only for creating orders
+   - Optional for dry-run mode
+   - Required permissions: Create & Modify Orders
+
+### Creating API Keys
+
 1. Log in to your Kraken account
 2. Go to Settings → API
-3. Create a new API key with the following permissions:
-   - Query Funds
-   - Query Open Orders & Trades
-   - Create & Modify Orders
+3. Create **two** separate API keys:
+
+**Read-Only Key:**
+   - Name: "TTSLO Read-Only"
+   - Permissions:
+     - Query Funds
+     - Query Open Orders & Trades
+
+**Read-Write Key:**
+   - Name: "TTSLO Read-Write"
+   - Permissions:
+     - Create & Modify Orders
 
 **Important**: Never commit your API credentials to version control!
 

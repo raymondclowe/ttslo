@@ -15,21 +15,81 @@ from kraken_api import KrakenAPI
 from config import ConfigManager
 
 
+def get_env_var(var_name):
+    """
+    Get environment variable, checking both standard and copilot_ prefixed versions.
+    
+    Args:
+        var_name: Name of the environment variable
+        
+    Returns:
+        Value of the environment variable or None if not found
+    """
+    # First check the standard name
+    value = os.environ.get(var_name)
+    if value:
+        return value
+    
+    # Then check with copilot_ prefix for GitHub Copilot agent environments
+    copilot_var_name = f"copilot_{var_name}"
+    return os.environ.get(copilot_var_name)
+
+
+def load_env_file(env_file='.env'):
+    """
+    Load environment variables from a .env file if it exists.
+    
+    Args:
+        env_file: Path to .env file
+    """
+    if not os.path.exists(env_file):
+        return
+    
+    try:
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and comments
+                if not line or line.startswith('#'):
+                    continue
+                
+                # Parse KEY=VALUE format
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    
+                    # Remove quotes if present
+                    if value.startswith('"') and value.endswith('"'):
+                        value = value[1:-1]
+                    elif value.startswith("'") and value.endswith("'"):
+                        value = value[1:-1]
+                    
+                    # Only set if not already in environment
+                    if key not in os.environ:
+                        os.environ[key] = value
+    except Exception as e:
+        print(f"Warning: Could not load .env file: {e}", file=sys.stderr)
+
+
 class TTSLO:
     """Main application for triggered trailing stop loss orders."""
     
-    def __init__(self, config_manager, kraken_api, dry_run=False, verbose=False):
+    def __init__(self, config_manager, kraken_api_readonly, kraken_api_readwrite=None, 
+                 dry_run=False, verbose=False):
         """
         Initialize TTSLO application.
         
         Args:
             config_manager: ConfigManager instance
-            kraken_api: KrakenAPI instance
+            kraken_api_readonly: KrakenAPI instance with read-only credentials
+            kraken_api_readwrite: KrakenAPI instance with read-write credentials (optional)
             dry_run: If True, don't actually create orders
             verbose: If True, print verbose output
         """
         self.config_manager = config_manager
-        self.kraken_api = kraken_api
+        self.kraken_api_readonly = kraken_api_readonly
+        self.kraken_api_readwrite = kraken_api_readwrite
         self.dry_run = dry_run
         self.verbose = verbose
         self.state = {}
@@ -107,13 +167,22 @@ class TTSLO:
                     config_id=config_id, trigger_price=trigger_price)
             return 'DRY_RUN_ORDER_ID'
         
+        # Check if we have read-write API credentials
+        if not self.kraken_api_readwrite:
+            self.log('ERROR', 
+                    f"Cannot create TSL order: No read-write API credentials available. "
+                    f"Set KRAKEN_API_KEY_RW and KRAKEN_API_SECRET_RW environment variables.",
+                    config_id=config_id, trigger_price=trigger_price)
+            print(f"ERROR: Cannot create order for {config_id}: Missing read-write API credentials")
+            return None
+        
         try:
             self.log('INFO', 
                     f"Creating TSL order: pair={pair}, direction={direction}, "
                     f"volume={volume}, trailing_offset={trailing_offset}%",
                     config_id=config_id, trigger_price=trigger_price)
             
-            result = self.kraken_api.add_trailing_stop_loss(
+            result = self.kraken_api_readwrite.add_trailing_stop_loss(
                 pair=pair,
                 direction=direction,
                 volume=volume,
@@ -134,9 +203,16 @@ class TTSLO:
                 return None
                 
         except Exception as e:
+            error_msg = str(e)
             self.log('ERROR', 
-                    f"Exception creating TSL order: {str(e)}",
-                    config_id=config_id, error=str(e))
+                    f"Exception creating TSL order: {error_msg}",
+                    config_id=config_id, error=error_msg)
+            
+            # Check if error is related to API permissions
+            if 'permission' in error_msg.lower() or 'invalid key' in error_msg.lower():
+                print(f"ERROR: API credentials may not have proper permissions for creating orders. "
+                      f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
+            
             return None
     
     def process_config(self, config):
@@ -172,8 +248,8 @@ class TTSLO:
         pair = config['pair']
         
         try:
-            # Get current price
-            current_price = self.kraken_api.get_current_price(pair)
+            # Get current price using read-only API
+            current_price = self.kraken_api_readonly.get_current_price(pair)
             self.log('DEBUG', f"Current price for {pair}: {current_price}", 
                     config_id=config_id, pair=pair, price=current_price)
             
@@ -258,8 +334,13 @@ Examples:
   %(prog)s --create-sample-config
   
 Environment variables:
-  KRAKEN_API_KEY      Kraken API key
-  KRAKEN_API_SECRET   Kraken API secret
+  KRAKEN_API_KEY       Kraken read-only API key
+  KRAKEN_API_SECRET    Kraken read-only API secret
+  KRAKEN_API_KEY_RW    Kraken read-write API key (for creating orders)
+  KRAKEN_API_SECRET_RW Kraken read-write API secret (for creating orders)
+  
+  Note: Each variable will also be checked with 'copilot_' prefix for 
+        GitHub Copilot agent environments (e.g., copilot_KRAKEN_API_KEY)
         """
     )
     
@@ -279,12 +360,13 @@ Environment variables:
                        help='Seconds between checks in continuous mode (default: 60)')
     parser.add_argument('--create-sample-config', action='store_true',
                        help='Create a sample configuration file and exit')
-    parser.add_argument('--api-key', 
-                       help='Kraken API key (or set KRAKEN_API_KEY env var)')
-    parser.add_argument('--api-secret',
-                       help='Kraken API secret (or set KRAKEN_API_SECRET env var)')
+    parser.add_argument('--env-file', default='.env',
+                       help='Path to .env file (default: .env)')
     
     args = parser.parse_args()
+    
+    # Load .env file if it exists
+    load_env_file(args.env_file)
     
     # Create sample config if requested
     if args.create_sample_config:
@@ -293,16 +375,28 @@ Environment variables:
         print(f"Sample configuration file created: config_sample.csv")
         sys.exit(0)
     
-    # Get API credentials
-    api_key = args.api_key or os.environ.get('KRAKEN_API_KEY')
-    api_secret = args.api_secret or os.environ.get('KRAKEN_API_SECRET')
+    # Get read-only API credentials (for price monitoring)
+    api_key_ro = get_env_var('KRAKEN_API_KEY')
+    api_secret_ro = get_env_var('KRAKEN_API_SECRET')
     
-    if not args.dry_run and (not api_key or not api_secret):
-        print("ERROR: API credentials required. Set KRAKEN_API_KEY and KRAKEN_API_SECRET "
-              "environment variables or use --api-key and --api-secret options.", 
+    # Get read-write API credentials (for creating orders)
+    api_key_rw = get_env_var('KRAKEN_API_KEY_RW')
+    api_secret_rw = get_env_var('KRAKEN_API_SECRET_RW')
+    
+    # Check if we have at least read-only credentials
+    if not api_key_ro or not api_secret_ro:
+        print("ERROR: Read-only API credentials required. Set KRAKEN_API_KEY and KRAKEN_API_SECRET "
+              "environment variables.", 
               file=sys.stderr)
         print("Use --dry-run to test without credentials.", file=sys.stderr)
         sys.exit(1)
+    
+    # Warn if we don't have read-write credentials and not in dry-run mode
+    has_rw_creds = api_key_rw and api_secret_rw
+    if not args.dry_run and not has_rw_creds:
+        print("WARNING: No read-write API credentials found. Orders cannot be created.", file=sys.stderr)
+        print("Set KRAKEN_API_KEY_RW and KRAKEN_API_SECRET_RW to enable order creation.", file=sys.stderr)
+        print("Continuing in read-only mode...\n", file=sys.stderr)
     
     # Initialize components
     config_manager = ConfigManager(
@@ -311,11 +405,18 @@ Environment variables:
         log_file=args.log
     )
     
-    kraken_api = KrakenAPI(api_key=api_key, api_secret=api_secret)
+    # Create read-only API instance
+    kraken_api_readonly = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+    
+    # Create read-write API instance if credentials are available
+    kraken_api_readwrite = None
+    if has_rw_creds:
+        kraken_api_readwrite = KrakenAPI(api_key=api_key_rw, api_secret=api_secret_rw)
     
     ttslo = TTSLO(
         config_manager=config_manager,
-        kraken_api=kraken_api,
+        kraken_api_readonly=kraken_api_readonly,
+        kraken_api_readwrite=kraken_api_readwrite,
         dry_run=args.dry_run,
         verbose=args.verbose
     )

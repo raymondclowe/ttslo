@@ -81,9 +81,9 @@ def test_threshold_checking():
         log_file = os.path.join(tmpdir, 'log.csv')
         
         cm = ConfigManager(config_file, state_file, log_file)
-        api = KrakenAPI()  # No credentials needed for testing
+        api_ro = KrakenAPI()  # No credentials needed for testing
         
-        ttslo = TTSLO(cm, api, dry_run=True, verbose=False)
+        ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=None, dry_run=True, verbose=False)
         
         # Test "above" threshold
         config_above = {
@@ -118,9 +118,10 @@ def test_dry_run_mode():
         log_file = os.path.join(tmpdir, 'log.csv')
         
         cm = ConfigManager(config_file, state_file, log_file)
-        api = Mock(spec=KrakenAPI)
+        api_ro = Mock(spec=KrakenAPI)
+        api_rw = Mock(spec=KrakenAPI)
         
-        ttslo = TTSLO(cm, api, dry_run=True, verbose=False)
+        ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=api_rw, dry_run=True, verbose=False)
         
         config = {
             'id': 'test1',
@@ -134,9 +135,38 @@ def test_dry_run_mode():
         order_id = ttslo.create_tsl_order(config, 50000)
         
         assert order_id == 'DRY_RUN_ORDER_ID', "Dry run should return dummy order ID"
-        assert not api.add_trailing_stop_loss.called, "API should not be called in dry-run"
+        assert not api_rw.add_trailing_stop_loss.called, "API should not be called in dry-run"
         
         print("✓ Dry-run mode tests passed")
+
+
+def test_missing_readwrite_credentials():
+    """Test behavior when read-write credentials are missing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'log.csv')
+        
+        cm = ConfigManager(config_file, state_file, log_file)
+        api_ro = Mock(spec=KrakenAPI)
+        
+        # Create TTSLO without read-write credentials
+        ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=None, dry_run=False, verbose=False)
+        
+        config = {
+            'id': 'test1',
+            'pair': 'XXBTZUSD',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': '5.0'
+        }
+        
+        # Should return None and log error
+        order_id = ttslo.create_tsl_order(config, 50000)
+        
+        assert order_id is None, "Should return None when no read-write credentials"
+        
+        print("✓ Missing read-write credentials tests passed")
 
 
 def test_kraken_api_signature():
@@ -163,6 +193,7 @@ def run_all_tests():
         test_config_manager()
         test_threshold_checking()
         test_dry_run_mode()
+        test_missing_readwrite_credentials()
         test_kraken_api_signature()
         
         print("\n✅ All tests passed!")

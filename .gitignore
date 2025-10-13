@@ -210,3 +210,5 @@ __marimo__/
 config.csv
 state.csv
 logs.csv
+.env
+.env.*

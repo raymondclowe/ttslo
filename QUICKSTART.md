@@ -10,16 +10,36 @@ pip install -r requirements.txt
 ### 2. Get Kraken API Credentials
 1. Log in to [Kraken](https://www.kraken.com)
 2. Go to Settings → API
-3. Create API key with permissions:
-   - Query Funds
-   - Query Open Orders & Trades
-   - Create & Modify Orders
-4. Save your API Key and Private Key
+3. Create **two** API keys:
+
+**Read-Only Key** (for price monitoring):
+   - Name: "TTSLO Read-Only"
+   - Permissions: Query Funds, Query Open Orders & Trades
+
+**Read-Write Key** (for creating orders):
+   - Name: "TTSLO Read-Write"
+   - Permissions: Create & Modify Orders
+
+4. Save both API Keys and Private Keys
 
 ### 3. Set Environment Variables
+
+**Option A: Environment Variables**
 ```bash
-export KRAKEN_API_KEY="your_api_key_here"
-export KRAKEN_API_SECRET="your_private_key_here"
+export KRAKEN_API_KEY="your_readonly_api_key"
+export KRAKEN_API_SECRET="your_readonly_api_secret"
+export KRAKEN_API_KEY_RW="your_readwrite_api_key"
+export KRAKEN_API_SECRET_RW="your_readwrite_api_secret"
+```
+
+**Option B: Create .env file**
+```bash
+cat > .env << EOF
+KRAKEN_API_KEY=your_readonly_api_key
+KRAKEN_API_SECRET=your_readonly_api_secret
+KRAKEN_API_KEY_RW=your_readwrite_api_key
+KRAKEN_API_SECRET_RW=your_readwrite_api_secret
+EOF
 ```
 
 ### 4. Create Configuration
