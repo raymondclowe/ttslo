@@ -21,6 +21,7 @@ The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can 
 - **Fail-Safe Order Logic**: Never creates incorrect orders under any circumstances
 - **Price Threshold Triggers**: Set price levels (above/below) that trigger TSL order creation
 - **CSV-based Configuration**: Simple CSV files for configuration, state, and logs
+- **Interactive CSV Editor**: Built-in TUI for editing configuration files with keyboard navigation
 - **Dry-Run Mode**: Test your configurations without creating real orders
 - **Verbose Debug Mode**: Detailed logging for troubleshooting
 - **Continuous Monitoring**: Runs continuously and checks prices at regular intervals
@@ -37,8 +38,16 @@ cd ttslo
 ```
 
 2. Install dependencies:
+
+**Option A: Using uv (recommended)**
+```bash
+uv sync
+```
+
+**Option B: Using pip**
 ```bash
 pip install -r requirements.txt
+pip install textual  # For the CSV editor
 ```
 
 3. Set up your Kraken API credentials:
@@ -73,6 +82,15 @@ python ttslo.py --create-sample-config
 ```
 
 2. Edit `config_sample.csv` and save it as `config.csv`:
+
+**Option A: Using the CSV Editor TUI**
+```bash
+python csv_editor.py config_sample.csv
+# Edit the file, then press Ctrl+S to save
+# Copy or rename to config.csv
+```
+
+**Option B: Manual editing**
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
 btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true
@@ -93,6 +111,43 @@ python ttslo.py --dry-run --verbose --once
 ```bash
 python ttslo.py --interval 60
 ```
+
+## CSV Editor
+
+TTSLO includes an interactive TUI (Text User Interface) for editing configuration files. The CSV editor provides a user-friendly way to view and modify your configuration without manually editing CSV files.
+
+### Usage
+
+```bash
+# Edit the main config file
+python csv_editor.py config.csv
+
+# Edit the sample config
+python csv_editor.py config_sample.csv
+
+# Edit any CSV file
+python csv_editor.py yourfile.csv
+```
+
+### Key Bindings
+
+- `Ctrl+S`: Save the CSV file
+- `Ctrl+Q`: Quit the application
+- `Ctrl+N`: Add a new row
+- `Ctrl+D`: Delete the current row
+- `Enter`: Edit the selected cell
+- `Arrow Keys`: Navigate the table
+- `Tab/Shift+Tab`: Navigate between cells
+
+### Features
+
+- Interactive table view with color-coded rows
+- Modal dialog for editing cell values
+- Add and delete rows
+- Visual notifications for all operations
+- Keyboard-driven workflow
+
+For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
 
 ## Safety and Security
 
