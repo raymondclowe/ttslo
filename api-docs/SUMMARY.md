@@ -7,14 +7,17 @@
 - ✅ `add-order.md` - Official AddOrder API documentation
 - ✅ `cancel-order.md` - Official CancelOrder API documentation  
 - ✅ `edit-order.md` - Official EditOrder API documentation
-- ✅ `COMPLIANCE_REPORT.md` - Detailed compliance analysis (10KB+)
+- ✅ `get-trade-balance.md` - Official TradeBalance API documentation
+- ✅ `COMPLIANCE_REPORT.md` - Detailed compliance analysis (11KB+)
 - ✅ `README.md` - Documentation about this directory
 
 ## Quick Findings
 
 ### ✅ What's Working (Compliant)
+- **get_trade_balance()** - Fully compliant, provides comprehensive balance info
 - **add_order()** - Fully compliant with Kraken API
 - **add_trailing_stop_loss()** - Fully compliant with extensive validation
+- **Balance validation** - Warns if insufficient funds for sell orders
 
 ### ❌ What's Missing (Not Implemented)
 - **cancel_order()** - HIGH PRIORITY - Users cannot cancel orders programmatically

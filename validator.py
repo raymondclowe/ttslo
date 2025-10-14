@@ -324,6 +324,7 @@ class ConfigValidator:
             direction = config.get('direction', '').strip().lower()
             trailing_offset = float(config.get('trailing_offset_percent', 0))
             pair = config.get('pair', '').strip().upper()
+            volume = float(config.get('volume', 0))
         except (ValueError, TypeError):
             return  # Skip logic validation if values are invalid
         
@@ -354,6 +355,9 @@ class ConfigValidator:
         if current_price is not None:
             self._validate_market_price(config, config_id, threshold_price, threshold_type, 
                                        direction, trailing_offset, current_price, result)
+        
+        # Check if sufficient balance is available (warning only)
+        self._check_balance_availability(config, config_id, pair, direction, volume, result)
     
     def _validate_market_price(self, config: Dict, config_id: str, threshold_price: float,
                                threshold_type: str, direction: str, trailing_offset: float,
@@ -401,6 +405,105 @@ class ConfigValidator:
                              f'Small gap between threshold ({threshold_price}) and current price ({current_price:.2f}). '
                              f'Gap is {price_diff_percent:.2f}% but trailing offset is {trailing_offset}%. '
                              f'Consider a gap of at least {min_gap_percent:.1f}% for best results.')
+    
+    def _check_balance_availability(self, config: Dict, config_id: str, pair: str, 
+                                    direction: str, volume: float, result: ValidationResult):
+        """
+        Check if sufficient balance is available for the trade.
+        This is a WARNING only, not an error, as users can add coins later.
+        
+        Args:
+            config: Configuration dictionary
+            config_id: Configuration ID
+            pair: Trading pair (e.g., 'XXBTZUSD')
+            direction: 'buy' or 'sell'
+            volume: Volume to trade
+            result: ValidationResult to add warnings to
+        """
+        # Only check balance if we have a KrakenAPI instance with credentials
+        if not self.kraken_api:
+            return
+        
+        try:
+            # Get account balance
+            balance = self.kraken_api.get_balance()
+            if not balance:
+                return  # Can't validate without balance data
+            
+            # Extract base asset from pair
+            # Common patterns: XXBTZUSD (XBT), XETHZUSD (XETH), SOLUSD (SOL)
+            base_asset = self._extract_base_asset(pair)
+            if not base_asset:
+                return  # Can't determine asset
+            
+            # For sell orders, check if we have enough of the base asset
+            if direction == 'sell':
+                # Look for the asset in balance with various possible formats
+                available = 0.0
+                for asset_key in balance:
+                    # Match exact or with X prefix (e.g., both 'BTC' and 'XXBT')
+                    if asset_key == base_asset or asset_key == 'X' + base_asset or asset_key == 'XX' + base_asset:
+                        available = float(balance[asset_key])
+                        break
+                
+                if available < volume:
+                    result.add_warning(config_id, 'volume',
+                                     f'Insufficient {base_asset} balance for sell order. '
+                                     f'Required: {volume}, Available: {available:.8f}. '
+                                     f'You can add funds before the order triggers.')
+            
+            # For buy orders, we would need to check quote currency (e.g., USD)
+            # but this is more complex as we need the price, so we'll skip for now
+            # and focus on the more common sell case
+            
+        except Exception as e:
+            # Don't fail validation if balance check fails
+            # This is just a helpful warning, not critical
+            pass
+    
+    def _extract_base_asset(self, pair: str) -> Optional[str]:
+        """
+        Extract the base asset from a trading pair.
+        
+        Args:
+            pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD', 'SOLUSD')
+            
+        Returns:
+            Base asset code (e.g., 'XBT', 'XETH', 'SOL') or None if can't determine
+        """
+        # Known mappings for common pairs
+        pair_mappings = {
+            'XXBTZUSD': 'XXBT',
+            'XBTCUSD': 'XXBT',
+            'XXBTZEUR': 'XXBT',
+            'XXBTZGBP': 'XXBT',
+            'XETHZUSD': 'XETH',
+            'ETHCUSD': 'XETH',
+            'XETHZEUR': 'XETH',
+            'SOLUSD': 'SOL',
+            'SOLEUR': 'SOL',
+            'ADAUSD': 'ADA',
+            'DOTUSD': 'DOT',
+            'AVAXUSD': 'AVAX',
+            'LINKUSD': 'LINK',
+            'USDTUSD': 'USDT',
+            'USDCUSD': 'USDC',
+        }
+        
+        # Check if we have a known mapping
+        if pair in pair_mappings:
+            return pair_mappings[pair]
+        
+        # Try to extract from pattern
+        # Most pairs end with 'USD', 'EUR', 'GBP', 'JPY', etc.
+        for quote in ['ZUSD', 'USD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY']:
+            if pair.endswith(quote):
+                base = pair[:-len(quote)]
+                if base:
+                    return base
+        
+        # Couldn't determine base asset
+        return None
 
 
 def format_validation_result(result: ValidationResult, verbose: bool = False) -> str:

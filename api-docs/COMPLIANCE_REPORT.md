@@ -20,7 +20,41 @@ All documentation has been downloaded and saved in the `api-docs/` directory.
 
 ### ✅ Compliant Implementations
 
-#### 1. `add_order()` Method
+#### 1. `get_trade_balance()` Method
+
+**Location:** `kraken_api.py` lines 349-370
+
+**Compliance Status:** ✅ **COMPLIANT**
+
+**Analysis:**
+- ✅ Uses correct endpoint: `TradeBalance` via `_query_private()`
+- ✅ Correctly maps parameters:
+  - `asset` → API parameter `asset` (optional, defaults to 'ZUSD')
+- ✅ Returns comprehensive trade balance information including:
+  - `eb`: Equivalent balance
+  - `tb`: Trade balance
+  - `m`: Margin amount
+  - `n`: Unrealized P&L
+  - `e`: Equity
+  - `mf`: Free margin
+  - `ml`: Margin level
+  - `uv`: Unexecuted value
+- ✅ Properly handles error responses from API
+- ✅ Well-documented with clear field descriptions
+
+**Official API Parameters Supported:**
+- Required: `nonce` (handled by `_query_private()`) ✅
+- Optional: `asset` (base asset for balance calculation) ✅
+
+**Use Cases:**
+- Pre-trade balance verification
+- Margin monitoring
+- Position management
+- Risk assessment
+
+---
+
+#### 2. `add_order()` Method
 
 **Location:** `kraken_api.py` lines 186-213
 
@@ -48,7 +82,7 @@ All documentation has been downloaded and saved in the `api-docs/` directory.
 
 ---
 
-#### 2. `add_trailing_stop_loss()` Method
+#### 3. `add_trailing_stop_loss()` Method
 
 **Location:** `kraken_api.py` lines 215-333
 
@@ -83,7 +117,40 @@ According to the documentation, for `trailing-stop` orders:
 
 ### ⚠️ Missing Implementations
 
-#### 3. `cancel_order()` Method
+---
+
+### 🔧 Additional Features
+
+#### Balance Validation in ConfigValidator
+
+**Location:** `validator.py` - `_check_balance_availability()` method
+
+**Feature Status:** ✅ **IMPLEMENTED**
+
+**Description:**
+The configuration validator now checks if sufficient balance is available for sell orders by:
+1. Querying the account balance via `get_balance()` API
+2. Extracting the base asset from the trading pair
+3. Comparing available balance with the configured volume
+4. Issuing a **WARNING** (not error) if balance is insufficient
+
+**Key Characteristics:**
+- Non-blocking: Issues warnings only, allows users to add funds later
+- Intelligent asset extraction: Handles various pair formats (XXBTZUSD, SOLUSD, etc.)
+- Safe fallback: Validation continues even if balance check fails
+- Focus on sell orders: Most common use case for trailing stop losses
+
+**Implementation Details:**
+- Integrates with existing validation pipeline in `_validate_logic()`
+- Uses `get_balance()` API to fetch current account balances
+- Maps trading pairs to base assets using known patterns
+- Provides clear warnings with current vs required balance
+
+---
+
+### ⚠️ Missing Implementations
+
+#### 4. `cancel_order()` Method
 
 **Status:** ❌ **NOT IMPLEMENTED**
 
@@ -136,7 +203,7 @@ def cancel_order(self, txid=None, userref=None, cl_ord_id=None):
 
 ---
 
-#### 4. `edit_order()` Method
+#### 5. `edit_order()` Method
 
 **Status:** ❌ **NOT IMPLEMENTED**
 
@@ -234,8 +301,10 @@ def edit_order(self, txid, pair, volume=None, price=None, price2=None,
 
 | Feature | Status | Priority | Notes |
 |---------|--------|----------|-------|
+| `get_trade_balance()` | ✅ Compliant | - | Full trade balance info |
 | `add_order()` | ✅ Compliant | - | Fully functional |
 | `add_trailing_stop_loss()` | ✅ Compliant | - | Exceeds requirements with validation |
+| Balance validation | ✅ Implemented | - | Warning-based balance checking |
 | `cancel_order()` | ❌ Missing | HIGH | Essential for order management |
 | `edit_order()` | ❌ Missing | MEDIUM | Limited by API, consider `amend_order()` |
 
