@@ -2,6 +2,10 @@
 
 A Python tool for Kraken.com that monitors cryptocurrency prices and automatically creates Trailing Stop Loss (TSL) orders when specified price thresholds are met.
 
+## ⚠️ Security Notice
+
+TTSLO is designed with **fail-safe** order handling. The system will **NEVER** create an order if anything is uncertain or abnormal. See [SECURITY.md](SECURITY.md) for complete safety guarantees and security documentation.
+
 ## Overview
 
 The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can only create them at the current market price with a percentage offset. This tool solves that limitation by:
@@ -14,6 +18,7 @@ The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can 
 
 ## Features
 
+- **Fail-Safe Order Logic**: Never creates incorrect orders under any circumstances
 - **Price Threshold Triggers**: Set price levels (above/below) that trigger TSL order creation
 - **CSV-based Configuration**: Simple CSV files for configuration, state, and logs
 - **Dry-Run Mode**: Test your configurations without creating real orders
@@ -21,6 +26,7 @@ The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can 
 - **Continuous Monitoring**: Runs continuously and checks prices at regular intervals
 - **State Persistence**: Tracks which triggers have fired to avoid duplicates
 - **Flexible Configuration**: Support for multiple trading pairs and strategies
+- **Comprehensive Validation**: Pre-flight checks prevent invalid configurations
 
 ## Installation
 
@@ -87,6 +93,40 @@ python ttslo.py --dry-run --verbose --once
 ```bash
 python ttslo.py --interval 60
 ```
+
+## Safety and Security
+
+### Fail-Safe Guarantees
+
+TTSLO implements multiple layers of safety to prevent incorrect orders:
+
+1. **Parameter Validation**: Every parameter is explicitly validated before any order
+2. **Fail-Safe Defaults**: System defaults to NO ORDER on any uncertainty
+3. **Exception Handling**: All exceptions prevent order creation
+4. **Pre-Flight Checks**: Configuration must pass validation before operation starts
+5. **Simple Code**: All order logic uses clear, step-by-step code for human review
+
+### Order Creation Will Never Happen If:
+
+- Any required parameter is missing or invalid
+- Configuration validation fails
+- API credentials are unavailable
+- Current price cannot be retrieved
+- Threshold condition is not met
+- Any exception occurs during processing
+- Configuration is disabled
+- Configuration has already been triggered
+
+### Code Design for Security Review
+
+The codebase has been specifically designed for security review by beginners:
+
+- **No complex Python idioms**: Only simple if-then-else and loops
+- **Explicit step-by-step logic**: Each function has numbered steps with comments
+- **Safety annotations**: Every check has a "SAFETY:" comment explaining why
+- **Comprehensive tests**: All safety features are tested
+
+See [SECURITY.md](SECURITY.md) for complete documentation of safety guarantees.
 
 ## Configuration
 

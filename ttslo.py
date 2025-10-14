@@ -126,84 +126,246 @@ class TTSLO:
         """
         Check if price threshold has been met.
         
+        SECURITY NOTE: This function will return False (do not trigger) if:
+        - Any required parameter is missing or invalid
+        - The threshold_type is not recognized
+        - Any error occurs during comparison
+        
+        Returns False (safe default) on any uncertainty.
+        
         Args:
             config: Configuration dictionary
             current_price: Current price
             
         Returns:
-            True if threshold is met, False otherwise
+            True if threshold is met, False otherwise (False = do not trigger order)
         """
-        threshold_price = float(config['threshold_price'])
-        threshold_type = config['threshold_type'].lower()
+        # Step 1: Validate config parameter
+        if not isinstance(config, dict):
+            # SAFETY: Invalid config type - return False (do not trigger)
+            self.log('ERROR', 'check_threshold: config is not a dictionary')
+            return False
         
+        # Step 2: Get config_id for logging
+        config_id = config.get('id', 'unknown')
+        
+        # Step 3: Validate current_price
+        if current_price is None:
+            # SAFETY: No price data - return False (do not trigger)
+            self.log('ERROR', 'check_threshold: current_price is None',
+                    config_id=config_id)
+            return False
+        
+        # Step 4: Convert current_price to float and validate
+        try:
+            current_price_float = float(current_price)
+        except (ValueError, TypeError) as e:
+            # SAFETY: Cannot convert price to float - return False (do not trigger)
+            self.log('ERROR', 
+                    f'check_threshold: current_price "{current_price}" is not a valid number',
+                    config_id=config_id, error=str(e))
+            return False
+        
+        # Step 5: Validate price is positive
+        if current_price_float <= 0:
+            # SAFETY: Invalid price - return False (do not trigger)
+            self.log('ERROR', 
+                    f'check_threshold: current_price must be positive, got {current_price_float}',
+                    config_id=config_id)
+            return False
+        
+        # Step 6: Get threshold_price from config
+        threshold_price_str = config.get('threshold_price')
+        if not threshold_price_str:
+            # SAFETY: Missing threshold_price - return False (do not trigger)
+            self.log('ERROR', 'check_threshold: threshold_price is missing',
+                    config_id=config_id)
+            return False
+        
+        # Step 7: Convert threshold_price to float
+        try:
+            threshold_price = float(threshold_price_str)
+        except (ValueError, TypeError) as e:
+            # SAFETY: Cannot convert threshold_price - return False (do not trigger)
+            self.log('ERROR', 
+                    f'check_threshold: threshold_price "{threshold_price_str}" is not a valid number',
+                    config_id=config_id, error=str(e))
+            return False
+        
+        # Step 8: Validate threshold_price is positive
+        if threshold_price <= 0:
+            # SAFETY: Invalid threshold - return False (do not trigger)
+            self.log('ERROR', 
+                    f'check_threshold: threshold_price must be positive, got {threshold_price}',
+                    config_id=config_id)
+            return False
+        
+        # Step 9: Get threshold_type from config
+        threshold_type_raw = config.get('threshold_type')
+        if not threshold_type_raw:
+            # SAFETY: Missing threshold_type - return False (do not trigger)
+            self.log('ERROR', 'check_threshold: threshold_type is missing',
+                    config_id=config_id)
+            return False
+        
+        # Step 10: Normalize threshold_type to lowercase
+        threshold_type = threshold_type_raw.strip().lower()
+        
+        # Step 11: Check threshold based on type
         if threshold_type == 'above':
-            return current_price >= threshold_price
+            # For 'above': trigger when current price >= threshold price
+            is_met = current_price_float >= threshold_price
+            return is_met
         elif threshold_type == 'below':
-            return current_price <= threshold_price
+            # For 'below': trigger when current price <= threshold price
+            is_met = current_price_float <= threshold_price
+            return is_met
         else:
-            self.log('ERROR', f"Invalid threshold_type: {threshold_type}", config_id=config['id'])
+            # SAFETY: Unknown threshold_type - return False (do not trigger)
+            self.log('ERROR', 
+                    f'check_threshold: invalid threshold_type "{threshold_type}". '
+                    f'Must be "above" or "below"',
+                    config_id=config_id)
             return False
     
     def create_tsl_order(self, config, trigger_price):
         """
         Create a trailing stop loss order.
         
+        SECURITY NOTE: This function will NEVER create an order if:
+        - Any required parameter is missing or invalid
+        - We are in dry-run mode (returns dummy ID instead)
+        - API credentials are not available
+        - Any exception occurs during validation or order creation
+        
         Args:
             config: Configuration dictionary
             trigger_price: Price at which threshold was triggered
             
         Returns:
-            Order ID if successful, None otherwise
+            Order ID if successful, None otherwise (None = no order created)
         """
-        config_id = config['id']
-        pair = config['pair']
-        direction = config['direction']
-        volume = config['volume']
-        trailing_offset = float(config['trailing_offset_percent'])
+        # Step 1: Extract and validate config ID
+        # We need the config_id for logging, so extract it first
+        config_id = config.get('id')
+        if not config_id:
+            # SAFETY: If we don't have a config ID, we cannot proceed safely
+            self.log('ERROR', 'Cannot create order: config ID is missing')
+            return None
         
+        # Step 2: Validate that config parameter is a dictionary
+        if not isinstance(config, dict):
+            # SAFETY: Invalid config type - do not create order
+            self.log('ERROR', 'Cannot create order: config is not a dictionary',
+                    config_id=config_id)
+            return None
+        
+        # Step 3: Extract all required parameters from config
+        # Extract each parameter separately with explicit checks
+        pair = config.get('pair')
+        direction = config.get('direction')
+        volume = config.get('volume')
+        trailing_offset_str = config.get('trailing_offset_percent')
+        
+        # Step 4: Validate ALL required parameters are present
+        # SAFETY: If any parameter is missing, do not create order
+        if not pair:
+            self.log('ERROR', 'Cannot create order: pair is missing',
+                    config_id=config_id)
+            return None
+        
+        if not direction:
+            self.log('ERROR', 'Cannot create order: direction is missing',
+                    config_id=config_id)
+            return None
+        
+        if not volume:
+            self.log('ERROR', 'Cannot create order: volume is missing',
+                    config_id=config_id)
+            return None
+        
+        if not trailing_offset_str:
+            self.log('ERROR', 'Cannot create order: trailing_offset_percent is missing',
+                    config_id=config_id)
+            return None
+        
+        # Step 5: Validate trailing_offset can be converted to float
+        # SAFETY: If conversion fails, do not create order
+        try:
+            trailing_offset = float(trailing_offset_str)
+        except (ValueError, TypeError) as e:
+            self.log('ERROR', 
+                    f'Cannot create order: trailing_offset_percent "{trailing_offset_str}" is not a valid number',
+                    config_id=config_id, error=str(e))
+            return None
+        
+        # Step 6: Validate trailing_offset is positive
+        # SAFETY: Negative or zero trailing offset is invalid
+        if trailing_offset <= 0:
+            self.log('ERROR', 
+                    f'Cannot create order: trailing_offset_percent must be positive, got {trailing_offset}',
+                    config_id=config_id)
+            return None
+        
+        # Step 7: Validate trigger_price
+        # SAFETY: trigger_price must be valid
+        if trigger_price is None:
+            self.log('ERROR', 'Cannot create order: trigger_price is None',
+                    config_id=config_id)
+            return None
+        
+        try:
+            trigger_price_float = float(trigger_price)
+            if trigger_price_float <= 0:
+                self.log('ERROR', 
+                        f'Cannot create order: trigger_price must be positive, got {trigger_price_float}',
+                        config_id=config_id)
+                return None
+        except (ValueError, TypeError) as e:
+            self.log('ERROR', 
+                    f'Cannot create order: trigger_price "{trigger_price}" is not a valid number',
+                    config_id=config_id, error=str(e))
+            return None
+        
+        # Step 8: Check if we are in dry-run mode
+        # In dry-run mode, we DO NOT create real orders
         if self.dry_run:
             self.log('INFO', 
                     f"[DRY RUN] Would create TSL order: pair={pair}, direction={direction}, "
                     f"volume={volume}, trailing_offset={trailing_offset}%",
                     config_id=config_id, trigger_price=trigger_price)
+            # Return dummy ID to indicate dry-run success
             return 'DRY_RUN_ORDER_ID'
         
-        # Check if we have read-write API credentials
+        # Step 9: Check if we have read-write API credentials
+        # SAFETY: Without credentials, we CANNOT create orders
         if not self.kraken_api_readwrite:
             self.log('ERROR', 
                     f"Cannot create TSL order: No read-write API credentials available. "
                     f"Set KRAKEN_API_KEY_RW and KRAKEN_API_SECRET_RW environment variables.",
                     config_id=config_id, trigger_price=trigger_price)
             print(f"ERROR: Cannot create order for {config_id}: Missing read-write API credentials")
+            # Return None to indicate no order was created
             return None
         
+        # Step 10: Log that we are about to create a real order
+        self.log('INFO', 
+                f"Creating TSL order: pair={pair}, direction={direction}, "
+                f"volume={volume}, trailing_offset={trailing_offset}%",
+                config_id=config_id, trigger_price=trigger_price)
+        
+        # Step 11: Attempt to create the order via API
+        # Wrap in try-except to catch ANY errors
         try:
-            self.log('INFO', 
-                    f"Creating TSL order: pair={pair}, direction={direction}, "
-                    f"volume={volume}, trailing_offset={trailing_offset}%",
-                    config_id=config_id, trigger_price=trigger_price)
-            
+            # Call the Kraken API to create the trailing stop loss order
             result = self.kraken_api_readwrite.add_trailing_stop_loss(
                 pair=pair,
                 direction=direction,
                 volume=volume,
                 trailing_offset_percent=trailing_offset
             )
-            
-            order_id = result.get('txid', [None])[0]
-            
-            if order_id:
-                self.log('INFO', 
-                        f"TSL order created successfully: order_id={order_id}",
-                        config_id=config_id, order_id=order_id)
-                return order_id
-            else:
-                self.log('ERROR', 
-                        f"Failed to create TSL order: {result}",
-                        config_id=config_id)
-                return None
-                
         except Exception as e:
+            # SAFETY: If API call raises exception, do not proceed
             error_msg = str(e)
             self.log('ERROR', 
                     f"Exception creating TSL order: {error_msg}",
@@ -214,24 +376,99 @@ class TTSLO:
                 print(f"ERROR: API credentials may not have proper permissions for creating orders. "
                       f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
             
+            # Return None to indicate order was NOT created
             return None
+        
+        # Step 12: Validate the API response
+        # SAFETY: Ensure result is a dictionary before accessing
+        if not isinstance(result, dict):
+            self.log('ERROR', 
+                    f"Invalid API response: expected dictionary, got {type(result)}",
+                    config_id=config_id)
+            return None
+        
+        # Step 13: Extract order ID from result
+        # The txid field should contain a list of transaction IDs
+        txid_list = result.get('txid')
+        
+        # Validate txid_list exists and is a list
+        if not txid_list or not isinstance(txid_list, list):
+            self.log('ERROR', 
+                    f"Failed to create TSL order: no transaction ID in response: {result}",
+                    config_id=config_id)
+            return None
+        
+        # Get the first order ID from the list
+        if len(txid_list) > 0:
+            order_id = txid_list[0]
+        else:
+            # SAFETY: Empty txid list means no order was created
+            self.log('ERROR', 
+                    f"Failed to create TSL order: empty transaction ID list: {result}",
+                    config_id=config_id)
+            return None
+        
+        # Step 14: Validate order_id is not None or empty
+        if not order_id:
+            self.log('ERROR', 
+                    f"Failed to create TSL order: order ID is empty: {result}",
+                    config_id=config_id)
+            return None
+        
+        # Step 15: Order created successfully - log and return
+        self.log('INFO', 
+                f"TSL order created successfully: order_id={order_id}",
+                config_id=config_id, order_id=order_id)
+        return order_id
     
     def process_config(self, config):
         """
         Process a single configuration entry.
         
+        SECURITY NOTE: This function will NOT create orders if:
+        - Config is not a valid dictionary
+        - Config ID is missing
+        - Config is disabled
+        - Config has already been triggered
+        - Any error occurs while fetching price or checking threshold
+        - Threshold is not met
+        - Order creation fails
+        
         Args:
             config: Configuration dictionary
         """
-        config_id = config['id']
-        
-        # Check if config is enabled
-        if config.get('enabled', 'true').lower() != 'true':
-            self.log('DEBUG', f"Config {config_id} is disabled, skipping")
+        # Step 1: Validate config parameter
+        if not isinstance(config, dict):
+            # SAFETY: Invalid config - do not process
+            self.log('ERROR', 'process_config: config is not a dictionary')
             return
         
-        # Initialize state if not exists
+        # Step 2: Get and validate config_id
+        config_id = config.get('id')
+        if not config_id:
+            # SAFETY: No config ID - do not process
+            self.log('ERROR', 'process_config: config ID is missing')
+            return
+        
+        # Step 3: Check if config is enabled
+        # Get the 'enabled' field, defaulting to 'true' if not present
+        enabled_value = config.get('enabled', 'true')
+        if not enabled_value:
+            enabled_value = 'true'
+        
+        # Normalize to lowercase for comparison
+        enabled_normalized = enabled_value.strip().lower()
+        
+        # Check if config is enabled
+        # SAFETY: Only process enabled configs
+        if enabled_normalized != 'true':
+            self.log('DEBUG', f"Config {config_id} is disabled, skipping")
+            # Do not process disabled configs - this is safe
+            return
+        
+        # Step 4: Initialize state if not exists
         if config_id not in self.state:
+            # Create initial state for this config
             self.state[config_id] = {
                 'id': config_id,
                 'triggered': 'false',
@@ -241,120 +478,298 @@ class TTSLO:
                 'last_checked': ''
             }
         
-        # Skip if already triggered
-        if self.state[config_id].get('triggered', 'false') == 'true':
+        # Step 5: Check if config has already been triggered
+        # SAFETY: Do not trigger twice - this prevents duplicate orders
+        triggered_value = self.state[config_id].get('triggered', 'false')
+        if triggered_value == 'true':
             self.log('DEBUG', f"Config {config_id} already triggered, skipping")
+            # Do not process already triggered configs - this prevents duplicate orders
             return
         
-        pair = config['pair']
+        # Step 6: Get the trading pair
+        pair = config.get('pair')
+        if not pair:
+            # SAFETY: No trading pair - do not process
+            self.log('ERROR', f"Config {config_id} has no trading pair, skipping",
+                    config_id=config_id)
+            return
         
+        # Step 7: Attempt to get current price
+        # Wrap in try-except to handle any API errors
         try:
-            # Get current price using read-only API
+            # Use read-only API to get current price
             current_price = self.kraken_api_readonly.get_current_price(pair)
-            self.log('DEBUG', f"Current price for {pair}: {current_price}", 
+        except Exception as e:
+            # SAFETY: Cannot get price - do not process
+            self.log('ERROR', 
+                    f"Error getting current price for {pair}: {str(e)}",
+                    config_id=config_id, pair=pair, error=str(e))
+            # Return without creating order - this is safe
+            return
+        
+        # Step 8: Validate current_price
+        if current_price is None:
+            # SAFETY: No price data - do not process
+            self.log('ERROR', 
+                    f"Could not get current price for {pair}",
+                    config_id=config_id, pair=pair)
+            return
+        
+        # Step 9: Log the current price
+        self.log('DEBUG', f"Current price for {pair}: {current_price}", 
+                config_id=config_id, pair=pair, price=current_price)
+        
+        # Step 10: Update last checked time
+        try:
+            current_time = datetime.now(timezone.utc).isoformat()
+            self.state[config_id]['last_checked'] = current_time
+        except Exception as e:
+            # Log error but continue - this doesn't affect order logic
+            self.log('WARNING', 
+                    f"Could not update last_checked time: {str(e)}",
+                    config_id=config_id, error=str(e))
+        
+        # Step 11: Check if threshold is met
+        # This returns False if anything is wrong, so it's safe
+        threshold_is_met = self.check_threshold(config, current_price)
+        
+        # Step 12: Decide whether to create order
+        if threshold_is_met:
+            # Threshold is met - log it
+            threshold_price = config.get('threshold_price', 'unknown')
+            threshold_type = config.get('threshold_type', 'unknown')
+            
+            self.log('INFO', 
+                    f"Threshold met for {config_id}: current_price={current_price}, "
+                    f"threshold={threshold_price} ({threshold_type})",
                     config_id=config_id, pair=pair, price=current_price)
             
-            # Update last checked time
-            self.state[config_id]['last_checked'] = datetime.now(timezone.utc).isoformat()
+            # Step 13: Attempt to create TSL order
+            order_id = self.create_tsl_order(config, current_price)
             
-            # Check if threshold is met
-            if self.check_threshold(config, current_price):
-                self.log('INFO', 
-                        f"Threshold met for {config_id}: current_price={current_price}, "
-                        f"threshold={config['threshold_price']} ({config['threshold_type']})",
-                        config_id=config_id, pair=pair, price=current_price)
-                
-                # Create TSL order
-                order_id = self.create_tsl_order(config, current_price)
-                
-                if order_id:
-                    # Update state
+            # Step 14: Check if order was created successfully
+            if order_id:
+                # Order created successfully - update state
+                try:
+                    trigger_time = datetime.now(timezone.utc).isoformat()
                     self.state[config_id]['triggered'] = 'true'
                     self.state[config_id]['trigger_price'] = str(current_price)
-                    self.state[config_id]['trigger_time'] = datetime.now(timezone.utc).isoformat()
+                    self.state[config_id]['trigger_time'] = trigger_time
                     self.state[config_id]['order_id'] = order_id
                     
                     self.log('INFO', 
                             f"Successfully triggered config {config_id}",
                             config_id=config_id, order_id=order_id)
-            
-        except Exception as e:
-            self.log('ERROR', 
-                    f"Error processing config {config_id}: {str(e)}",
-                    config_id=config_id, error=str(e))
+                except Exception as e:
+                    # Log error updating state, but order was created
+                    self.log('ERROR', 
+                            f"Order created but failed to update state: {str(e)}",
+                            config_id=config_id, order_id=order_id, error=str(e))
+            else:
+                # Order creation failed - order_id is None
+                # Log that order was not created
+                self.log('WARNING', 
+                        f"Threshold was met but order creation failed for {config_id}",
+                        config_id=config_id)
+                # Do NOT mark as triggered - allow retry on next iteration
+        else:
+            # Threshold not met - this is normal, do nothing
+            # No need to log at INFO level to reduce noise
+            pass
     
     def validate_and_load_config(self) -> bool:
         """
         Validate configuration file and load configs if valid.
         
-        Returns:
-            True if validation passed, False otherwise
-        """
-        configs = self.config_manager.load_config()
+        SECURITY NOTE: This function will return False (prevent operation) if:
+        - Config file cannot be loaded
+        - No configurations are found
+        - Any configuration has validation errors
+        - Read-only API is not available for price checks
         
+        Returns:
+            True if validation passed, False otherwise (False = do not proceed)
+        """
+        # Step 1: Validate config_manager exists
+        if not self.config_manager:
+            self.log('ERROR', 'Configuration manager is not initialized')
+            return False
+        
+        # Step 2: Attempt to load configurations from file
+        try:
+            configs = self.config_manager.load_config()
+        except Exception as e:
+            # SAFETY: Cannot load config - do not proceed
+            self.log('ERROR', f'Failed to load configuration file: {str(e)}',
+                    error=str(e))
+            return False
+        
+        # Step 3: Check if any configurations were loaded
         if not configs:
+            # SAFETY: No configs means nothing to monitor - do not proceed
             self.log('ERROR', 'No configurations found in config file')
             return False
         
-        # Validate configuration with market price checks
-        validator = ConfigValidator(kraken_api=self.kraken_api_readonly)
-        result = validator.validate_config_file(configs)
+        # Step 4: Validate we have read-only API for price checks
+        if not self.kraken_api_readonly:
+            # SAFETY: Cannot validate against market prices - do not proceed
+            self.log('ERROR', 'Read-only API is required for configuration validation')
+            return False
         
-        # Log validation results
+        # Step 5: Create validator with API for market price checks
+        try:
+            validator = ConfigValidator(kraken_api=self.kraken_api_readonly)
+        except Exception as e:
+            # SAFETY: Cannot create validator - do not proceed
+            self.log('ERROR', f'Failed to create configuration validator: {str(e)}',
+                    error=str(e))
+            return False
+        
+        # Step 6: Validate all configurations
+        try:
+            result = validator.validate_config_file(configs)
+        except Exception as e:
+            # SAFETY: Validation failed with exception - do not proceed
+            self.log('ERROR', f'Configuration validation failed with exception: {str(e)}',
+                    error=str(e))
+            return False
+        
+        # Step 7: Log all validation errors
         if result.errors:
+            # Log each error individually
             for error in result.errors:
                 self.log('ERROR', 
                         f"Config validation error [{error['config_id']}] {error['field']}: {error['message']}",
                         config_id=error['config_id'], field=error['field'])
         
+        # Step 8: Log all validation warnings
         if result.warnings:
+            # Log each warning individually
             for warning in result.warnings:
                 self.log('WARNING', 
                         f"Config validation warning [{warning['config_id']}] {warning['field']}: {warning['message']}",
                         config_id=warning['config_id'], field=warning['field'])
         
+        # Step 9: Check if validation passed (no errors)
         if not result.is_valid():
+            # SAFETY: Validation has errors - do not proceed
             self.log('ERROR', 'Configuration validation failed. Please fix errors.')
             return False
         
+        # Step 10: Warn about warnings if in verbose mode
         if result.has_warnings() and self.verbose:
             print("Configuration has warnings. Review them to ensure they are expected.")
         
+        # Step 11: Validation passed - safe to proceed
         return True
     
     def run_once(self):
-        """Run one iteration of checking all configurations."""
-        configs = self.config_manager.load_config()
+        """
+        Run one iteration of checking all configurations.
         
+        SECURITY NOTE: This function will not create orders if:
+        - Configuration cannot be loaded
+        - No configurations are found
+        - Any error occurs during processing
+        """
+        # Step 1: Validate config_manager exists
+        if not self.config_manager:
+            self.log('ERROR', 'Configuration manager is not initialized')
+            return
+        
+        # Step 2: Load configurations from file
+        try:
+            configs = self.config_manager.load_config()
+        except Exception as e:
+            # SAFETY: Cannot load configs - do not process
+            self.log('ERROR', f'Failed to load configuration file: {str(e)}',
+                    error=str(e))
+            return
+        
+        # Step 3: Check if any configurations were loaded
         if not configs:
+            # SAFETY: No configs - do not process
             self.log('WARNING', 'No configurations found in config file')
             return
         
-        self.log('INFO', f'Processing {len(configs)} configurations')
+        # Step 4: Log how many configs we are processing
+        num_configs = len(configs)
+        self.log('INFO', f'Processing {num_configs} configurations')
         
+        # Step 5: Process each configuration
         for config in configs:
-            self.process_config(config)
+            # Each config is processed independently
+            # Errors in one config do not affect others
+            try:
+                self.process_config(config)
+            except Exception as e:
+                # SAFETY: Catch any unexpected exceptions
+                # This prevents one bad config from crashing the whole system
+                config_id = config.get('id', 'unknown') if isinstance(config, dict) else 'unknown'
+                self.log('ERROR', 
+                        f'Unexpected exception processing config {config_id}: {str(e)}',
+                        config_id=config_id, error=str(e))
         
-        # Save state after processing all configs
-        self.save_state()
+        # Step 6: Save state after processing all configs
+        try:
+            self.save_state()
+        except Exception as e:
+            # Log error but don't crash - state will be saved next iteration
+            self.log('ERROR', f'Failed to save state: {str(e)}',
+                    error=str(e))
     
     def run_continuous(self, interval=60):
         """
         Run continuously, checking configurations at regular intervals.
         
-        Args:
-            interval: Seconds between checks
-        """
-        self.log('INFO', f'Starting continuous monitoring (interval: {interval}s)')
+        SECURITY NOTE: This function continues running even if individual
+        iterations fail, but errors are logged and do not result in orders.
         
+        Args:
+            interval: Seconds between checks (default: 60)
+        """
+        # Step 1: Validate interval parameter
+        if interval is None:
+            self.log('ERROR', 'Interval cannot be None, using default of 60 seconds')
+            interval = 60
+        
+        # Convert to int if needed
+        try:
+            interval_int = int(interval)
+        except (ValueError, TypeError) as e:
+            self.log('ERROR', f'Invalid interval "{interval}", using default of 60 seconds',
+                    error=str(e))
+            interval_int = 60
+        
+        # Validate interval is positive
+        if interval_int <= 0:
+            self.log('ERROR', f'Interval must be positive, got {interval_int}, using default of 60 seconds')
+            interval_int = 60
+        
+        # Step 2: Log startup
+        self.log('INFO', f'Starting continuous monitoring (interval: {interval_int}s)')
+        
+        # Step 3: Main monitoring loop
         try:
             while True:
+                # Run one iteration
+                # Any errors in run_once() are handled there and logged
                 self.run_once()
-                self.log('DEBUG', f'Sleeping for {interval} seconds')
-                time.sleep(interval)
+                
+                # Sleep until next iteration
+                self.log('DEBUG', f'Sleeping for {interval_int} seconds')
+                time.sleep(interval_int)
+                
         except KeyboardInterrupt:
+            # User pressed Ctrl+C - shutdown gracefully
             self.log('INFO', 'Interrupted by user, shutting down')
             sys.exit(0)
+        except Exception as e:
+            # Unexpected exception in main loop
+            # Log it and exit to prevent unknown state
+            self.log('ERROR', f'Unexpected exception in main loop: {str(e)}',
+                    error=str(e))
+            sys.exit(1)
 
 
 def main():
@@ -452,69 +867,131 @@ Environment variables:
         # Exit with appropriate code
         sys.exit(0 if result.is_valid() else 1)
     
-    # Get read-only API credentials (for price monitoring)
+    # Step 1: Get read-only API credentials (for price monitoring)
+    # These are required for all operations except dry-run
     api_key_ro = get_env_var('KRAKEN_API_KEY')
     api_secret_ro = get_env_var('KRAKEN_API_SECRET')
     
-    # Get read-write API credentials (for creating orders)
+    # Step 2: Get read-write API credentials (for creating orders)
+    # These are only required for actual order creation
     api_key_rw = get_env_var('KRAKEN_API_KEY_RW')
     api_secret_rw = get_env_var('KRAKEN_API_SECRET_RW')
     
-    # Check if we have at least read-only credentials
-    if not api_key_ro or not api_secret_ro:
-        print("ERROR: Read-only API credentials required. Set KRAKEN_API_KEY and KRAKEN_API_SECRET "
-              "environment variables.", 
+    # Step 3: Validate read-only credentials are present
+    # SAFETY: Without read-only credentials, we cannot monitor prices
+    if not api_key_ro:
+        print("ERROR: Read-only API key (KRAKEN_API_KEY) is required but not set.", 
               file=sys.stderr)
         print("Use --dry-run to test without credentials.", file=sys.stderr)
         sys.exit(1)
     
-    # Warn if we don't have read-write credentials and not in dry-run mode
-    has_rw_creds = api_key_rw and api_secret_rw
+    if not api_secret_ro:
+        print("ERROR: Read-only API secret (KRAKEN_API_SECRET) is required but not set.", 
+              file=sys.stderr)
+        print("Use --dry-run to test without credentials.", file=sys.stderr)
+        sys.exit(1)
+    
+    # Step 4: Check read-write credentials status
+    has_rw_key = api_key_rw is not None and api_key_rw.strip() != ''
+    has_rw_secret = api_secret_rw is not None and api_secret_rw.strip() != ''
+    has_rw_creds = has_rw_key and has_rw_secret
+    
+    # Step 5: Warn if no read-write credentials and not in dry-run mode
+    # SAFETY: Without read-write credentials, orders CANNOT be created
     if not args.dry_run and not has_rw_creds:
-        print("WARNING: No read-write API credentials found. Orders cannot be created.", file=sys.stderr)
+        print("WARNING: No read-write API credentials found. Orders CANNOT be created.", file=sys.stderr)
         print("Set KRAKEN_API_KEY_RW and KRAKEN_API_SECRET_RW to enable order creation.", file=sys.stderr)
-        print("Continuing in read-only mode...\n", file=sys.stderr)
+        print("Continuing in read-only mode (monitoring only)...\n", file=sys.stderr)
     
-    # Initialize components
-    config_manager = ConfigManager(
-        config_file=args.config,
-        state_file=args.state,
-        log_file=args.log
-    )
+    # Step 6: Validate configuration file path exists
+    if not os.path.exists(args.config):
+        print(f"ERROR: Configuration file not found: {args.config}", file=sys.stderr)
+        print("Use --create-sample-config to create a sample configuration file.", file=sys.stderr)
+        sys.exit(1)
     
-    # Create read-only API instance
-    kraken_api_readonly = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+    # Step 7: Initialize configuration manager
+    try:
+        config_manager = ConfigManager(
+            config_file=args.config,
+            state_file=args.state,
+            log_file=args.log
+        )
+    except Exception as e:
+        print(f"ERROR: Failed to initialize configuration manager: {str(e)}", file=sys.stderr)
+        sys.exit(1)
     
-    # Create read-write API instance if credentials are available
+    # Step 8: Create read-only API instance
+    try:
+        kraken_api_readonly = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+    except Exception as e:
+        print(f"ERROR: Failed to initialize read-only API: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Step 9: Create read-write API instance if credentials are available
     kraken_api_readwrite = None
     if has_rw_creds:
-        kraken_api_readwrite = KrakenAPI(api_key=api_key_rw, api_secret=api_secret_rw)
+        try:
+            kraken_api_readwrite = KrakenAPI(api_key=api_key_rw, api_secret=api_secret_rw)
+        except Exception as e:
+            print(f"ERROR: Failed to initialize read-write API: {str(e)}", file=sys.stderr)
+            # This is not fatal - we can still run in read-only mode
+            print("Continuing without read-write API (orders cannot be created).", file=sys.stderr)
+            kraken_api_readwrite = None
     
-    ttslo = TTSLO(
-        config_manager=config_manager,
-        kraken_api_readonly=kraken_api_readonly,
-        kraken_api_readwrite=kraken_api_readwrite,
-        dry_run=args.dry_run,
-        verbose=args.verbose
-    )
+    # Step 10: Initialize TTSLO application
+    try:
+        ttslo = TTSLO(
+            config_manager=config_manager,
+            kraken_api_readonly=kraken_api_readonly,
+            kraken_api_readwrite=kraken_api_readwrite,
+            dry_run=args.dry_run,
+            verbose=args.verbose
+        )
+    except Exception as e:
+        print(f"ERROR: Failed to initialize TTSLO application: {str(e)}", file=sys.stderr)
+        sys.exit(1)
     
-    # Load initial state
-    ttslo.load_state()
+    # Step 11: Load initial state from file
+    try:
+        ttslo.load_state()
+    except Exception as e:
+        print(f"WARNING: Failed to load state file: {str(e)}", file=sys.stderr)
+        print("Starting with empty state.", file=sys.stderr)
+        # Not fatal - we can continue with empty state
     
-    # Validate configuration before starting
-    if not ttslo.validate_and_load_config():
+    # Step 12: Validate configuration before starting
+    # SAFETY: Do not start if configuration is invalid
+    validation_passed = False
+    try:
+        validation_passed = ttslo.validate_and_load_config()
+    except Exception as e:
+        print(f"\nERROR: Configuration validation failed with exception: {str(e)}", 
+              file=sys.stderr)
+        sys.exit(1)
+    
+    if not validation_passed:
         print("\nConfiguration validation failed. Use --validate-config to see details.", 
               file=sys.stderr)
         sys.exit(1)
     
+    # Step 13: Configuration is valid - log success
     if args.verbose:
         print("Configuration validation passed. Starting monitoring...\n")
     
-    # Run
-    if args.once:
-        ttslo.run_once()
-    else:
-        ttslo.run_continuous(interval=args.interval)
+    # Step 14: Run the application
+    try:
+        if args.once:
+            # Run once and exit
+            ttslo.run_once()
+        else:
+            # Run continuously
+            ttslo.run_continuous(interval=args.interval)
+    except Exception as e:
+        # Catch any unexpected exceptions in main execution
+        print(f"\nERROR: Unexpected exception in main execution: {str(e)}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == '__main__':
