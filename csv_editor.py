@@ -24,7 +24,8 @@ Key Bindings:
 import csv
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Tuple
+from datetime import datetime
 
 from textual.app import App, ComposeResult
 from textual.widgets import DataTable, Footer, Header
@@ -45,7 +46,7 @@ class EditCellScreen(ModalScreen[str]):
     
     #edit-dialog {
         width: 60;
-        height: 11;
+        height: 15;
         border: thick $background 80%;
         background: $surface;
         padding: 1;
@@ -65,20 +66,33 @@ class EditCellScreen(ModalScreen[str]):
     #edit-dialog Button {
         width: 50%;
     }
+    
+    #validation-message {
+        width: 100%;
+        color: $error;
+        margin-bottom: 1;
+        text-align: center;
+    }
     """
     
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
     ]
     
-    def __init__(self, current_value: str, **kwargs):
+    def __init__(self, current_value: str, column_name: str = "", row_data: dict = None, 
+                 all_ids: set = None, **kwargs):
         super().__init__(**kwargs)
         self.current_value = current_value
+        self.column_name = column_name
+        self.row_data = row_data or {}
+        self.all_ids = all_ids or set()
+        self.validation_message = ""
     
     def compose(self) -> ComposeResult:
         with Vertical(id="edit-dialog"):
-            yield Label("Edit Cell Value")
+            yield Label(f"Edit Cell Value: {self.column_name}")
             yield Input(value=self.current_value, id="cell-input")
+            yield Label("", id="validation-message")
             with Container():
                 yield Button("Save", variant="primary", id="save-btn")
                 yield Button("Cancel", variant="default", id="cancel-btn")
@@ -87,16 +101,103 @@ class EditCellScreen(ModalScreen[str]):
         """Focus the input when the screen is mounted."""
         self.query_one(Input).focus()
     
+    def validate_value(self, value: str) -> Tuple[bool, str]:
+        """
+        Validate the cell value based on column name.
+        
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if not self.column_name:
+            return (True, "")
+        
+        column_lower = self.column_name.lower()
+        
+        # Validate id uniqueness
+        if column_lower == "id":
+            if value in self.all_ids and value != self.current_value:
+                return (False, f"ID '{value}' already exists. Each ID must be unique.")
+        
+        # Validate threshold_type
+        if column_lower == "threshold_type":
+            valid_types = ["above", "below"]
+            if value.lower() not in valid_types:
+                return (False, f"Must be 'above' or 'below'")
+        
+        # Validate direction
+        elif column_lower == "direction":
+            valid_directions = ["buy", "sell"]
+            if value.lower() not in valid_directions:
+                return (False, f"Must be 'buy' or 'sell'")
+        
+        # Validate enabled
+        elif column_lower == "enabled":
+            valid_enabled = ["true", "false", "yes", "no", "1", "0"]
+            if value.lower() not in valid_enabled:
+                return (False, f"Must be true/false, yes/no, or 1/0")
+        
+        # Validate pair
+        elif column_lower == "pair":
+            known_pairs = {
+                'XXBTZUSD', 'XBTCUSD', 'XXBTZEUR', 'XXBTZGBP', 'XXBTZJPY',
+                'XETHZUSD', 'ETHCUSD', 'XETHZEUR', 'XETHZGBP', 'XETHZJPY',
+                'SOLUSD', 'SOLEUR', 'SOLGBP',
+                'ADAUSD', 'ADAEUR', 'ADAGBP',
+                'DOTUSD', 'DOTEUR', 'DOTGBP',
+                'AVAXUSD', 'AVAXEUR',
+                'LINKUSD', 'LINKEUR',
+                'USDTUSD', 'USDCUSD', 'DAIUSD',
+                'XBTCZUSD', 'ETHZUSD',
+            }
+            if value.upper() not in known_pairs:
+                # This is a warning, not an error - allow it but inform user
+                return (True, f"Warning: {value} is not in known pairs list")
+        
+        # Validate activate_on (if not empty, should be a valid datetime)
+        elif column_lower == "activate_on":
+            if value.strip():  # Only validate if not empty
+                try:
+                    # Try to parse as ISO format datetime
+                    datetime.fromisoformat(value.replace('Z', '+00:00'))
+                except ValueError:
+                    return (False, f"Must be a valid ISO datetime (YYYY-MM-DDTHH:MM:SS)")
+        
+        return (True, "")
+    
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
         if event.button.id == "save-btn":
             input_widget = self.query_one(Input)
-            self.dismiss(input_widget.value)
+            value = input_widget.value
+            
+            # Validate the value
+            is_valid, message = self.validate_value(value)
+            
+            if not is_valid:
+                # Show validation error
+                validation_label = self.query_one("#validation-message", Label)
+                validation_label.update(message)
+                return
+            elif message:  # Warning message
+                # Show warning but allow save
+                validation_label = self.query_one("#validation-message", Label)
+                validation_label.update(message)
+            
+            self.dismiss(value)
         else:
             self.dismiss(None)
     
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in the input."""
+        # Validate before dismissing
+        is_valid, message = self.validate_value(event.value)
+        
+        if not is_valid:
+            # Show validation error
+            validation_label = self.query_one("#validation-message", Label)
+            validation_label.update(message)
+            return
+        
         self.dismiss(event.value)
 
 
@@ -323,13 +424,48 @@ class CSVEditor(App):
             )
             return
         
-        # Get current cell value
+        # Get current cell value and column name
         try:
             cell_key = table.coordinate_to_cell_key(table.cursor_coordinate)
             current_value = str(table.get_cell_at(table.cursor_coordinate))
+            
+            # Get column name
+            col_index = table.cursor_coordinate.column
+            column_keys = list(table.columns.keys())
+            if col_index < len(column_keys):
+                column_key = column_keys[col_index]
+                column_name = str(table.columns[column_key].label.plain)
+            else:
+                column_name = ""
+            
+            # Get row data for validation context
+            row_key = cell_key.row_key
+            row_data = {}
+            for col_key in table.columns:
+                col_name = str(table.columns[col_key].label.plain)
+                row_data[col_name] = str(table.get_cell(row_key, col_key))
+            
+            # Get all IDs from the table for uniqueness check
+            all_ids = set()
+            id_column_key = None
+            for col_key in table.columns:
+                col_name = str(table.columns[col_key].label.plain)
+                if col_name.lower() == 'id':
+                    id_column_key = col_key
+                    break
+            
+            if id_column_key:
+                for row_key_iter in table.rows:
+                    id_value = str(table.get_cell(row_key_iter, id_column_key))
+                    if id_value:
+                        all_ids.add(id_value)
+                
         except Exception as e:
             log(f"Error getting cell value: {e}")
             current_value = ""
+            column_name = ""
+            row_data = {}
+            all_ids = set()
         
         # Show edit screen
         def handle_edit_result(new_value: str | None) -> None:
@@ -349,7 +485,7 @@ class CSVEditor(App):
                         severity="error"
                     )
         
-        self.push_screen(EditCellScreen(current_value), handle_edit_result)
+        self.push_screen(EditCellScreen(current_value, column_name, row_data, all_ids), handle_edit_result)
 
 
 def main():
@@ -370,9 +506,9 @@ def main():
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                               'direction', 'volume', 'trailing_offset_percent', 'enabled'])
-                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true'])
-                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true'])
+                               'direction', 'volume', 'trailing_offset_percent', 'enabled', 'activate_on'])
+                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true', ''])
+                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true', ''])
             print(f"Sample file created: {filepath}")
         else:
             print("Exiting without creating file.")
