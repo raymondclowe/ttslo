@@ -556,7 +556,7 @@ class TTSLO:
                     self.state[config_id]['trigger_price'] = str(current_price)
                     self.state[config_id]['trigger_time'] = trigger_time
                     self.state[config_id]['order_id'] = order_id
-                    self.state[config_id]['activate_on'] = trigger_time  # Record when rule was activated
+                    self.state[config_id]['activated_on'] = trigger_time  # Record when rule was activated
                     
                     self.log('INFO', 
                             f"Successfully triggered config {config_id}",

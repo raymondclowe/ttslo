@@ -230,7 +230,7 @@ The state file tracks which triggers have fired. This file is automatically mana
 - `trigger_price`: Price at which the trigger fired
 - `trigger_time`: Timestamp when trigger fired
 - `order_id`: Kraken order ID for the created TSL order
-- `activate_on`: Timestamp when the rule was activated/triggered (provides log/record of activation)
+- `activated_on`: Timestamp when the rule was activated/triggered (provides log/record of activation)
 - `last_checked`: Last time this configuration was checked
 
 ### Log File (logs.csv)

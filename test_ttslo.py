@@ -539,8 +539,8 @@ def test_kraken_api_parameter_validation():
     print("✓ Kraken API parameter validation tests passed")
 
 
-def test_activate_on_state_recording():
-    """Test that activate_on is recorded in state when rule triggers."""
+def test_activated_on_state_recording():
+    """Test that activated_on is recorded in state when rule triggers."""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_file = os.path.join(tmpdir, 'test_config.csv')
         state_file = os.path.join(tmpdir, 'test_state.csv')
@@ -580,29 +580,29 @@ def test_activate_on_state_recording():
         # Process config (should trigger and create order)
         ttslo.process_config(config)
         
-        # Check that activate_on was recorded in state
+        # Check that activated_on was recorded in state
         assert 'test1' in ttslo.state, "Config should be in state"
         assert ttslo.state['test1'].get('triggered') == 'true', "Config should be triggered"
-        assert ttslo.state['test1'].get('activate_on'), "activate_on should be recorded"
+        assert ttslo.state['test1'].get('activated_on'), "activated_on should be recorded"
         
-        # Verify activate_on is a valid timestamp
-        activate_on = ttslo.state['test1'].get('activate_on')
+        # Verify activated_on is a valid timestamp
+        activated_on = ttslo.state['test1'].get('activated_on')
         from datetime import datetime
         try:
-            dt = datetime.fromisoformat(activate_on)
-            assert dt is not None, "activate_on should be a valid datetime"
+            dt = datetime.fromisoformat(activated_on)
+            assert dt is not None, "activated_on should be a valid datetime"
         except (ValueError, TypeError):
-            assert False, f"activate_on '{activate_on}' should be a valid ISO format datetime"
+            assert False, f"activated_on '{activated_on}' should be a valid ISO format datetime"
         
         # Save state and verify it persists
         ttslo.save_state()
         
-        # Load state again and verify activate_on is still there
+        # Load state again and verify activated_on is still there
         loaded_state = cm.load_state()
         assert 'test1' in loaded_state, "Config should be in loaded state"
-        assert loaded_state['test1'].get('activate_on') == activate_on, "activate_on should persist"
+        assert loaded_state['test1'].get('activated_on') == activated_on, "activated_on should persist"
         
-        print("✓ activate_on state recording tests passed")
+        print("✓ activated_on state recording tests passed")
 
 
 def run_all_tests():
@@ -619,7 +619,7 @@ def run_all_tests():
         test_fail_safe_order_creation()
         test_fail_safe_threshold_checking()
         test_kraken_api_parameter_validation()
-        test_activate_on_state_recording()
+        test_activated_on_state_recording()
         
         print("\n✅ All tests passed!")
         return 0

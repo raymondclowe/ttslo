@@ -77,7 +77,7 @@ class ConfigManager:
         if not state:
             return
             
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activate_on', 'last_checked']
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked']
         
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -144,7 +144,7 @@ class ConfigManager:
     
     def initialize_state_file(self):
         """Initialize an empty state file with headers."""
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activate_on', 'last_checked']
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked']
         
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
