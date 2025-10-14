@@ -4,7 +4,13 @@
 
 ### 1. Install Dependencies
 ```bash
-pip install -r requirements.txt
+uv sync
+```
+
+**Note:** [uv](https://github.com/astral-sh/uv) is a fast Python package manager. If you don't have uv installed:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
 ```
 
 ### 2. Get Kraken API Credentials
@@ -45,7 +51,7 @@ EOF
 ### 4. Create Configuration
 ```bash
 # Generate sample configuration
-python ttslo.py --create-sample-config
+uv run ttslo.py --create-sample-config
 
 # Copy and edit
 cp config_sample.csv config.csv
@@ -54,22 +60,22 @@ nano config.csv  # or your favorite editor
 
 ### 5. Validate Configuration
 ```bash
-python ttslo.py --validate-config
+uv run ttslo.py --validate-config
 ```
 This shows errors, warnings, and what will be executed. Fix any errors before proceeding.
 
 ### 6. Test in Dry-Run Mode
 ```bash
-python ttslo.py --dry-run --verbose --once
+uv run ttslo.py --dry-run --verbose --once
 ```
 
 ### 7. Run for Real
 ```bash
 # Run continuously (checks every 60 seconds)
-python ttslo.py
+uv run ttslo.py
 
 # Run with custom interval
-python ttslo.py --interval 120
+uv run ttslo.py --interval 120
 ```
 
 ## Common Configurations
@@ -144,11 +150,11 @@ nano state.csv
 ### Run as Background Service
 ```bash
 # Using nohup
-nohup python ttslo.py > ttslo.out 2>&1 &
+nohup uv run ttslo.py > ttslo.out 2>&1 &
 
 # Using screen
 screen -S ttslo
-python ttslo.py
+uv run ttslo.py
 # Ctrl+A, D to detach
 
 # Using systemd (Linux)
@@ -187,7 +193,7 @@ Your `config.csv` is missing or empty. Run `--create-sample-config`.
 
 ### Custom File Locations
 ```bash
-python ttslo.py \
+uv run ttslo.py \
   --config /path/to/my_config.csv \
   --state /path/to/my_state.csv \
   --log /path/to/my_logs.csv
@@ -196,13 +202,13 @@ python ttslo.py \
 ### One-Time Check
 ```bash
 # Run once and exit (useful for cron jobs)
-python ttslo.py --once
+uv run ttslo.py --once
 ```
 
 ### Verbose Debugging
 ```bash
 # See all debug messages
-python ttslo.py --verbose
+uv run ttslo.py --verbose
 ```
 
 ## Need Help?

@@ -130,7 +130,7 @@ test_btc,XXBTZUSD,50000,above,sell,0.01,5.0,true
 EOF
 
 # Run in dry-run mode
-python ttslo.py --config test_config.csv --dry-run --verbose --once
+uv run ttslo.py --config test_config.csv --dry-run --verbose --once
 
 # Check what would happen
 cat logs.csv
@@ -143,10 +143,10 @@ cat logs.csv
 **Setup:**
 ```bash
 # Terminal 1 - Main strategy
-python ttslo.py --config strategy1.csv --state state1.csv --log log1.csv
+uv run ttslo.py --config strategy1.csv --state state1.csv --log log1.csv
 
 # Terminal 2 - Alternative strategy
-python ttslo.py --config strategy2.csv --state state2.csv --log log2.csv
+uv run ttslo.py --config strategy2.csv --state state2.csv --log log2.csv
 ```
 
 ## Example 10: Scheduled Checks (Cron)
@@ -156,10 +156,10 @@ python ttslo.py --config strategy2.csv --state state2.csv --log log2.csv
 **Crontab entry:**
 ```cron
 # Check every hour
-0 * * * * cd /path/to/ttslo && python ttslo.py --once >> cron.log 2>&1
+0 * * * * cd /path/to/ttslo && uv run ttslo.py --once >> cron.log 2>&1
 
 # Check every 15 minutes
-*/15 * * * * cd /path/to/ttslo && python ttslo.py --once >> cron.log 2>&1
+*/15 * * * * cd /path/to/ttslo && uv run ttslo.py --once >> cron.log 2>&1
 ```
 
 ## Pro Tips

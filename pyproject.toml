@@ -7,3 +7,10 @@ requires-python = ">=3.12"
 dependencies = [
     "textual>=6.3.0",
 ]
+# ---
+# Alternatively, if you want to use the other dependency set:
+requires-python = ">=3.14"
+dependencies = [
+    "requests>=2.31.0",
+]
+]

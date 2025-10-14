@@ -50,6 +50,22 @@ pip install -r requirements.txt
 pip install textual  # For the CSV editor
 ```
 
+---
+
+Alternatively, you can use the new method:
+
+2. Install dependencies using uv:
+```bash
+uv sync
+```
+
+**What is uv?** [uv](https://github.com/astral-sh/uv) is a fast Python package manager and project manager. If you don't have uv installed, you can install it first:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+```
+```
+
 3. Set up your Kraken API credentials:
 
 **Option A: Environment Variables**
@@ -78,7 +94,7 @@ KRAKEN_API_SECRET_RW=your_readwrite_api_secret
 
 1. Create a sample configuration file:
 ```bash
-python ttslo.py --create-sample-config
+uv run ttslo.py --create-sample-config
 ```
 
 2. Edit `config_sample.csv` and save it as `config.csv`:
@@ -99,17 +115,17 @@ eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true
 
 3. Validate your configuration:
 ```bash
-python ttslo.py --validate-config
+uv run ttslo.py --validate-config
 ```
 
 4. Test your configuration in dry-run mode:
 ```bash
-python ttslo.py --dry-run --verbose --once
+uv run ttslo.py --dry-run --verbose --once
 ```
 
 5. Run continuously:
 ```bash
-python ttslo.py --interval 60
+uv run ttslo.py --interval 60
 ```
 
 ## CSV Editor
@@ -215,44 +231,46 @@ The state file tracks which triggers have fired. This file is automatically mana
 
 All events are logged to this CSV file with timestamps, log levels, and relevant details.
 
-## Usage Examples
-
-### Validate Configuration File
 ```bash
-python ttslo.py --validate-config
-```
-This validates your configuration and shows:
-- All errors that must be fixed
-- Warnings about unusual settings
-- A human-readable summary of what will be executed
 
-### Run Once (Single Check)
-```bash
-python ttslo.py --once --verbose
-```
+## CSV Editor
 
-### Run Continuously with Custom Interval
+TTSLO includes an interactive TUI (Text User Interface) for editing configuration files. The CSV editor provides a user-friendly way to view and modify your configuration without manually editing CSV files.
+
+### Usage
+
 ```bash
-python ttslo.py --interval 120  # Check every 2 minutes
+# Edit the main config file
+python csv_editor.py config.csv
+
+# Edit the sample config
+python csv_editor.py config_sample.csv
+
+# Edit any CSV file
+python csv_editor.py yourfile.csv
 ```
 
-### Dry-Run Mode (No Real Orders)
-```bash
-python ttslo.py --dry-run --verbose
-```
+### Key Bindings
 
-### Custom File Locations
-```bash
-python ttslo.py --config my_config.csv --state my_state.csv --log my_logs.csv
-```
+- `Ctrl+S`: Save the CSV file
+- `Ctrl+Q`: Quit the application
+- `Ctrl+N`: Add a new row
+- `Ctrl+D`: Delete the current row
+- `Enter`: Edit the selected cell
+- `Arrow Keys`: Navigate the table
+- `Tab/Shift+Tab`: Navigate between cells
 
-### Custom .env File Location
-```bash
-python ttslo.py --env-file /path/to/custom.env
-```
+### Features
 
-## Command-Line Options
+- Interactive table view with color-coded rows
+- Modal dialog for editing cell values
+- Add and delete rows
+- Visual notifications for all operations
+- Keyboard-driven workflow
 
+For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
+
+## Safety and Security
 ```
 --config FILE           Configuration file (default: config.csv)
 --state FILE            State file (default: state.csv)
@@ -371,7 +389,7 @@ To enable market price validation with `--validate-config`, set your read-only A
 ```bash
 export KRAKEN_API_KEY="your_readonly_key"
 export KRAKEN_API_SECRET="your_readonly_secret"
-python ttslo.py --validate-config
+uv run ttslo.py --validate-config
 ```
 
 ### Warnings
@@ -387,7 +405,7 @@ The validator also provides warnings for potentially problematic configurations:
 ### Example Validation Output
 
 ```bash
-$ python ttslo.py --validate-config
+$ uv run ttslo.py --validate-config
 
 ================================================================================
 CONFIGURATION VALIDATION REPORT
@@ -425,7 +443,7 @@ CONFIGURATION SUMMARY
 ## Troubleshooting
 
 ### "Configuration validation failed" error
-Run `python ttslo.py --validate-config` to see detailed error messages. Fix all errors in your config.csv file before running.
+Run `uv run ttslo.py --validate-config` to see detailed error messages. Fix all errors in your config.csv file before running.
 
 ### "API credentials required" error
 Make sure you've set `KRAKEN_API_KEY` and `KRAKEN_API_SECRET` environment variables.

@@ -172,7 +172,7 @@ If validation fails:
 For testing without real orders:
 
 ```bash
-python ttslo.py --dry-run --verbose
+uv run ttslo.py --dry-run --verbose
 ```
 
 In dry-run mode:
