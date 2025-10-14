@@ -1,3 +1,4 @@
+
 [project]
 name = "ttslo"
 version = "0.1.0"
@@ -6,11 +7,5 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "textual>=6.3.0",
-]
-# ---
-# Alternatively, if you want to use the other dependency set:
-requires-python = ">=3.14"
-dependencies = [
-    "requests>=2.31.0",
-]
+    "requests>=2.31.0"
 ]

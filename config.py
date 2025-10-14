@@ -31,13 +31,20 @@ class ConfigManager:
         """
         if not os.path.exists(self.config_file):
             return []
-            
         configs = []
         with open(self.config_file, 'r', newline='') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                # Skip comment lines or empty rows
-                if not row or row.get('pair', '').startswith('#'):
+                # Skip empty rows
+                if not row or all((v is None or str(v).strip() == '') for v in row.values()):
+                    continue
+                # Skip comment lines (id or pair starts with #, or all fields are comments)
+                id_val = row.get('id', '').strip()
+                pair_val = row.get('pair', '').strip()
+                if id_val.startswith('#') or pair_val.startswith('#'):
+                    continue
+                # Also skip if all fields start with # (extra safety)
+                if all(str(v).strip().startswith('#') for v in row.values() if v is not None and str(v).strip() != ''):
                     continue
                 configs.append(row)
         return configs

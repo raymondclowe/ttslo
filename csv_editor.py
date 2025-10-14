@@ -130,6 +130,7 @@ class CSVEditor(App):
         Binding("ctrl+n", "add_row", "Add Row"),
         Binding("ctrl+d", "delete_row", "Delete Row"),
         Binding("enter", "edit_cell", "Edit Cell"),
+        Binding("e", "edit_cell", "Edit Cell (Alt)", show=True),
     ]
     
     def __init__(self, filename: str, **kwargs):
