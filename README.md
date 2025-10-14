@@ -108,10 +108,12 @@ python csv_editor.py config_sample.csv
 
 **Option B: Manual editing**
 ```csv
-id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true
-eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,activate_on
+btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true,
+eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true,
 ```
+
+Note: The `activate_on` column is optional. Leave it empty for immediate activation, or specify a future datetime to delay activation.
 
 3. Validate your configuration:
 ```bash
@@ -158,11 +160,17 @@ python csv_editor.py yourfile.csv
 ### Features
 
 - Interactive table view with color-coded rows
-- Modal dialog for editing cell values
+- Modal dialog for editing cell values with validation
+- Cell-level validation for configuration fields:
+  - `threshold_type`: must be "above" or "below"
+  - `direction`: must be "buy" or "sell"
+  - `enabled`: must be true/false, yes/no, or 1/0
+  - `pair`: validates against known Kraken pairs
+  - `activate_on`: validates ISO datetime format
+  - `id`: prevents duplicate IDs
 - Add and delete rows
 - Visual notifications for all operations
 - Keyboard-driven workflow
-
 For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
 
 ## Safety and Security
@@ -207,7 +215,7 @@ The configuration file defines your trigger conditions and TSL order parameters:
 
 | Field | Description |
 |-------|-------------|
-| `id` | Unique identifier for this configuration |
+| `id` | Unique identifier for this configuration (must be unique) |
 | `pair` | Kraken trading pair (e.g., XXBTZUSD for BTC/USD, XETHZUSD for ETH/USD) |
 | `threshold_price` | Price threshold that triggers the TSL order |
 | `threshold_type` | Condition type: "above" or "below" |
@@ -215,6 +223,7 @@ The configuration file defines your trigger conditions and TSL order parameters:
 | `volume` | Amount to trade (in base currency) |
 | `trailing_offset_percent` | Trailing stop offset as percentage (e.g., 5.0 for 5%) |
 | `enabled` | "true" or "false" - whether this configuration is active |
+| `activate_on` | Optional ISO datetime (YYYY-MM-DDTHH:MM:SS) - only activate after this time |
 
 ### State File (state.csv)
 

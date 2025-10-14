@@ -5,7 +5,14 @@ The CSV Editor is a standalone text-based user interface (TUI) application built
 ## Features
 
 - **Interactive Table View**: View CSV data in a formatted, easy-to-read table
-- **Cell Editing**: Edit individual cells with a modal dialog
+- **Cell Editing**: Edit individual cells with a modal dialog and real-time validation
+- **Validation Rules**: Built-in validation for TTSLO configuration fields:
+  - `threshold_type`: must be "above" or "below"
+  - `direction`: must be "buy" or "sell"
+  - `enabled`: must be true/false, yes/no, or 1/0
+  - `pair`: validates against known Kraken trading pairs (warning if unknown)
+  - `activate_on`: validates ISO datetime format (YYYY-MM-DDTHH:MM:SS)
+  - `id`: prevents duplicate IDs across all rows
 - **Row Management**: Add new rows or delete existing rows
 - **Save Functionality**: Save changes back to the CSV file
 - **Keyboard Navigation**: Full keyboard support for efficient editing
@@ -108,7 +115,7 @@ If you try to open a non-existent file, the CSV editor will prompt you to create
 
 When editing TTSLO configuration files, the expected columns are:
 
-- `id`: Unique identifier for the configuration
+- `id`: Unique identifier for the configuration (must be unique across all rows)
 - `pair`: Kraken trading pair (e.g., XXBTZUSD, XETHZUSD)
 - `threshold_price`: Price threshold that triggers the order
 - `threshold_type`: "above" or "below"
@@ -116,6 +123,43 @@ When editing TTSLO configuration files, the expected columns are:
 - `volume`: Amount to trade
 - `trailing_offset_percent`: Trailing stop offset percentage
 - `enabled`: "true" or "false"
+- `activate_on`: Optional ISO datetime (YYYY-MM-DDTHH:MM:SS) - leave empty for immediate activation
+
+## Validation
+
+The CSV Editor includes built-in validation to help prevent configuration errors:
+
+### Real-time Validation
+When editing a cell, the editor validates your input before allowing you to save:
+
+- **Invalid values are rejected**: You'll see an error message and cannot save until fixed
+- **Warnings are shown**: Some validations (like unknown trading pairs) show warnings but allow saving
+- **Immediate feedback**: Validation happens as soon as you try to save a cell
+
+### Validated Fields
+
+| Field | Validation Rule | Example Valid Values |
+|-------|----------------|---------------------|
+| `threshold_type` | Must be "above" or "below" | `above`, `below` |
+| `direction` | Must be "buy" or "sell" | `buy`, `sell` |
+| `enabled` | Must be boolean-like | `true`, `false`, `yes`, `no`, `1`, `0` |
+| `pair` | Validated against known Kraken pairs | `XXBTZUSD`, `XETHZUSD`, `SOLUSD` |
+| `activate_on` | Must be ISO datetime format or empty | `2025-12-31T23:59:59`, `` (empty) |
+| `id` | Must be unique across all rows | `btc_1`, `eth_trigger_2` |
+
+### Known Trading Pairs
+
+The editor validates pairs against a list of common Kraken trading pairs including:
+- Bitcoin: `XXBTZUSD`, `XBTCUSD`, `XXBTZEUR`, `XXBTZGBP`, `XXBTZJPY`
+- Ethereum: `XETHZUSD`, `ETHCUSD`, `XETHZEUR`, `XETHZGBP`, `XETHZJPY`
+- Solana: `SOLUSD`, `SOLEUR`, `SOLGBP`
+- Cardano: `ADAUSD`, `ADAEUR`, `ADAGBP`
+- Polkadot: `DOTUSD`, `DOTEUR`, `DOTGBP`
+- Avalanche: `AVAXUSD`, `AVAXEUR`
+- Chainlink: `LINKUSD`, `LINKEUR`
+- Stablecoins: `USDTUSD`, `USDCUSD`, `DAIUSD`
+
+If you use a pair not in this list, you'll see a warning but can still save. Make sure to verify it's a valid Kraken pair before running TTSLO.
 
 ## Tips
 
