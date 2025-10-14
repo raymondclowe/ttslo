@@ -345,3 +345,35 @@ class KrakenAPI:
             raise Exception(f"Kraken API error: {result['error']}")
             
         return result.get('result', {})
+    
+    def get_trade_balance(self, asset='ZUSD'):
+        """
+        Get trade balance information including margin, equity, and available funds.
+        
+        Args:
+            asset: Base asset used to determine balance (default: 'ZUSD')
+                   Examples: 'ZUSD', 'XXBT', 'XETH'
+        
+        Returns:
+            Trade balance dictionary with fields:
+                - eb: Equivalent balance (combined balance of all currencies)
+                - tb: Trade balance (combined balance of all equity currencies)
+                - m: Margin amount of open positions
+                - n: Unrealized net profit/loss of open positions
+                - c: Cost basis of open positions
+                - v: Current floating valuation of open positions
+                - e: Equity = trade balance + unrealized net profit/loss
+                - mf: Free margin = equity - initial margin
+                - ml: Margin level = (equity / initial margin) * 100
+                - uv: Unexecuted value
+        """
+        params = {}
+        if asset:
+            params['asset'] = asset
+            
+        result = self._query_private('TradeBalance', params)
+        
+        if result.get('error'):
+            raise Exception(f"Kraken API error: {result['error']}")
+            
+        return result.get('result', {})
