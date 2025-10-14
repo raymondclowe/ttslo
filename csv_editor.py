@@ -79,11 +79,13 @@ class EditCellScreen(ModalScreen[str]):
         Binding("escape", "cancel", "Cancel"),
     ]
     
-    def __init__(self, current_value: str, column_name: str = "", row_data: dict = None, **kwargs):
+    def __init__(self, current_value: str, column_name: str = "", row_data: dict = None, 
+                 all_ids: set = None, **kwargs):
         super().__init__(**kwargs)
         self.current_value = current_value
         self.column_name = column_name
         self.row_data = row_data or {}
+        self.all_ids = all_ids or set()
         self.validation_message = ""
     
     def compose(self) -> ComposeResult:
@@ -110,6 +112,11 @@ class EditCellScreen(ModalScreen[str]):
             return (True, "")
         
         column_lower = self.column_name.lower()
+        
+        # Validate id uniqueness
+        if column_lower == "id":
+            if value in self.all_ids and value != self.current_value:
+                return (False, f"ID '{value}' already exists. Each ID must be unique.")
         
         # Validate threshold_type
         if column_lower == "threshold_type":
@@ -436,12 +443,28 @@ class CSVEditor(App):
             for col_key in table.columns:
                 col_name = str(table.columns[col_key].label.plain)
                 row_data[col_name] = str(table.get_cell(row_key, col_key))
+            
+            # Get all IDs from the table for uniqueness check
+            all_ids = set()
+            id_column_key = None
+            for col_key in table.columns:
+                col_name = str(table.columns[col_key].label.plain)
+                if col_name.lower() == 'id':
+                    id_column_key = col_key
+                    break
+            
+            if id_column_key:
+                for row_key_iter in table.rows:
+                    id_value = str(table.get_cell(row_key_iter, id_column_key))
+                    if id_value:
+                        all_ids.add(id_value)
                 
         except Exception as e:
             log(f"Error getting cell value: {e}")
             current_value = ""
             column_name = ""
             row_data = {}
+            all_ids = set()
         
         # Show edit screen
         def handle_edit_result(new_value: str | None) -> None:
@@ -461,7 +484,7 @@ class CSVEditor(App):
                         severity="error"
                     )
         
-        self.push_screen(EditCellScreen(current_value, column_name, row_data), handle_edit_result)
+        self.push_screen(EditCellScreen(current_value, column_name, row_data, all_ids), handle_edit_result)
 
 
 def main():
