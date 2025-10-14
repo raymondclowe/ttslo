@@ -70,7 +70,7 @@ class ConfigValidator:
                        'direction', 'volume', 'trailing_offset_percent', 'enabled']
     
     # Optional fields in configuration
-    OPTIONAL_FIELDS = ['activate_on']
+    OPTIONAL_FIELDS = []
     
     # Valid values for certain fields
     VALID_THRESHOLD_TYPES = ['above', 'below']
@@ -127,7 +127,6 @@ class ConfigValidator:
             self._validate_volume(config, config_id, result)
             self._validate_trailing_offset(config, config_id, result)
             self._validate_enabled(config, config_id, result)
-            self._validate_activate_on(config, config_id, result)
             
             # Cross-field validation (warnings)
             self._validate_logic(config, config_id, result)
@@ -294,33 +293,7 @@ class ConfigValidator:
                            f'Must be one of: {", ".join(self.VALID_ENABLED_VALUES)} '
                            '(case-insensitive)')
     
-    def _validate_activate_on(self, config: Dict, config_id: str, 
-                             result: ValidationResult):
-        """Validate the activate_on datetime field (optional)."""
-        activate_on = config.get('activate_on', '').strip()
-        if not activate_on:
-            return  # Optional field, empty is OK
-        
-        try:
-            # Try to parse as ISO format datetime
-            from datetime import datetime
-            dt = datetime.fromisoformat(activate_on.replace('Z', '+00:00'))
-            
-            # Warn if the datetime is in the past
-            from datetime import timezone
-            now = datetime.now(timezone.utc)
-            if dt.tzinfo is None:
-                # Assume UTC if no timezone
-                dt = dt.replace(tzinfo=timezone.utc)
-            
-            if dt < now:
-                result.add_warning(config_id, 'activate_on',
-                                 f'Activation time is in the past: {activate_on}. '
-                                 'This config will activate immediately.')
-        except ValueError:
-            result.add_error(config_id, 'activate_on',
-                           f'Invalid datetime format: "{activate_on}". '
-                           'Must be ISO format (YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD HH:MM:SS)')
+
     
     def _get_current_price(self, pair: str) -> Optional[float]:
         """

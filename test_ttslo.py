@@ -539,6 +539,72 @@ def test_kraken_api_parameter_validation():
     print("✓ Kraken API parameter validation tests passed")
 
 
+def test_activate_on_state_recording():
+    """Test that activate_on is recorded in state when rule triggers."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'test_config.csv')
+        state_file = os.path.join(tmpdir, 'test_state.csv')
+        log_file = os.path.join(tmpdir, 'test_log.csv')
+        
+        # Mock Kraken API
+        api_ro = Mock(spec=KrakenAPI)
+        api_rw = Mock(spec=KrakenAPI)
+        api_ro.get_current_price.return_value = 51000  # Above threshold
+        api_rw.add_trailing_stop_loss.return_value = {'txid': ['ORDER123']}
+        
+        # Create ConfigManager and TTSLO instance
+        cm = ConfigManager(config_file, state_file, log_file)
+        ttslo = TTSLO(
+            config_manager=cm,
+            kraken_api_readonly=api_ro,
+            kraken_api_readwrite=api_rw,
+            dry_run=False,
+            verbose=False
+        )
+        
+        # Load state (empty initially)
+        ttslo.load_state()
+        
+        # Create a test config
+        config = {
+            'id': 'test1',
+            'pair': 'XXBTZUSD',
+            'threshold_price': '50000',
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true'
+        }
+        
+        # Process config (should trigger and create order)
+        ttslo.process_config(config)
+        
+        # Check that activate_on was recorded in state
+        assert 'test1' in ttslo.state, "Config should be in state"
+        assert ttslo.state['test1'].get('triggered') == 'true', "Config should be triggered"
+        assert ttslo.state['test1'].get('activate_on'), "activate_on should be recorded"
+        
+        # Verify activate_on is a valid timestamp
+        activate_on = ttslo.state['test1'].get('activate_on')
+        from datetime import datetime
+        try:
+            dt = datetime.fromisoformat(activate_on)
+            assert dt is not None, "activate_on should be a valid datetime"
+        except (ValueError, TypeError):
+            assert False, f"activate_on '{activate_on}' should be a valid ISO format datetime"
+        
+        # Save state and verify it persists
+        ttslo.save_state()
+        
+        # Load state again and verify activate_on is still there
+        loaded_state = cm.load_state()
+        assert 'test1' in loaded_state, "Config should be in loaded state"
+        assert loaded_state['test1'].get('activate_on') == activate_on, "activate_on should persist"
+        
+        print("✓ activate_on state recording tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running TTSLO tests...\n")
@@ -553,6 +619,7 @@ def run_all_tests():
         test_fail_safe_order_creation()
         test_fail_safe_threshold_checking()
         test_kraken_api_parameter_validation()
+        test_activate_on_state_recording()
         
         print("\n✅ All tests passed!")
         return 0
