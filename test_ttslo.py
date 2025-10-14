@@ -303,6 +303,242 @@ def test_config_validator():
     print("✓ Config validator tests passed")
 
 
+def test_fail_safe_order_creation():
+    """Test that order creation fails safely with invalid inputs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'log.csv')
+        
+        cm = ConfigManager(config_file, state_file, log_file)
+        api_ro = Mock(spec=KrakenAPI)
+        api_rw = Mock(spec=KrakenAPI)
+        
+        # Mock successful API response
+        api_rw.add_trailing_stop_loss.return_value = {'txid': ['ORDER123']}
+        
+        ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=api_rw, dry_run=False, verbose=False)
+        
+        # Test 1: Missing config ID - should return None
+        config_no_id = {
+            'pair': 'XXBTZUSD',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': '5.0'
+        }
+        result = ttslo.create_tsl_order(config_no_id, 50000)
+        assert result is None, "Should return None when config_id is missing"
+        assert not api_rw.add_trailing_stop_loss.called, "API should not be called"
+        
+        # Test 2: Missing pair - should return None
+        api_rw.reset_mock()
+        config_no_pair = {
+            'id': 'test1',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': '5.0'
+        }
+        result = ttslo.create_tsl_order(config_no_pair, 50000)
+        assert result is None, "Should return None when pair is missing"
+        assert not api_rw.add_trailing_stop_loss.called, "API should not be called"
+        
+        # Test 3: Invalid trailing offset - should return None
+        api_rw.reset_mock()
+        config_invalid_offset = {
+            'id': 'test1',
+            'pair': 'XXBTZUSD',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': 'invalid'
+        }
+        result = ttslo.create_tsl_order(config_invalid_offset, 50000)
+        assert result is None, "Should return None when trailing_offset is invalid"
+        assert not api_rw.add_trailing_stop_loss.called, "API should not be called"
+        
+        # Test 4: Negative trailing offset - should return None
+        api_rw.reset_mock()
+        config_negative_offset = {
+            'id': 'test1',
+            'pair': 'XXBTZUSD',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': '-5.0'
+        }
+        result = ttslo.create_tsl_order(config_negative_offset, 50000)
+        assert result is None, "Should return None when trailing_offset is negative"
+        assert not api_rw.add_trailing_stop_loss.called, "API should not be called"
+        
+        # Test 5: None trigger price - should return None
+        api_rw.reset_mock()
+        config_valid = {
+            'id': 'test1',
+            'pair': 'XXBTZUSD',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': '5.0'
+        }
+        result = ttslo.create_tsl_order(config_valid, None)
+        assert result is None, "Should return None when trigger_price is None"
+        assert not api_rw.add_trailing_stop_loss.called, "API should not be called"
+        
+        # Test 6: Invalid trigger price - should return None
+        api_rw.reset_mock()
+        result = ttslo.create_tsl_order(config_valid, 'invalid')
+        assert result is None, "Should return None when trigger_price is invalid"
+        assert not api_rw.add_trailing_stop_loss.called, "API should not be called"
+        
+        # Test 7: API exception - should return None
+        api_rw.reset_mock()
+        api_rw.add_trailing_stop_loss.side_effect = Exception("API Error")
+        result = ttslo.create_tsl_order(config_valid, 50000)
+        assert result is None, "Should return None when API raises exception"
+        
+        # Test 8: Valid config - should create order
+        api_rw.reset_mock()
+        api_rw.add_trailing_stop_loss.side_effect = None
+        api_rw.add_trailing_stop_loss.return_value = {'txid': ['ORDER123']}
+        result = ttslo.create_tsl_order(config_valid, 50000)
+        assert result == 'ORDER123', "Should return order ID when successful"
+        assert api_rw.add_trailing_stop_loss.called, "API should be called for valid config"
+        
+        print("✓ Fail-safe order creation tests passed")
+
+
+def test_fail_safe_threshold_checking():
+    """Test that threshold checking fails safely with invalid inputs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'log.csv')
+        
+        cm = ConfigManager(config_file, state_file, log_file)
+        api_ro = Mock(spec=KrakenAPI)
+        
+        ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=None, dry_run=True, verbose=False)
+        
+        # Test 1: None current_price - should return False
+        config = {
+            'id': 'test1',
+            'threshold_price': '50000',
+            'threshold_type': 'above'
+        }
+        result = ttslo.check_threshold(config, None)
+        assert result is False, "Should return False when current_price is None"
+        
+        # Test 2: Invalid current_price - should return False
+        result = ttslo.check_threshold(config, 'invalid')
+        assert result is False, "Should return False when current_price is invalid"
+        
+        # Test 3: Negative current_price - should return False
+        result = ttslo.check_threshold(config, -100)
+        assert result is False, "Should return False when current_price is negative"
+        
+        # Test 4: Missing threshold_price - should return False
+        config_no_threshold = {
+            'id': 'test1',
+            'threshold_type': 'above'
+        }
+        result = ttslo.check_threshold(config_no_threshold, 50000)
+        assert result is False, "Should return False when threshold_price is missing"
+        
+        # Test 5: Invalid threshold_type - should return False
+        config_invalid_type = {
+            'id': 'test1',
+            'threshold_price': '50000',
+            'threshold_type': 'invalid'
+        }
+        result = ttslo.check_threshold(config_invalid_type, 50000)
+        assert result is False, "Should return False when threshold_type is invalid"
+        
+        # Test 6: Not a dict config - should return False
+        result = ttslo.check_threshold("not a dict", 50000)
+        assert result is False, "Should return False when config is not a dict"
+        
+        # Test 7: Valid above threshold met - should return True
+        result = ttslo.check_threshold(config, 51000)
+        assert result is True, "Should return True when above threshold is met"
+        
+        # Test 8: Valid above threshold not met - should return False
+        result = ttslo.check_threshold(config, 49000)
+        assert result is False, "Should return False when above threshold is not met"
+        
+        print("✓ Fail-safe threshold checking tests passed")
+
+
+def test_kraken_api_parameter_validation():
+    """Test that Kraken API validates parameters before making calls."""
+    api = KrakenAPI(api_key='test_key', api_secret='dGVzdF9zZWNyZXQ=')
+    
+    # Test add_trailing_stop_loss parameter validation
+    
+    # Test 1: Missing pair - should raise ValueError
+    try:
+        api.add_trailing_stop_loss(None, 'sell', '0.01', 5.0)
+        assert False, "Should raise ValueError for None pair"
+    except ValueError as e:
+        assert 'pair' in str(e).lower(), "Error should mention pair"
+    
+    # Test 2: Missing direction - should raise ValueError
+    try:
+        api.add_trailing_stop_loss('XXBTZUSD', None, '0.01', 5.0)
+        assert False, "Should raise ValueError for None direction"
+    except ValueError as e:
+        assert 'direction' in str(e).lower(), "Error should mention direction"
+    
+    # Test 3: Invalid direction - should raise ValueError
+    try:
+        api.add_trailing_stop_loss('XXBTZUSD', 'invalid', '0.01', 5.0)
+        assert False, "Should raise ValueError for invalid direction"
+    except ValueError as e:
+        assert 'direction' in str(e).lower(), "Error should mention direction"
+    
+    # Test 4: None volume - should raise ValueError
+    try:
+        api.add_trailing_stop_loss('XXBTZUSD', 'sell', None, 5.0)
+        assert False, "Should raise ValueError for None volume"
+    except ValueError as e:
+        assert 'volume' in str(e).lower(), "Error should mention volume"
+    
+    # Test 5: Negative volume - should raise ValueError
+    try:
+        api.add_trailing_stop_loss('XXBTZUSD', 'sell', '-0.01', 5.0)
+        assert False, "Should raise ValueError for negative volume"
+    except ValueError as e:
+        assert 'volume' in str(e).lower(), "Error should mention volume"
+    
+    # Test 6: None trailing_offset - should raise ValueError
+    try:
+        api.add_trailing_stop_loss('XXBTZUSD', 'sell', '0.01', None)
+        assert False, "Should raise ValueError for None trailing_offset"
+    except ValueError as e:
+        assert 'trailing_offset' in str(e).lower(), "Error should mention trailing_offset"
+    
+    # Test 7: Negative trailing_offset - should raise ValueError
+    try:
+        api.add_trailing_stop_loss('XXBTZUSD', 'sell', '0.01', -5.0)
+        assert False, "Should raise ValueError for negative trailing_offset"
+    except ValueError as e:
+        assert 'trailing_offset' in str(e).lower(), "Error should mention trailing_offset"
+    
+    # Test get_current_price parameter validation
+    
+    # Test 8: None pair - should raise ValueError
+    try:
+        api.get_current_price(None)
+        assert False, "Should raise ValueError for None pair"
+    except ValueError as e:
+        assert 'pair' in str(e).lower(), "Error should mention pair"
+    
+    # Test 9: Empty pair - should raise ValueError
+    try:
+        api.get_current_price('')
+        assert False, "Should raise ValueError for empty pair"
+    except ValueError as e:
+        assert 'pair' in str(e).lower(), "Error should mention pair"
+    
+    print("✓ Kraken API parameter validation tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running TTSLO tests...\n")
@@ -314,6 +550,9 @@ def run_all_tests():
         test_missing_readwrite_credentials()
         test_kraken_api_signature()
         test_config_validator()
+        test_fail_safe_order_creation()
+        test_fail_safe_threshold_checking()
+        test_kraken_api_parameter_validation()
         
         print("\n✅ All tests passed!")
         return 0

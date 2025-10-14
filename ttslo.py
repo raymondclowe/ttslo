@@ -581,74 +581,195 @@ class TTSLO:
         """
         Validate configuration file and load configs if valid.
         
-        Returns:
-            True if validation passed, False otherwise
-        """
-        configs = self.config_manager.load_config()
+        SECURITY NOTE: This function will return False (prevent operation) if:
+        - Config file cannot be loaded
+        - No configurations are found
+        - Any configuration has validation errors
+        - Read-only API is not available for price checks
         
+        Returns:
+            True if validation passed, False otherwise (False = do not proceed)
+        """
+        # Step 1: Validate config_manager exists
+        if not self.config_manager:
+            self.log('ERROR', 'Configuration manager is not initialized')
+            return False
+        
+        # Step 2: Attempt to load configurations from file
+        try:
+            configs = self.config_manager.load_config()
+        except Exception as e:
+            # SAFETY: Cannot load config - do not proceed
+            self.log('ERROR', f'Failed to load configuration file: {str(e)}',
+                    error=str(e))
+            return False
+        
+        # Step 3: Check if any configurations were loaded
         if not configs:
+            # SAFETY: No configs means nothing to monitor - do not proceed
             self.log('ERROR', 'No configurations found in config file')
             return False
         
-        # Validate configuration with market price checks
-        validator = ConfigValidator(kraken_api=self.kraken_api_readonly)
-        result = validator.validate_config_file(configs)
+        # Step 4: Validate we have read-only API for price checks
+        if not self.kraken_api_readonly:
+            # SAFETY: Cannot validate against market prices - do not proceed
+            self.log('ERROR', 'Read-only API is required for configuration validation')
+            return False
         
-        # Log validation results
+        # Step 5: Create validator with API for market price checks
+        try:
+            validator = ConfigValidator(kraken_api=self.kraken_api_readonly)
+        except Exception as e:
+            # SAFETY: Cannot create validator - do not proceed
+            self.log('ERROR', f'Failed to create configuration validator: {str(e)}',
+                    error=str(e))
+            return False
+        
+        # Step 6: Validate all configurations
+        try:
+            result = validator.validate_config_file(configs)
+        except Exception as e:
+            # SAFETY: Validation failed with exception - do not proceed
+            self.log('ERROR', f'Configuration validation failed with exception: {str(e)}',
+                    error=str(e))
+            return False
+        
+        # Step 7: Log all validation errors
         if result.errors:
+            # Log each error individually
             for error in result.errors:
                 self.log('ERROR', 
                         f"Config validation error [{error['config_id']}] {error['field']}: {error['message']}",
                         config_id=error['config_id'], field=error['field'])
         
+        # Step 8: Log all validation warnings
         if result.warnings:
+            # Log each warning individually
             for warning in result.warnings:
                 self.log('WARNING', 
                         f"Config validation warning [{warning['config_id']}] {warning['field']}: {warning['message']}",
                         config_id=warning['config_id'], field=warning['field'])
         
+        # Step 9: Check if validation passed (no errors)
         if not result.is_valid():
+            # SAFETY: Validation has errors - do not proceed
             self.log('ERROR', 'Configuration validation failed. Please fix errors.')
             return False
         
+        # Step 10: Warn about warnings if in verbose mode
         if result.has_warnings() and self.verbose:
             print("Configuration has warnings. Review them to ensure they are expected.")
         
+        # Step 11: Validation passed - safe to proceed
         return True
     
     def run_once(self):
-        """Run one iteration of checking all configurations."""
-        configs = self.config_manager.load_config()
+        """
+        Run one iteration of checking all configurations.
         
+        SECURITY NOTE: This function will not create orders if:
+        - Configuration cannot be loaded
+        - No configurations are found
+        - Any error occurs during processing
+        """
+        # Step 1: Validate config_manager exists
+        if not self.config_manager:
+            self.log('ERROR', 'Configuration manager is not initialized')
+            return
+        
+        # Step 2: Load configurations from file
+        try:
+            configs = self.config_manager.load_config()
+        except Exception as e:
+            # SAFETY: Cannot load configs - do not process
+            self.log('ERROR', f'Failed to load configuration file: {str(e)}',
+                    error=str(e))
+            return
+        
+        # Step 3: Check if any configurations were loaded
         if not configs:
+            # SAFETY: No configs - do not process
             self.log('WARNING', 'No configurations found in config file')
             return
         
-        self.log('INFO', f'Processing {len(configs)} configurations')
+        # Step 4: Log how many configs we are processing
+        num_configs = len(configs)
+        self.log('INFO', f'Processing {num_configs} configurations')
         
+        # Step 5: Process each configuration
         for config in configs:
-            self.process_config(config)
+            # Each config is processed independently
+            # Errors in one config do not affect others
+            try:
+                self.process_config(config)
+            except Exception as e:
+                # SAFETY: Catch any unexpected exceptions
+                # This prevents one bad config from crashing the whole system
+                config_id = config.get('id', 'unknown') if isinstance(config, dict) else 'unknown'
+                self.log('ERROR', 
+                        f'Unexpected exception processing config {config_id}: {str(e)}',
+                        config_id=config_id, error=str(e))
         
-        # Save state after processing all configs
-        self.save_state()
+        # Step 6: Save state after processing all configs
+        try:
+            self.save_state()
+        except Exception as e:
+            # Log error but don't crash - state will be saved next iteration
+            self.log('ERROR', f'Failed to save state: {str(e)}',
+                    error=str(e))
     
     def run_continuous(self, interval=60):
         """
         Run continuously, checking configurations at regular intervals.
         
-        Args:
-            interval: Seconds between checks
-        """
-        self.log('INFO', f'Starting continuous monitoring (interval: {interval}s)')
+        SECURITY NOTE: This function continues running even if individual
+        iterations fail, but errors are logged and do not result in orders.
         
+        Args:
+            interval: Seconds between checks (default: 60)
+        """
+        # Step 1: Validate interval parameter
+        if interval is None:
+            self.log('ERROR', 'Interval cannot be None, using default of 60 seconds')
+            interval = 60
+        
+        # Convert to int if needed
+        try:
+            interval_int = int(interval)
+        except (ValueError, TypeError) as e:
+            self.log('ERROR', f'Invalid interval "{interval}", using default of 60 seconds',
+                    error=str(e))
+            interval_int = 60
+        
+        # Validate interval is positive
+        if interval_int <= 0:
+            self.log('ERROR', f'Interval must be positive, got {interval_int}, using default of 60 seconds')
+            interval_int = 60
+        
+        # Step 2: Log startup
+        self.log('INFO', f'Starting continuous monitoring (interval: {interval_int}s)')
+        
+        # Step 3: Main monitoring loop
         try:
             while True:
+                # Run one iteration
+                # Any errors in run_once() are handled there and logged
                 self.run_once()
-                self.log('DEBUG', f'Sleeping for {interval} seconds')
-                time.sleep(interval)
+                
+                # Sleep until next iteration
+                self.log('DEBUG', f'Sleeping for {interval_int} seconds')
+                time.sleep(interval_int)
+                
         except KeyboardInterrupt:
+            # User pressed Ctrl+C - shutdown gracefully
             self.log('INFO', 'Interrupted by user, shutting down')
             sys.exit(0)
+        except Exception as e:
+            # Unexpected exception in main loop
+            # Log it and exit to prevent unknown state
+            self.log('ERROR', f'Unexpected exception in main loop: {str(e)}',
+                    error=str(e))
+            sys.exit(1)
 
 
 def main():
@@ -746,69 +867,131 @@ Environment variables:
         # Exit with appropriate code
         sys.exit(0 if result.is_valid() else 1)
     
-    # Get read-only API credentials (for price monitoring)
+    # Step 1: Get read-only API credentials (for price monitoring)
+    # These are required for all operations except dry-run
     api_key_ro = get_env_var('KRAKEN_API_KEY')
     api_secret_ro = get_env_var('KRAKEN_API_SECRET')
     
-    # Get read-write API credentials (for creating orders)
+    # Step 2: Get read-write API credentials (for creating orders)
+    # These are only required for actual order creation
     api_key_rw = get_env_var('KRAKEN_API_KEY_RW')
     api_secret_rw = get_env_var('KRAKEN_API_SECRET_RW')
     
-    # Check if we have at least read-only credentials
-    if not api_key_ro or not api_secret_ro:
-        print("ERROR: Read-only API credentials required. Set KRAKEN_API_KEY and KRAKEN_API_SECRET "
-              "environment variables.", 
+    # Step 3: Validate read-only credentials are present
+    # SAFETY: Without read-only credentials, we cannot monitor prices
+    if not api_key_ro:
+        print("ERROR: Read-only API key (KRAKEN_API_KEY) is required but not set.", 
               file=sys.stderr)
         print("Use --dry-run to test without credentials.", file=sys.stderr)
         sys.exit(1)
     
-    # Warn if we don't have read-write credentials and not in dry-run mode
-    has_rw_creds = api_key_rw and api_secret_rw
+    if not api_secret_ro:
+        print("ERROR: Read-only API secret (KRAKEN_API_SECRET) is required but not set.", 
+              file=sys.stderr)
+        print("Use --dry-run to test without credentials.", file=sys.stderr)
+        sys.exit(1)
+    
+    # Step 4: Check read-write credentials status
+    has_rw_key = api_key_rw is not None and api_key_rw.strip() != ''
+    has_rw_secret = api_secret_rw is not None and api_secret_rw.strip() != ''
+    has_rw_creds = has_rw_key and has_rw_secret
+    
+    # Step 5: Warn if no read-write credentials and not in dry-run mode
+    # SAFETY: Without read-write credentials, orders CANNOT be created
     if not args.dry_run and not has_rw_creds:
-        print("WARNING: No read-write API credentials found. Orders cannot be created.", file=sys.stderr)
+        print("WARNING: No read-write API credentials found. Orders CANNOT be created.", file=sys.stderr)
         print("Set KRAKEN_API_KEY_RW and KRAKEN_API_SECRET_RW to enable order creation.", file=sys.stderr)
-        print("Continuing in read-only mode...\n", file=sys.stderr)
+        print("Continuing in read-only mode (monitoring only)...\n", file=sys.stderr)
     
-    # Initialize components
-    config_manager = ConfigManager(
-        config_file=args.config,
-        state_file=args.state,
-        log_file=args.log
-    )
+    # Step 6: Validate configuration file path exists
+    if not os.path.exists(args.config):
+        print(f"ERROR: Configuration file not found: {args.config}", file=sys.stderr)
+        print("Use --create-sample-config to create a sample configuration file.", file=sys.stderr)
+        sys.exit(1)
     
-    # Create read-only API instance
-    kraken_api_readonly = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+    # Step 7: Initialize configuration manager
+    try:
+        config_manager = ConfigManager(
+            config_file=args.config,
+            state_file=args.state,
+            log_file=args.log
+        )
+    except Exception as e:
+        print(f"ERROR: Failed to initialize configuration manager: {str(e)}", file=sys.stderr)
+        sys.exit(1)
     
-    # Create read-write API instance if credentials are available
+    # Step 8: Create read-only API instance
+    try:
+        kraken_api_readonly = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+    except Exception as e:
+        print(f"ERROR: Failed to initialize read-only API: {str(e)}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Step 9: Create read-write API instance if credentials are available
     kraken_api_readwrite = None
     if has_rw_creds:
-        kraken_api_readwrite = KrakenAPI(api_key=api_key_rw, api_secret=api_secret_rw)
+        try:
+            kraken_api_readwrite = KrakenAPI(api_key=api_key_rw, api_secret=api_secret_rw)
+        except Exception as e:
+            print(f"ERROR: Failed to initialize read-write API: {str(e)}", file=sys.stderr)
+            # This is not fatal - we can still run in read-only mode
+            print("Continuing without read-write API (orders cannot be created).", file=sys.stderr)
+            kraken_api_readwrite = None
     
-    ttslo = TTSLO(
-        config_manager=config_manager,
-        kraken_api_readonly=kraken_api_readonly,
-        kraken_api_readwrite=kraken_api_readwrite,
-        dry_run=args.dry_run,
-        verbose=args.verbose
-    )
+    # Step 10: Initialize TTSLO application
+    try:
+        ttslo = TTSLO(
+            config_manager=config_manager,
+            kraken_api_readonly=kraken_api_readonly,
+            kraken_api_readwrite=kraken_api_readwrite,
+            dry_run=args.dry_run,
+            verbose=args.verbose
+        )
+    except Exception as e:
+        print(f"ERROR: Failed to initialize TTSLO application: {str(e)}", file=sys.stderr)
+        sys.exit(1)
     
-    # Load initial state
-    ttslo.load_state()
+    # Step 11: Load initial state from file
+    try:
+        ttslo.load_state()
+    except Exception as e:
+        print(f"WARNING: Failed to load state file: {str(e)}", file=sys.stderr)
+        print("Starting with empty state.", file=sys.stderr)
+        # Not fatal - we can continue with empty state
     
-    # Validate configuration before starting
-    if not ttslo.validate_and_load_config():
+    # Step 12: Validate configuration before starting
+    # SAFETY: Do not start if configuration is invalid
+    validation_passed = False
+    try:
+        validation_passed = ttslo.validate_and_load_config()
+    except Exception as e:
+        print(f"\nERROR: Configuration validation failed with exception: {str(e)}", 
+              file=sys.stderr)
+        sys.exit(1)
+    
+    if not validation_passed:
         print("\nConfiguration validation failed. Use --validate-config to see details.", 
               file=sys.stderr)
         sys.exit(1)
     
+    # Step 13: Configuration is valid - log success
     if args.verbose:
         print("Configuration validation passed. Starting monitoring...\n")
     
-    # Run
-    if args.once:
-        ttslo.run_once()
-    else:
-        ttslo.run_continuous(interval=args.interval)
+    # Step 14: Run the application
+    try:
+        if args.once:
+            # Run once and exit
+            ttslo.run_once()
+        else:
+            # Run continuously
+            ttslo.run_continuous(interval=args.interval)
+    except Exception as e:
+        # Catch any unexpected exceptions in main execution
+        print(f"\nERROR: Unexpected exception in main execution: {str(e)}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == '__main__':
