@@ -77,7 +77,7 @@ class TTSLO:
     """Main application for triggered trailing stop loss orders."""
     
     def __init__(self, config_manager, kraken_api_readonly, kraken_api_readwrite=None, 
-                 dry_run=False, verbose=False):
+                 dry_run=False, verbose=False, debug=False):
         """
         Initialize TTSLO application.
         
@@ -93,6 +93,8 @@ class TTSLO:
         self.kraken_api_readwrite = kraken_api_readwrite
         self.dry_run = dry_run
         self.verbose = verbose
+        # debug mode enables very verbose, comparison-focused messages
+        self.debug = debug
         self.state = {}
         
     def log(self, level, message, **kwargs):
@@ -107,7 +109,8 @@ class TTSLO:
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         log_msg = f"[{timestamp}] {level}: {message}"
         
-        if self.verbose or level in ['ERROR', 'WARNING']:
+        # Print messages when verbose or debug is enabled, or for warnings/errors
+        if self.verbose or self.debug or level in ['ERROR', 'WARNING']:
             print(log_msg)
             
         self.config_manager.log(level, message, **kwargs)
@@ -215,10 +218,24 @@ class TTSLO:
         if threshold_type == 'above':
             # For 'above': trigger when current price >= threshold price
             is_met = current_price_float >= threshold_price
+            if self.debug:
+                if is_met:
+                    self.log('DEBUG', f"{current_price_float} >= {threshold_price} -> threshold met",
+                             config_id=config_id)
+                else:
+                    self.log('DEBUG', f"{current_price_float} is not greater than or equal to {threshold_price} therefore nothing to do",
+                             config_id=config_id)
             return is_met
         elif threshold_type == 'below':
             # For 'below': trigger when current price <= threshold price
             is_met = current_price_float <= threshold_price
+            if self.debug:
+                if is_met:
+                    self.log('DEBUG', f"{current_price_float} <= {threshold_price} -> threshold met",
+                             config_id=config_id)
+                else:
+                    self.log('DEBUG', f"{current_price_float} is not less than or equal to {threshold_price} therefore nothing to do",
+                             config_id=config_id)
             return is_met
         else:
             # SAFETY: Unknown threshold_type - return False (do not trigger)
@@ -421,7 +438,7 @@ class TTSLO:
                 config_id=config_id, order_id=order_id)
         return order_id
     
-    def process_config(self, config):
+    def process_config(self, config, current_price=None):
         """
         Process a single configuration entry.
         
@@ -451,10 +468,10 @@ class TTSLO:
             return
         
         # Step 3: Check if config is enabled
-        # Get the 'enabled' field, defaulting to 'true' if not present
+        # Get the 'enabled' field, defaulting to 'false' if not present
         enabled_value = config.get('enabled', 'true')
         if not enabled_value:
-            enabled_value = 'true'
+            enabled_value = 'false'
         
         # Normalize to lowercase for comparison
         enabled_normalized = enabled_value.strip().lower()
@@ -494,18 +511,19 @@ class TTSLO:
                     config_id=config_id)
             return
         
-        # Step 7: Attempt to get current price
+        # Step 7: Attempt to get current price if not provided by caller
         # Wrap in try-except to handle any API errors
-        try:
-            # Use read-only API to get current price
-            current_price = self.kraken_api_readonly.get_current_price(pair)
-        except Exception as e:
-            # SAFETY: Cannot get price - do not process
-            self.log('ERROR', 
-                    f"Error getting current price for {pair}: {str(e)}",
-                    config_id=config_id, pair=pair, error=str(e))
-            # Return without creating order - this is safe
-            return
+        if current_price is None:
+            try:
+                # Use read-only API to get current price
+                current_price = self.kraken_api_readonly.get_current_price(pair)
+            except Exception as e:
+                # SAFETY: Cannot get price - do not process
+                self.log('ERROR', 
+                        f"Error getting current price for {pair}: {str(e)}",
+                        config_id=config_id, pair=pair, error=str(e))
+                # Return without creating order - this is safe
+                return
         
         # Step 8: Validate current_price
         if current_price is None:
@@ -697,15 +715,50 @@ class TTSLO:
         num_configs = len(configs)
         self.log('INFO', f'Processing {num_configs} configurations')
         
-        # Step 5: Process each configuration
+        # Step 5: Deduplicate price requests per-iteration
+        prices = {}
+        pairs_to_fetch = set()
+
+        # Determine which pairs actually need fetching:
         for config in configs:
-            # Each config is processed independently
-            # Errors in one config do not affect others
             try:
-                self.process_config(config)
+                if not isinstance(config, dict):
+                    continue
+
+                # Check enabled flag similar to process_config to avoid fetching for disabled configs
+                enabled_value = config.get('enabled', 'true')
+                if not enabled_value:
+                    enabled_value = 'false'
+                if enabled_value.strip().lower() != 'true':
+                    continue
+
+                config_id = config.get('id')
+                # Skip already triggered configs
+                if config_id and self.state.get(config_id, {}).get('triggered') == 'true':
+                    continue
+
+                pair = config.get('pair')
+                if pair:
+                    pairs_to_fetch.add(pair)
+            except Exception:
+                # Ignore config parsing errors here; process_config will log them if needed
+                continue
+
+        # Fetch prices once per unique pair
+        for pair in pairs_to_fetch:
+            try:
+                prices[pair] = self.kraken_api_readonly.get_current_price(pair)
             except Exception as e:
-                # SAFETY: Catch any unexpected exceptions
-                # This prevents one bad config from crashing the whole system
+                prices[pair] = None
+                self.log('ERROR', f'Error prefetching price for {pair}: {str(e)}', pair=pair, error=str(e))
+
+        # Step 6: Process each configuration using the cached prices where possible
+        for config in configs:
+            try:
+                pair = config.get('pair') if isinstance(config, dict) else None
+                cached_price = prices.get(pair) if pair else None
+                self.process_config(config, current_price=cached_price)
+            except Exception as e:
                 config_id = config.get('id', 'unknown') if isinstance(config, dict) else 'unknown'
                 self.log('ERROR', 
                         f'Unexpected exception processing config {config_id}: {str(e)}',
@@ -825,6 +878,8 @@ Environment variables:
                        help='Validate configuration file and exit (shows what will be executed)')
     parser.add_argument('--env-file', default='.env',
                        help='Path to .env file (default: .env)')
+    parser.add_argument('--debug', action='store_true',
+                       help='Enable debug output (very verbose)')
     
     args = parser.parse_args()
     
@@ -948,7 +1003,8 @@ Environment variables:
             kraken_api_readonly=kraken_api_readonly,
             kraken_api_readwrite=kraken_api_readwrite,
             dry_run=args.dry_run,
-            verbose=args.verbose
+            verbose=args.verbose,
+            debug=args.debug
         )
     except Exception as e:
         print(f"ERROR: Failed to initialize TTSLO application: {str(e)}", file=sys.stderr)
