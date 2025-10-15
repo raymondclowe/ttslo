@@ -428,39 +428,64 @@ class ConfigValidator:
         # Only check balance if we have a KrakenAPI instance with credentials
         if not self.kraken_api:
             return
-        
+
         try:
             # Get account balance
             balance = self.kraken_api.get_balance()
             if not balance:
                 return  # Can't validate without balance data
-            
+
             # Extract base asset from pair
-            # Common patterns: XXBTZUSD (XBT), XETHZUSD (XETH), SOLUSD (SOL)
             base_asset = self._extract_base_asset(pair)
             if not base_asset:
                 return  # Can't determine asset
-            
+
             # For sell orders, check if we have enough of the base asset
             if direction == 'sell':
-                # Look for the asset in balance with various possible formats
+                # Normalize possible asset keys for matching
+                asset_keys_to_try = set()
+                # Add base asset as-is
+                asset_keys_to_try.add(base_asset)
+                # Add uppercase, lowercase, and stripped forms
+                asset_keys_to_try.add(base_asset.upper())
+                asset_keys_to_try.add(base_asset.lower())
+                asset_keys_to_try.add(base_asset.strip('X'))
+                asset_keys_to_try.add('X' + base_asset.strip('X'))
+                asset_keys_to_try.add('XX' + base_asset.strip('X'))
+                asset_keys_to_try.add('X' + base_asset)
+                asset_keys_to_try.add('XX' + base_asset)
+                # Add legacy and alt forms
+                if base_asset.startswith('X'):
+                    asset_keys_to_try.add(base_asset[1:])
+                if base_asset.startswith('XX'):
+                    asset_keys_to_try.add(base_asset[2:])
+                # Add all keys from balance for fuzzy matching
+                for k in balance.keys():
+                    asset_keys_to_try.add(k)
+
                 available = 0.0
-                for asset_key in balance:
-                    # Match exact or with X prefix (e.g., both 'BTC' and 'XXBT')
-                    if asset_key == base_asset or asset_key == 'X' + base_asset or asset_key == 'XX' + base_asset:
-                        available = float(balance[asset_key])
-                        break
-                
+                found_key = None
+                for asset_key in asset_keys_to_try:
+                    if asset_key in balance:
+                        try:
+                            available = float(balance[asset_key])
+                            found_key = asset_key
+                            break
+                        except Exception:
+                            continue
+
                 if available < volume:
-                    result.add_warning(config_id, 'volume',
-                                     f'Insufficient {base_asset} balance for sell order. '
-                                     f'Required: {volume}, Available: {available:.8f}. '
-                                     f'You can add funds before the order triggers.')
-            
+                    result.add_warning(
+                        config_id,
+                        'volume',
+                        f'Insufficient {base_asset} balance for sell order. '
+                        f'Required: {volume}, Available: {available:.8f}. '
+                        f'(Checked keys: {sorted(asset_keys_to_try)}) You can add funds before the order triggers.'
+                    )
             # For buy orders, we would need to check quote currency (e.g., USD)
             # but this is more complex as we need the price, so we'll skip for now
             # and focus on the more common sell case
-            
+
         except Exception as e:
             # Don't fail validation if balance check fails
             # This is just a helpful warning, not critical
