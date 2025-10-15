@@ -3,6 +3,7 @@ Configuration validation for TTSLO.
 """
 import re
 from typing import List, Dict, Tuple, Optional
+from decimal import Decimal, InvalidOperation, getcontext, ROUND_DOWN
 
 
 class ValidationResult:
@@ -186,19 +187,19 @@ class ConfigValidator:
             return  # Already caught by required fields
         
         try:
-            price = float(price_str)
+            price = Decimal(price_str)
             if price <= 0:
                 result.add_error(config_id, 'threshold_price', 
                                f'Threshold price must be positive, got: {price}')
-            elif price < 0.01:
+            elif price < Decimal('0.01'):
                 result.add_warning(config_id, 'threshold_price', 
                                  f'Threshold price is very small ({price}). '
                                  'Please verify this is correct')
-            elif price > 1000000:
+            elif price > Decimal('1000000'):
                 result.add_warning(config_id, 'threshold_price', 
                                  f'Threshold price is very large ({price}). '
                                  'Please verify this is correct')
-        except ValueError:
+        except (ValueError, InvalidOperation):
             result.add_error(config_id, 'threshold_price', 
                            f'Invalid threshold price: "{price_str}". '
                            'Must be a valid number (e.g., 50000, 3000.50)')
@@ -234,19 +235,19 @@ class ConfigValidator:
             return  # Already caught by required fields
         
         try:
-            volume = float(volume_str)
+            volume = Decimal(volume_str)
             if volume <= 0:
                 result.add_error(config_id, 'volume', 
                                f'Volume must be positive, got: {volume}')
-            elif volume < 0.0001:
+            elif volume < Decimal('0.0001'):
                 result.add_warning(config_id, 'volume', 
                                  f'Volume is very small ({volume}). '
                                  'This may be below minimum order sizes for some pairs')
-            elif volume > 1000:
+            elif volume > Decimal('1000'):
                 result.add_warning(config_id, 'volume', 
                                  f'Volume is very large ({volume}). '
                                  'Please verify this is correct and you have sufficient balance')
-        except ValueError:
+        except (ValueError, InvalidOperation):
             result.add_error(config_id, 'volume', 
                            f'Invalid volume: "{volume_str}". '
                            'Must be a valid number (e.g., 0.01, 1.5)')
@@ -259,23 +260,23 @@ class ConfigValidator:
             return  # Already caught by required fields
         
         try:
-            offset = float(offset_str)
+            offset = Decimal(offset_str)
             if offset <= 0:
                 result.add_error(config_id, 'trailing_offset_percent', 
                                f'Trailing offset must be positive, got: {offset}')
-            elif offset < 0.1:
+            elif offset < Decimal('0.1'):
                 result.add_warning(config_id, 'trailing_offset_percent', 
                                  f'Trailing offset is very small ({offset}%). '
                                  'This may trigger very quickly on normal price volatility')
-            elif offset > 50:
+            elif offset > Decimal('50'):
                 result.add_warning(config_id, 'trailing_offset_percent', 
                                  f'Trailing offset is very large ({offset}%). '
                                  'The order may execute immediately or never trigger')
-            elif offset > 20:
+            elif offset > Decimal('20'):
                 result.add_warning(config_id, 'trailing_offset_percent', 
                                  f'Trailing offset is large ({offset}%). '
                                  'Consider if this gives enough protection')
-        except ValueError:
+        except (ValueError, InvalidOperation):
             result.add_error(config_id, 'trailing_offset_percent', 
                            f'Invalid trailing offset: "{offset_str}". '
                            'Must be a valid percentage number (e.g., 5.0, 3.5)')
@@ -314,8 +315,13 @@ class ConfigValidator:
         
         try:
             price = self.kraken_api.get_current_price(pair)
-            self.price_cache[pair] = price
-            return price
+            # Store as Decimal for consistent arithmetic
+            try:
+                price_dec = Decimal(str(price))
+            except Exception:
+                return None
+            self.price_cache[pair] = price_dec
+            return price_dec
         except Exception:
             # If we can't get price, return None (don't fail validation)
             return None
@@ -324,13 +330,13 @@ class ConfigValidator:
         """Validate the logical consistency of the configuration."""
         # Get values (already validated individually)
         try:
-            threshold_price = float(config.get('threshold_price', 0))
+            threshold_price = Decimal(str(config.get('threshold_price', '0')))
             threshold_type = config.get('threshold_type', '').strip().lower()
             direction = config.get('direction', '').strip().lower()
-            trailing_offset = float(config.get('trailing_offset_percent', 0))
+            trailing_offset = Decimal(str(config.get('trailing_offset_percent', '0')))
             pair = config.get('pair', '').strip().upper()
-            volume = float(config.get('volume', 0))
-        except (ValueError, TypeError):
+            volume = Decimal(str(config.get('volume', '0')))
+        except (InvalidOperation, ValueError, TypeError):
             return  # Skip logic validation if values are invalid
         
         # Check for nonsensical combinations
@@ -385,31 +391,34 @@ class ConfigValidator:
         # Check if threshold already met (trigger would fire immediately)
         if threshold_type == 'above' and current_price >= threshold_price:
             result.add_error(config_id, 'threshold_price',
-                           f'Threshold price {threshold_price} is already met (current price: {current_price:.2f}). '
+                           f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
                            f'For "above" threshold, set price higher than current market price.')
-        
+
         if threshold_type == 'below' and current_price <= threshold_price:
             result.add_error(config_id, 'threshold_price',
-                           f'Threshold price {threshold_price} is already met (current price: {current_price:.2f}). '
+                           f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
                            f'For "below" threshold, set price lower than current market price.')
-        
+
         # Check for insufficient gap between threshold and current price
         # The gap should be at least large enough to accommodate the trailing offset
-        price_diff_percent = abs((threshold_price - current_price) / current_price * 100)
-        
+        try:
+            price_diff_percent = abs((threshold_price - current_price) / current_price * Decimal('100'))
+        except Exception:
+            return
+
         # For reasonable operation, gap should be at least 2x the trailing offset
-        min_gap_percent = trailing_offset * 2
-        
+        min_gap_percent = trailing_offset * Decimal('2')
+
         if price_diff_percent < trailing_offset:
             result.add_error(config_id, 'threshold_price',
-                           f'Insufficient gap between threshold ({threshold_price}) and current price ({current_price:.2f}). '
-                           f'Gap is {price_diff_percent:.2f}% but trailing offset is {trailing_offset}%. '
+                           f'Insufficient gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '
+                           f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
                            f'Order would trigger immediately or not work as intended.')
         elif price_diff_percent < min_gap_percent:
             result.add_warning(config_id, 'threshold_price',
-                             f'Small gap between threshold ({threshold_price}) and current price ({current_price:.2f}). '
-                             f'Gap is {price_diff_percent:.2f}% but trailing offset is {trailing_offset}%. '
-                             f'Consider a gap of at least {min_gap_percent:.1f}% for best results.')
+                             f'Small gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '
+                             f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
+                             f'Consider a gap of at least {self._format_decimal(min_gap_percent, 1)}% for best results.')
     
     def _normalize_asset(self, asset: str) -> str:
         """Normalize asset key by removing X prefix and .F suffix.
@@ -429,6 +438,16 @@ class ConfigValidator:
         asset = asset.lstrip('XZ')
         return asset
 
+    def _format_decimal(self, value: Decimal, places: int = 8) -> str:
+        """Format a Decimal to a fixed number of decimal places as a string."""
+        try:
+            quant = Decimal(f'1e-{places}')
+            q = value.quantize(quant, rounding=ROUND_DOWN)
+            return format(q, 'f')
+        except Exception:
+            # Fallback to plain string conversion
+            return format(value, 'f')
+
     def _check_balance_availability(self, config: Dict, config_id: str, pair: str, 
                                     direction: str, volume: float, result: ValidationResult):
         """
@@ -447,6 +466,8 @@ class ConfigValidator:
         if not self.kraken_api:
             return
 
+        # Use Decimal for currency and volume arithmetic to avoid floating point issues
+        getcontext().prec = 28
         try:
             # Get account balance
             balance = self.kraken_api.get_balance()
@@ -465,39 +486,50 @@ class ConfigValidator:
                 contributors = {}
                 for k, v in balance.items():
                     try:
-                        amount = float(v)
-                    except Exception:
+                        # Kraken returns strings for balances; coerce to Decimal safely
+                        amount = Decimal(str(v))
+                    except (InvalidOperation, Exception):
                         # Skip unparsable entries
                         continue
                     norm = self._normalize_asset(k)
                     if not norm:
                         continue
-                    normalized_totals.setdefault(norm, 0.0)
+                    normalized_totals.setdefault(norm, Decimal('0'))
                     normalized_totals[norm] += amount
                     contributors.setdefault(norm, []).append((k, amount))
 
                 # Normalize the base_asset for lookup
                 canonical_norm = self._normalize_asset(base_asset)
 
-                available = normalized_totals.get(canonical_norm, 0.0)
+                available = normalized_totals.get(canonical_norm, Decimal('0'))
                 contrib = contributors.get(canonical_norm, [])
+
+                # Convert configured volume to Decimal for correct comparison
+                try:
+                    volume_dec = Decimal(str(volume)) if not isinstance(volume, Decimal) else volume
+                except (InvalidOperation, Exception):
+                    # If we can't parse the configured volume, skip balance check
+                    return
 
                 # Always add an informational warning about available balance (helps debugging)
                 if contrib:
-                    contrib_str = ', '.join([f'{k}={amt}' for k, amt in contrib])
+                    contrib_str = ', '.join([f"{k}={self._format_decimal(amt)}" for k, amt in contrib])
+                    # Indicate whether the available balance is sufficient for the configured volume
+                    suff_msg = 'sufficient' if available >= volume_dec else 'insufficient'
                     result.add_warning(
                         config_id,
                         'balance',
-                        f'Available {base_asset}: {available:.8f} (Contributors: {contrib_str})'
+                        f'Available {base_asset} (spot+funding): {self._format_decimal(available)} (Contributors: {contrib_str}) — {suff_msg} for required volume {self._format_decimal(volume_dec)}'
                     )
 
-                if available < volume:
+                # Only add a separate volume warning if it's insufficient; if sufficient, avoid duplicate warnings
+                if available < volume_dec:
                     # If insufficient, add a specific volume warning
                     result.add_warning(
                         config_id,
                         'volume',
                         f'Insufficient {base_asset} balance for sell order. '
-                        f'Required: {volume}, Available: {available:.8f}. '
+                        f'Required: {self._format_decimal(volume_dec)}, Available: {self._format_decimal(available)}. '
                         f'You can add funds before the order triggers.'
                     )
             # For buy orders, we would need to check quote currency (e.g., USD)
