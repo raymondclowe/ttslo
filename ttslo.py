@@ -757,9 +757,11 @@ class TTSLO:
                 # Any errors in run_once() are handled there and logged
                 self.run_once()
                 
-                # Sleep until next iteration
-                self.log('DEBUG', f'Sleeping for {interval_int} seconds')
-                time.sleep(interval_int)
+                # Sleep until next iteration, but in 1s increments so interrupts like Ctrl-C
+                # are handled promptly instead of blocking for the full interval.
+                self.log('DEBUG', f'Sleeping for {interval_int} seconds (1s increments)')
+                for _ in range(interval_int):
+                    time.sleep(1)
                 
         except KeyboardInterrupt:
             # User pressed Ctrl+C - shutdown gracefully
