@@ -411,6 +411,24 @@ class ConfigValidator:
                              f'Gap is {price_diff_percent:.2f}% but trailing offset is {trailing_offset}%. '
                              f'Consider a gap of at least {min_gap_percent:.1f}% for best results.')
     
+    def _normalize_asset(self, asset: str) -> str:
+        """Normalize asset key by removing X prefix and .F suffix.
+
+        Examples:
+            'XXBT' -> 'XBT' -> 'BT' (strip leading 'X' characters then return core)
+            'XBT.F' -> 'XBT' -> 'BT'
+        We normalize to the shortest meaningful token for matching (e.g., 'BT' for BTC/XBT).
+        """
+        if not asset:
+            return ''
+        asset = asset.upper().strip()
+        # Remove funding suffix
+        if asset.endswith('.F'):
+            asset = asset[:-2]
+        # Strip leading X or Z characters commonly used by Kraken (e.g., 'XXBT', 'XETH')
+        asset = asset.lstrip('XZ')
+        return asset
+
     def _check_balance_availability(self, config: Dict, config_id: str, pair: str, 
                                     direction: str, volume: float, result: ValidationResult):
         """
@@ -442,45 +460,45 @@ class ConfigValidator:
 
             # For sell orders, check if we have enough of the base asset
             if direction == 'sell':
-                # Normalize possible asset keys for matching
-                asset_keys_to_try = set()
-                # Add base asset as-is
-                asset_keys_to_try.add(base_asset)
-                # Add uppercase, lowercase, and stripped forms
-                asset_keys_to_try.add(base_asset.upper())
-                asset_keys_to_try.add(base_asset.lower())
-                asset_keys_to_try.add(base_asset.strip('X'))
-                asset_keys_to_try.add('X' + base_asset.strip('X'))
-                asset_keys_to_try.add('XX' + base_asset.strip('X'))
-                asset_keys_to_try.add('X' + base_asset)
-                asset_keys_to_try.add('XX' + base_asset)
-                # Add legacy and alt forms
-                if base_asset.startswith('X'):
-                    asset_keys_to_try.add(base_asset[1:])
-                if base_asset.startswith('XX'):
-                    asset_keys_to_try.add(base_asset[2:])
-                # Add all keys from balance for fuzzy matching
-                for k in balance.keys():
-                    asset_keys_to_try.add(k)
+                # Normalize all balance keys and sum totals for each normalized asset
+                normalized_totals = {}
+                contributors = {}
+                for k, v in balance.items():
+                    try:
+                        amount = float(v)
+                    except Exception:
+                        # Skip unparsable entries
+                        continue
+                    norm = self._normalize_asset(k)
+                    if not norm:
+                        continue
+                    normalized_totals.setdefault(norm, 0.0)
+                    normalized_totals[norm] += amount
+                    contributors.setdefault(norm, []).append((k, amount))
 
-                available = 0.0
-                found_key = None
-                for asset_key in asset_keys_to_try:
-                    if asset_key in balance:
-                        try:
-                            available = float(balance[asset_key])
-                            found_key = asset_key
-                            break
-                        except Exception:
-                            continue
+                # Normalize the base_asset for lookup
+                canonical_norm = self._normalize_asset(base_asset)
+
+                available = normalized_totals.get(canonical_norm, 0.0)
+                contrib = contributors.get(canonical_norm, [])
+
+                # Always add an informational warning about available balance (helps debugging)
+                if contrib:
+                    contrib_str = ', '.join([f'{k}={amt}' for k, amt in contrib])
+                    result.add_warning(
+                        config_id,
+                        'balance',
+                        f'Available {base_asset}: {available:.8f} (Contributors: {contrib_str})'
+                    )
 
                 if available < volume:
+                    # If insufficient, add a specific volume warning
                     result.add_warning(
                         config_id,
                         'volume',
                         f'Insufficient {base_asset} balance for sell order. '
                         f'Required: {volume}, Available: {available:.8f}. '
-                        f'(Checked keys: {sorted(asset_keys_to_try)}) You can add funds before the order triggers.'
+                        f'You can add funds before the order triggers.'
                     )
             # For buy orders, we would need to check quote currency (e.g., USD)
             # but this is more complex as we need the price, so we'll skip for now

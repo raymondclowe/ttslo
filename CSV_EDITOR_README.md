@@ -115,7 +115,7 @@ If you try to open a non-existent file, the CSV editor will prompt you to create
 When editing TTSLO configuration files, the expected columns are:
 
 - `id`: Unique identifier for the configuration (must be unique across all rows)
-- `pair`: Kraken trading pair (e.g., XXBTZUSD, XETHZUSD)
+  - `pair`: Kraken trading pair (e.g., `XXBTZUSD`, `XETHZUSD`). Unknown trading pairs are rejected by the editor to prevent invalid configurations; use Kraken pair codes exactly.
 - `threshold_price`: Price threshold that triggers the order
 - `threshold_type`: "above" or "below"
 - `direction`: "buy" or "sell"
@@ -156,7 +156,7 @@ The editor validates pairs against a list of common Kraken trading pairs includi
 - Chainlink: `LINKUSD`, `LINKEUR`
 - Stablecoins: `USDTUSD`, `USDCUSD`, `DAIUSD`
 
-If you use a pair not in this list, you'll see a warning but can still save. Make sure to verify it's a valid Kraken pair before running TTSLO.
+If you use a pair not in this list, the editor will reject the value and you must enter a valid Kraken pair code (for example, `XXBTZUSD` or `XETHZUSD`). This prevents accidental invalid pair formats such as `BTC/USD` or `BTCUSD`.
 
 ## Tips
 

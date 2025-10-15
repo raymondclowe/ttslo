@@ -150,8 +150,8 @@ class EditCellScreen(ModalScreen[str]):
                 'XBTCZUSD', 'ETHZUSD',
             }
             if value.upper() not in known_pairs:
-                # This is a warning, not an error - allow it but inform user
-                return (True, f"Warning: {value} is not in known pairs list")
+                # Treat unknown trading pair as invalid input to prevent accidental bad configs
+                return (False, f"Invalid trading pair: '{value}'. Use Kraken pair codes like XXBTZUSD or XETHZUSD")
         
         
         return (True, "")

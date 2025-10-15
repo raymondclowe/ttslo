@@ -13,7 +13,7 @@ btc_profit_55k,XXBTZUSD,55000,above,sell,0.5,5.0,true
 ```
 
 **What happens:**
-1. TTSLO monitors BTC/USD price every 60 seconds (default)
+1. TTSLO monitors BTC price (Kraken pair `XXBTZUSD`) every 60 seconds (default)
 2. When BTC reaches $55,000, a trailing stop-loss sell order is created
 3. The TSL order trails the price by 5% (follows price up, sells if it drops 5%)
 4. If BTC goes to $60,000, the stop follows to $57,000 (5% below)

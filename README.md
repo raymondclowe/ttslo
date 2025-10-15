@@ -213,7 +213,7 @@ The configuration file defines your trigger conditions and TSL order parameters:
 | Field | Description |
 |-------|-------------|
 | `id` | Unique identifier for this configuration (must be unique) |
-| `pair` | Kraken trading pair (e.g., XXBTZUSD for BTC/USD, XETHZUSD for ETH/USD) |
+| `pair` | Kraken trading pair (e.g., `XXBTZUSD` for BTC/USD, `XETHZUSD` for ETH/USD). Use Kraken pair codes (e.g., `XXBTZUSD`, `XETHZUSD`, `SOLUSD`) to avoid formats like `BTC/USD` or `BTCUSD`. |
 | `threshold_price` | Price threshold that triggers the TSL order |
 | `threshold_type` | Condition type: "above" or "below" |
 | `direction` | TSL order direction: "buy" or "sell" |
@@ -223,6 +223,7 @@ The configuration file defines your trigger conditions and TSL order parameters:
 
 ### State File (state.csv)
 
+
 The state file tracks which triggers have fired. This file is automatically managed by the application:
 
 - `id`: Configuration ID
@@ -230,7 +231,7 @@ The state file tracks which triggers have fired. This file is automatically mana
 - `trigger_price`: Price at which the trigger fired
 - `trigger_time`: Timestamp when trigger fired
 - `order_id`: Kraken order ID for the created TSL order
-- `activated_on`: Timestamp when the rule was activated/triggered (provides log/record of activation)
+- `activated_on`: **Timestamp (ISO format) when the rule was activated/triggered.** This field is set when a trigger condition is met and provides an audit trail of when the rule became active. It is useful for tracking activation times, debugging, and ensuring that triggers are not duplicated. The value persists in the state file and is reloaded on restart.
 - `last_checked`: Last time this configuration was checked
 
 ### Log File (logs.csv)
