@@ -77,7 +77,7 @@ class ConfigManager:
         if not state:
             return
             
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'last_checked']
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked']
         
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -127,25 +127,24 @@ class ConfigManager:
             
             # Write header
             writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 'direction', 
-                           'volume', 'trailing_offset_percent', 'enabled', 'activate_on'])
+                           'volume', 'trailing_offset_percent', 'enabled'])
             
             # Write example rows
-            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true', ''])
-            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true', ''])
-            writer.writerow(['# Example: Trigger sell TSL when BTC goes above $50k with 5% trailing offset', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# id: Unique identifier for this configuration', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# pair: Kraken trading pair (XXBTZUSD for BTC/USD, XETHZUSD for ETH/USD)', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# threshold_price: Price threshold that triggers the TSL order', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# threshold_type: "above" or "below" - condition for threshold', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# direction: "buy" or "sell" - direction of TSL order', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# volume: Amount to trade', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# trailing_offset_percent: Trailing stop offset as percentage (e.g., 5.0 for 5%)', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# enabled: "true" or "false" - whether this config is active', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# activate_on: Optional ISO datetime (YYYY-MM-DDTHH:MM:SS) - only activate after this time', '', '', '', '', '', '', '', ''])
+            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true'])
+            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true'])
+            writer.writerow(['# Example: Trigger sell TSL when BTC goes above $50k with 5% trailing offset', '', '', '', '', '', '', ''])
+            writer.writerow(['# id: Unique identifier for this configuration', '', '', '', '', '', '', ''])
+            writer.writerow(['# pair: Kraken trading pair (XXBTZUSD for BTC/USD, XETHZUSD for ETH/USD)', '', '', '', '', '', '', ''])
+            writer.writerow(['# threshold_price: Price threshold that triggers the TSL order', '', '', '', '', '', '', ''])
+            writer.writerow(['# threshold_type: "above" or "below" - condition for threshold', '', '', '', '', '', '', ''])
+            writer.writerow(['# direction: "buy" or "sell" - direction of TSL order', '', '', '', '', '', '', ''])
+            writer.writerow(['# volume: Amount to trade', '', '', '', '', '', '', ''])
+            writer.writerow(['# trailing_offset_percent: Trailing stop offset as percentage (e.g., 5.0 for 5%)', '', '', '', '', '', '', ''])
+            writer.writerow(['# enabled: "true" or "false" - whether this config is active', '', '', '', '', '', '', ''])
     
     def initialize_state_file(self):
         """Initialize an empty state file with headers."""
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'last_checked']
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked']
         
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)

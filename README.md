@@ -108,12 +108,10 @@ python csv_editor.py config_sample.csv
 
 **Option B: Manual editing**
 ```csv
-id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,activate_on
-btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true,
-eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true,
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
+btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true
+eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true
 ```
-
-Note: The `activate_on` column is optional. Leave it empty for immediate activation, or specify a future datetime to delay activation.
 
 3. Validate your configuration:
 ```bash
@@ -166,7 +164,6 @@ python csv_editor.py yourfile.csv
   - `direction`: must be "buy" or "sell"
   - `enabled`: must be true/false, yes/no, or 1/0
   - `pair`: validates against known Kraken pairs
-  - `activate_on`: validates ISO datetime format
   - `id`: prevents duplicate IDs
 - Add and delete rows
 - Visual notifications for all operations
@@ -223,7 +220,6 @@ The configuration file defines your trigger conditions and TSL order parameters:
 | `volume` | Amount to trade (in base currency) |
 | `trailing_offset_percent` | Trailing stop offset as percentage (e.g., 5.0 for 5%) |
 | `enabled` | "true" or "false" - whether this configuration is active |
-| `activate_on` | Optional ISO datetime (YYYY-MM-DDTHH:MM:SS) - only activate after this time |
 
 ### State File (state.csv)
 
@@ -234,6 +230,7 @@ The state file tracks which triggers have fired. This file is automatically mana
 - `trigger_price`: Price at which the trigger fired
 - `trigger_time`: Timestamp when trigger fired
 - `order_id`: Kraken order ID for the created TSL order
+- `activated_on`: Timestamp when the rule was activated/triggered (provides log/record of activation)
 - `last_checked`: Last time this configuration was checked
 
 ### Log File (logs.csv)

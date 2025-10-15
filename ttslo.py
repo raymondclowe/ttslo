@@ -486,29 +486,6 @@ class TTSLO:
             # Do not process already triggered configs - this prevents duplicate orders
             return
         
-        # Step 5a: Check if activate_on time has been reached
-        activate_on = config.get('activate_on', '').strip()
-        if activate_on:
-            try:
-                from datetime import datetime
-                activate_dt = datetime.fromisoformat(activate_on.replace('Z', '+00:00'))
-                if activate_dt.tzinfo is None:
-                    # Assume UTC if no timezone
-                    activate_dt = activate_dt.replace(tzinfo=timezone.utc)
-                
-                now = datetime.now(timezone.utc)
-                if now < activate_dt:
-                    # Not yet time to activate
-                    self.log('DEBUG', 
-                            f"Config {config_id} not yet active (activate_on={activate_on})",
-                            config_id=config_id)
-                    return
-            except ValueError as e:
-                # Invalid datetime format - log warning but continue
-                self.log('WARNING', 
-                        f"Invalid activate_on format for {config_id}: {activate_on}",
-                        config_id=config_id, error=str(e))
-        
         # Step 6: Get the trading pair
         pair = config.get('pair')
         if not pair:
@@ -579,6 +556,7 @@ class TTSLO:
                     self.state[config_id]['trigger_price'] = str(current_price)
                     self.state[config_id]['trigger_time'] = trigger_time
                     self.state[config_id]['order_id'] = order_id
+                    self.state[config_id]['activated_on'] = trigger_time  # Record when rule was activated
                     
                     self.log('INFO', 
                             f"Successfully triggered config {config_id}",

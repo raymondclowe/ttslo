@@ -11,7 +11,6 @@ The CSV Editor is a standalone text-based user interface (TUI) application built
   - `direction`: must be "buy" or "sell"
   - `enabled`: must be true/false, yes/no, or 1/0
   - `pair`: validates against known Kraken trading pairs (warning if unknown)
-  - `activate_on`: validates ISO datetime format (YYYY-MM-DDTHH:MM:SS)
   - `id`: prevents duplicate IDs across all rows
 - **Row Management**: Add new rows or delete existing rows
 - **Save Functionality**: Save changes back to the CSV file
@@ -123,7 +122,6 @@ When editing TTSLO configuration files, the expected columns are:
 - `volume`: Amount to trade
 - `trailing_offset_percent`: Trailing stop offset percentage
 - `enabled`: "true" or "false"
-- `activate_on`: Optional ISO datetime (YYYY-MM-DDTHH:MM:SS) - leave empty for immediate activation
 
 ## Validation
 
@@ -144,7 +142,6 @@ When editing a cell, the editor validates your input before allowing you to save
 | `direction` | Must be "buy" or "sell" | `buy`, `sell` |
 | `enabled` | Must be boolean-like | `true`, `false`, `yes`, `no`, `1`, `0` |
 | `pair` | Validated against known Kraken pairs | `XXBTZUSD`, `XETHZUSD`, `SOLUSD` |
-| `activate_on` | Must be ISO datetime format or empty | `2025-12-31T23:59:59`, `` (empty) |
 | `id` | Must be unique across all rows | `btc_1`, `eth_trigger_2` |
 
 ### Known Trading Pairs

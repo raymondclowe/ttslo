@@ -153,14 +153,6 @@ class EditCellScreen(ModalScreen[str]):
                 # This is a warning, not an error - allow it but inform user
                 return (True, f"Warning: {value} is not in known pairs list")
         
-        # Validate activate_on (if not empty, should be a valid datetime)
-        elif column_lower == "activate_on":
-            if value.strip():  # Only validate if not empty
-                try:
-                    # Try to parse as ISO format datetime
-                    datetime.fromisoformat(value.replace('Z', '+00:00'))
-                except ValueError:
-                    return (False, f"Must be a valid ISO datetime (YYYY-MM-DDTHH:MM:SS)")
         
         return (True, "")
     
@@ -506,9 +498,9 @@ def main():
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                               'direction', 'volume', 'trailing_offset_percent', 'enabled', 'activate_on'])
-                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true', ''])
-                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true', ''])
+                               'direction', 'volume', 'trailing_offset_percent', 'enabled'])
+                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true'])
+                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true'])
             print(f"Sample file created: {filepath}")
         else:
             print("Exiting without creating file.")
