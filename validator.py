@@ -673,3 +673,32 @@ def format_validation_result(result: ValidationResult, verbose: bool = False) ->
     lines.append("=" * 80)
     
     return "\n".join(lines)
+
+
+def _cli_main():
+    """
+    Minimal CLI for validator.py so it can be executed directly under a debugger.
+
+    This module is primarily a library (provides ConfigValidator and helpers).
+    The CLI here is intentionally lightweight: it shows help and provides a
+    convenience "--dry-run" switch so launching the module from the VSCode
+    debugger or direct `python validator.py` produces visible output.
+    """
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='validator.py - library module for configuration validation (lightweight CLI)'
+    )
+    parser.add_argument('--dry-run', action='store_true', help="No-op run (useful when launching under a debugger)")
+    parser.add_argument('--verbose', action='store_true', help='Show an informational message')
+
+    args = parser.parse_args()
+
+    print("validator.py is a library module. Use ttslo.py as the application entry point (see README).")
+    if args.verbose:
+        print("You ran validator.py with --verbose; this is a lightweight CLI for debugging.")
+    if args.dry_run:
+        print("Dry run: exiting without performing validation.")
+
+
+if __name__ == '__main__':
+    _cli_main()
