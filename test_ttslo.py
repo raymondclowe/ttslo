@@ -607,6 +607,97 @@ def test_activated_on_state_recording():
         print("✓ activated_on state recording tests passed")
 
 
+def test_config_csv_update_on_trigger():
+    """Test that config.csv is updated when a configuration is triggered."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'log.csv')
+        
+        # Create initial config file
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
+                                                    'threshold_type', 'direction', 'volume',
+                                                    'trailing_offset_percent', 'enabled'])
+            writer.writeheader()
+            writer.writerow({
+                'id': 'test1',
+                'pair': 'XXBTZUSD',
+                'threshold_price': '50000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.01',
+                'trailing_offset_percent': '5.0',
+                'enabled': 'true'
+            })
+            writer.writerow({
+                'id': 'test2',
+                'pair': 'XETHZUSD',
+                'threshold_price': '3000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.1',
+                'trailing_offset_percent': '3.5',
+                'enabled': 'true'
+            })
+        
+        cm = ConfigManager(config_file, state_file, log_file)
+        
+        # Mock API
+        mock_api_ro = Mock(spec=KrakenAPI)
+        mock_api_ro.get_current_price.return_value = 51000.0
+        
+        mock_api_rw = Mock(spec=KrakenAPI)
+        mock_api_rw.add_trailing_stop_loss.return_value = {'txid': ['TEST_ORDER_ID_123']}
+        
+        # Create TTSLO instance
+        ttslo = TTSLO(cm, mock_api_ro, kraken_api_readwrite=mock_api_rw, 
+                     dry_run=False, verbose=False)
+        
+        # Load state
+        ttslo.load_state()
+        
+        # Process config - threshold should be met and order created
+        configs = cm.load_config()
+        ttslo.process_config(configs[0], current_price=51000.0)
+        
+        # Verify config.csv was updated
+        updated_configs = cm.load_config()
+        
+        # Find the triggered config
+        triggered_config = None
+        untriggered_config = None
+        for config in updated_configs:
+            if config['id'] == 'test1':
+                triggered_config = config
+            elif config['id'] == 'test2':
+                untriggered_config = config
+        
+        assert triggered_config is not None, "test1 config should exist"
+        assert untriggered_config is not None, "test2 config should exist"
+        
+        # Verify triggered config was updated
+        assert triggered_config['enabled'] == 'false', "enabled should be set to false"
+        assert triggered_config.get('order_id') == 'TEST_ORDER_ID_123', "order_id should be set"
+        assert triggered_config.get('trigger_time') is not None, "trigger_time should be set"
+        assert triggered_config.get('trigger_time') != '', "trigger_time should not be empty"
+        assert triggered_config.get('trigger_price') == '51000.0', "trigger_price should be set"
+        
+        # Verify untriggered config was not modified
+        assert untriggered_config['enabled'] == 'true', "enabled should still be true for untriggered config"
+        assert untriggered_config.get('order_id', '') == '', "order_id should be empty for untriggered config"
+        
+        # Verify the CSV file has the new columns
+        with open(config_file, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            assert 'order_id' in fieldnames, "order_id column should be added"
+            assert 'trigger_time' in fieldnames, "trigger_time column should be added"
+            assert 'trigger_price' in fieldnames, "trigger_price column should be added"
+        
+        print("✓ Config CSV update on trigger tests passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running TTSLO tests...\n")
@@ -622,6 +713,7 @@ def run_all_tests():
         test_fail_safe_threshold_checking()
         test_kraken_api_parameter_validation()
         test_activated_on_state_recording()
+        test_config_csv_update_on_trigger()
         
         print("\n✅ All tests passed!")
         return 0
