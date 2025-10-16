@@ -1,0 +1,27 @@
+curl -L 'https://api.kraken.com/0/private/QueryOrders' \
+-H 'Content-Type: application/json' \
+-H 'Accept: application/json' \
+-H 'API-Key: 1sH9KQNClmVU031IDq5JYwWUp17Ge7eSrL8rpMmZ3j7VG+aST23KrfVi' \
+-H 'API-Sign: J0Qwq4Za4bCcch+sErbHPGvGalEw7E5CsLpx1UkSTHcY3AlztK6CO2trh6IxAQwOkt2u4B7jTwA5l8raABkqUw==' \
+-d '{
+  "nonce": 0,
+  "trades": false,
+  "userref": 0,
+  "txid": "string",
+  "consolidate_taker": true,
+  "rebase_multiplier": "rebased"
+}'
+
+
+open OpenOrders
+
+curl -L 'https://api.kraken.com/0/private/OpenOrders' \
+-H 'Content-Type: application/json' \
+-H 'Accept: application/json' \
+-H 'API-Key: 1sH9KQNClmVU031IDq5JYwWUp17Ge7eSrL8rpMmZ3j7VG+aST23KrfVi' \
+-H 'API-Sign: J0Qwq4Za4bCcch+sErbHPGvGalEw7E5CsLpx1UkSTHcY3AlztK6CO2trh6IxAQwOkt2u4B7jTwA5l8raABkqUw==' \
+-d '{
+  "nonce": 1234567,
+  "trades": true,
+  "cl_ord_id": "9cc788d8-9c00-4b25-94d3-26d93603948d"
+}'
