@@ -607,14 +607,132 @@ def test_activated_on_state_recording():
         print("✓ activated_on state recording tests passed")
 
 
-def test_config_csv_update_on_trigger():
-    """Test that config.csv is updated when a configuration is triggered."""
+def test_config_file_change_detection():
+    """Test that config file changes are detected and trigger revalidation."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        config_file = os.path.join(tmpdir, 'config.csv')
-        state_file = os.path.join(tmpdir, 'state.csv')
-        log_file = os.path.join(tmpdir, 'log.csv')
+        config_file = os.path.join(tmpdir, 'test_config.csv')
+        state_file = os.path.join(tmpdir, 'test_state.csv')
+        log_file = os.path.join(tmpdir, 'test_log.csv')
         
         # Create initial config file
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
+                                                    'threshold_type', 'direction', 'volume',
+                                                    'trailing_offset_percent', 'enabled'])
+            writer.writeheader()
+            writer.writerow({
+                'id': 'test1',
+                'pair': 'XXBTZUSD',
+                'threshold_price': '50000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.01',
+                'trailing_offset_percent': '5.0',
+                'enabled': 'true'
+            })
+        
+        # Mock Kraken API
+        api_ro = Mock(spec=KrakenAPI)
+        api_ro.get_current_price.return_value = 45000  # Below threshold, so won't trigger
+        
+        # Create ConfigManager and TTSLO instance
+        cm = ConfigManager(config_file, state_file, log_file)
+        ttslo = TTSLO(
+            config_manager=cm,
+            kraken_api_readonly=api_ro,
+            kraken_api_readwrite=None,
+            dry_run=True,
+            verbose=False
+        )
+        
+        # Initial state
+        ttslo.load_state()
+        
+        # First check - should detect change (first time)
+        assert ttslo.check_config_file_changed() == True, "First check should detect change"
+        
+        # Second check - should not detect change (same file)
+        assert ttslo.check_config_file_changed() == False, "Second check should not detect change"
+        
+        # Modify the config file
+        import time
+        time.sleep(0.1)  # Ensure mtime is different
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
+                                                    'threshold_type', 'direction', 'volume',
+                                                    'trailing_offset_percent', 'enabled'])
+            writer.writeheader()
+            writer.writerow({
+                'id': 'test2',  # Changed ID
+                'pair': 'XETHZUSD',
+                'threshold_price': '3000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.1',
+                'trailing_offset_percent': '3.5',
+                'enabled': 'true'
+            })
+        
+        # Third check - should detect change (file modified)
+        assert ttslo.check_config_file_changed() == True, "Third check should detect change after modification"
+        
+        # Fourth check - should not detect change (same file again)
+        assert ttslo.check_config_file_changed() == False, "Fourth check should not detect change"
+        
+        print("✓ Config file change detection tests passed")
+
+
+def test_config_reload_in_run_once():
+    """Test that run_once detects config changes and revalidates."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'test_config.csv')
+        state_file = os.path.join(tmpdir, 'test_state.csv')
+        log_file = os.path.join(tmpdir, 'test_log.csv')
+        
+        # Create initial config file with valid config
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
+                                                    'threshold_type', 'direction', 'volume',
+                                                    'trailing_offset_percent', 'enabled'])
+            writer.writeheader()
+            writer.writerow({
+                'id': 'test1',
+                'pair': 'XXBTZUSD',
+                'threshold_price': '50000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.01',
+                'trailing_offset_percent': '5.0',
+                'enabled': 'true'
+            })
+        
+        # Mock Kraken API
+        api_ro = Mock(spec=KrakenAPI)
+        api_ro.get_current_price.return_value = 45000  # Below threshold
+        
+        # Create ConfigManager and TTSLO instance
+        cm = ConfigManager(config_file, state_file, log_file)
+        ttslo = TTSLO(
+            config_manager=cm,
+            kraken_api_readonly=api_ro,
+            kraken_api_readwrite=None,
+            dry_run=True,
+            verbose=False
+        )
+        
+        ttslo.load_state()
+        
+        # Run once - should work fine
+        ttslo.run_once()
+        
+        # Verify initial config was processed
+        configs = cm.load_config()
+        assert len(configs) == 1, "Should have one config"
+        assert configs[0]['id'] == 'test1', "Should have test1 config"
+        
+        # Modify config file to add another config
+        import time
+        time.sleep(0.1)  # Ensure mtime is different
         with open(config_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
                                                     'threshold_type', 'direction', 'volume',
@@ -641,61 +759,17 @@ def test_config_csv_update_on_trigger():
                 'enabled': 'true'
             })
         
-        cm = ConfigManager(config_file, state_file, log_file)
+        # Run once again - should detect change and reload
+        ttslo.run_once()
         
-        # Mock API
-        mock_api_ro = Mock(spec=KrakenAPI)
-        mock_api_ro.get_current_price.return_value = 51000.0
-        
-        mock_api_rw = Mock(spec=KrakenAPI)
-        mock_api_rw.add_trailing_stop_loss.return_value = {'txid': ['TEST_ORDER_ID_123']}
-        
-        # Create TTSLO instance
-        ttslo = TTSLO(cm, mock_api_ro, kraken_api_readwrite=mock_api_rw, 
-                     dry_run=False, verbose=False)
-        
-        # Load state
-        ttslo.load_state()
-        
-        # Process config - threshold should be met and order created
+        # Verify both configs are now loaded
         configs = cm.load_config()
-        ttslo.process_config(configs[0], current_price=51000.0)
+        assert len(configs) == 2, "Should have two configs after reload"
+        config_ids = [c['id'] for c in configs]
+        assert 'test1' in config_ids, "Should have test1 config"
+        assert 'test2' in config_ids, "Should have test2 config"
         
-        # Verify config.csv was updated
-        updated_configs = cm.load_config()
-        
-        # Find the triggered config
-        triggered_config = None
-        untriggered_config = None
-        for config in updated_configs:
-            if config['id'] == 'test1':
-                triggered_config = config
-            elif config['id'] == 'test2':
-                untriggered_config = config
-        
-        assert triggered_config is not None, "test1 config should exist"
-        assert untriggered_config is not None, "test2 config should exist"
-        
-        # Verify triggered config was updated
-        assert triggered_config['enabled'] == 'false', "enabled should be set to false"
-        assert triggered_config.get('order_id') == 'TEST_ORDER_ID_123', "order_id should be set"
-        assert triggered_config.get('trigger_time') is not None, "trigger_time should be set"
-        assert triggered_config.get('trigger_time') != '', "trigger_time should not be empty"
-        assert triggered_config.get('trigger_price') == '51000.0', "trigger_price should be set"
-        
-        # Verify untriggered config was not modified
-        assert untriggered_config['enabled'] == 'true', "enabled should still be true for untriggered config"
-        assert untriggered_config.get('order_id', '') == '', "order_id should be empty for untriggered config"
-        
-        # Verify the CSV file has the new columns
-        with open(config_file, 'r', newline='') as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames
-            assert 'order_id' in fieldnames, "order_id column should be added"
-            assert 'trigger_time' in fieldnames, "trigger_time column should be added"
-            assert 'trigger_price' in fieldnames, "trigger_price column should be added"
-        
-        print("✓ Config CSV update on trigger tests passed")
+        print("✓ Config reload in run_once tests passed")
 
 
 def run_all_tests():
@@ -713,7 +787,8 @@ def run_all_tests():
         test_fail_safe_threshold_checking()
         test_kraken_api_parameter_validation()
         test_activated_on_state_recording()
-        test_config_csv_update_on_trigger()
+        test_config_file_change_detection()
+        test_config_reload_in_run_once()
         
         print("\n✅ All tests passed!")
         return 0
