@@ -644,6 +644,15 @@ class TTSLO:
             self.log('ERROR', 'Configuration manager is not initialized')
             return False
         
+        # Step 1a: Update the config file mtime so we don't re-validate unnecessarily
+        # This happens after startup validation or when called explicitly
+        config_file = self.config_manager.config_file
+        if os.path.exists(config_file):
+            try:
+                self.config_file_mtime = os.path.getmtime(config_file)
+            except Exception:
+                pass  # Ignore errors, will be caught later if needed
+        
         # Step 2: Attempt to load configurations from file
         try:
             configs = self.config_manager.load_config()
