@@ -142,6 +142,56 @@ def test_dry_run_mode():
         print("✓ Dry-run mode tests passed")
 
 
+def test_dry_run_does_not_update_state():
+    """Test that dry-run mode does not update state file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'log.csv')
+        
+        # Create a test config file
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
+                                                    'threshold_type', 'direction', 'volume',
+                                                    'trailing_offset_percent', 'enabled'])
+            writer.writeheader()
+            writer.writerow({
+                'id': 'test1',
+                'pair': 'XXBTZUSD',
+                'threshold_price': '50000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.01',
+                'trailing_offset_percent': '5.0',
+                'enabled': 'true'
+            })
+        
+        cm = ConfigManager(config_file, state_file, log_file)
+        api_ro = Mock(spec=KrakenAPI)
+        api_ro.get_current_price.return_value = 51000  # Above threshold
+        
+        # Create TTSLO in dry-run mode
+        ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=None, dry_run=True, verbose=False)
+        ttslo.load_state()
+        
+        # Run once (should trigger)
+        ttslo.run_once()
+        
+        # Check that state file was NOT created
+        assert not os.path.exists(state_file), "State file should not be created in dry-run mode"
+        
+        # Check that in-memory state was NOT updated to triggered=true
+        assert 'test1' in ttslo.state, "Config should be initialized in state"
+        assert ttslo.state['test1'].get('triggered') != 'true', \
+            "State should not be marked as triggered in dry-run mode"
+        
+        # Verify last_checked was still updated (for tracking purposes)
+        assert ttslo.state['test1'].get('last_checked'), \
+            "last_checked should be updated even in dry-run mode"
+        
+        print("✓ Dry-run state preservation tests passed")
+
+
 def test_missing_readwrite_credentials():
     """Test behavior when read-write credentials are missing."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -615,6 +665,7 @@ def run_all_tests():
         test_config_manager()
         test_threshold_checking()
         test_dry_run_mode()
+        test_dry_run_does_not_update_state()
         test_missing_readwrite_credentials()
         test_kraken_api_signature()
         test_config_validator()
