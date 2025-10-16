@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import csv
+import json
 from unittest.mock import Mock, patch
 
 # Add parent directory to path
@@ -176,10 +177,11 @@ def test_kraken_api_signature():
     api = KrakenAPI(api_key='test_key', api_secret='dGVzdF9zZWNyZXQ=')  # base64 of 'test_secret'
     
     urlpath = '/0/private/Balance'
-    data = {'nonce': '1234567890'}
+    nonce = '1234567890'
+    data = json.dumps({'nonce': nonce})
     
     # Just verify it doesn't crash
-    signature = api._get_kraken_signature(urlpath, data)
+    signature = api._get_kraken_signature(urlpath, data, nonce)
     assert isinstance(signature, str), "Signature should be a string"
     assert len(signature) > 0, "Signature should not be empty"
     

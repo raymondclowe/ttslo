@@ -6,6 +6,7 @@ import hmac
 import base64
 import time
 import urllib.parse
+import json
 import requests
 
 
@@ -25,19 +26,20 @@ class KrakenAPI:
         self.api_secret = api_secret
         self.base_url = base_url
         
-    def _get_kraken_signature(self, urlpath, data):
+    def _get_kraken_signature(self, urlpath, data, nonce):
         """
         Generate Kraken API signature for authentication.
         
         Args:
             urlpath: API endpoint path
-            data: Request data dictionary
+            data: Request data as JSON string
+            nonce: Nonce value
             
         Returns:
             Base64 encoded signature
         """
-        postdata = urllib.parse.urlencode(data)
-        encoded = (str(data['nonce']) + postdata).encode()
+        # Signature = HMAC-SHA512 of (URI path + SHA256(nonce + POST data)) and base64 decoded secret API key
+        encoded = (str(nonce) + data).encode()
         message = urlpath.encode() + hashlib.sha256(encoded).digest()
         
         mac = hmac.new(base64.b64decode(self.api_secret), message, hashlib.sha512)
@@ -78,14 +80,19 @@ class KrakenAPI:
         url = f"{self.base_url}{urlpath}"
         
         data = params or {}
-        data['nonce'] = str(int(time.time() * 1000))
+        nonce = str(int(time.time() * 1000))
+        data['nonce'] = nonce
+        
+        # Convert to JSON string for the request body
+        json_data = json.dumps(data)
         
         headers = {
             'API-Key': self.api_key,
-            'API-Sign': self._get_kraken_signature(urlpath, data)
+            'API-Sign': self._get_kraken_signature(urlpath, json_data, nonce),
+            'Content-Type': 'application/json'
         }
         
-        response = requests.post(url, headers=headers, data=data)
+        response = requests.post(url, headers=headers, data=json_data)
         response.raise_for_status()
         return response.json()
     
@@ -290,6 +297,7 @@ class KrakenAPI:
         
         # Format trailing offset with sign and percentage
         # Example: 5.0 becomes "+5.0%"
+        # For trailing stop orders, this is passed as 'price' parameter
         trailingoffset_str = f"{offset_float:+.1f}%"
         
         # Create parameters dictionary
@@ -298,7 +306,7 @@ class KrakenAPI:
             'type': direction_lower,
             'ordertype': 'trailing-stop',
             'volume': volume_str,
-            'trailingoffset': trailingoffset_str
+            'price': trailingoffset_str  # Trailing offset is passed as 'price' for trailing-stop orders
         }
         
         # Step 6: Add any additional parameters
@@ -372,6 +380,84 @@ class KrakenAPI:
             params['asset'] = asset
             
         result = self._query_private('TradeBalance', params)
+        
+        if result.get('error'):
+            raise Exception(f"Kraken API error: {result['error']}")
+            
+        return result.get('result', {})
+    
+    def query_open_orders(self, trades=False, userref=None):
+        """
+        Query information about currently open orders.
+        
+        Args:
+            trades: Whether or not to include trades related to position in output
+            userref: Restrict results to given user reference id
+            
+        Returns:
+            Dictionary containing open orders information
+        """
+        params = {}
+        if trades:
+            params['trades'] = trades
+        if userref is not None:
+            params['userref'] = userref
+            
+        result = self._query_private('OpenOrders', params)
+        
+        if result.get('error'):
+            raise Exception(f"Kraken API error: {result['error']}")
+            
+        return result.get('result', {})
+    
+    def cancel_order(self, txid):
+        """
+        Cancel an open order.
+        
+        Args:
+            txid: Transaction ID or client order ID of order to cancel
+            
+        Returns:
+            Dictionary containing cancellation result
+        """
+        if not txid:
+            raise ValueError("txid parameter is required")
+            
+        params = {'txid': txid}
+        result = self._query_private('CancelOrder', params)
+        
+        if result.get('error'):
+            raise Exception(f"Kraken API error: {result['error']}")
+            
+        return result.get('result', {})
+    
+    def edit_order(self, txid, pair=None, volume=None, price=None, **kwargs):
+        """
+        Edit an open order.
+        
+        Args:
+            txid: Transaction ID of order to edit
+            pair: Asset pair (optional, but recommended)
+            volume: New order volume (optional)
+            price: New order price (optional)
+            **kwargs: Additional order parameters
+            
+        Returns:
+            Dictionary containing edit result
+        """
+        if not txid:
+            raise ValueError("txid parameter is required")
+            
+        params = {'txid': txid}
+        if pair:
+            params['pair'] = pair
+        if volume is not None:
+            params['volume'] = str(volume)
+        if price is not None:
+            params['price'] = str(price)
+        params.update(kwargs)
+        
+        result = self._query_private('EditOrder', params)
         
         if result.get('error'):
             raise Exception(f"Kraken API error: {result['error']}")
