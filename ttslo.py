@@ -569,40 +569,31 @@ class TTSLO:
             
             # Step 14: Check if order was created successfully
             if order_id:
-                # Order created successfully - update state
-                try:
-                    trigger_time = datetime.now(timezone.utc).isoformat()
-                    self.state[config_id]['triggered'] = 'true'
-                    self.state[config_id]['trigger_price'] = str(current_price)
-                    self.state[config_id]['trigger_time'] = trigger_time
-                    self.state[config_id]['order_id'] = order_id
-                    self.state[config_id]['activated_on'] = trigger_time  # Record when rule was activated
-                    
-                    # Update config.csv with trigger information
+                # SAFETY: In dry-run mode, do not update state
+                # This ensures dry-run doesn't modify state.csv
+                if not self.dry_run:
+                    # Order created successfully - update state
                     try:
-                        self.config_manager.update_config_on_trigger(
-                            config_id=config_id,
-                            order_id=order_id,
-                            trigger_time=trigger_time,
-                            trigger_price=str(current_price)
-                        )
+                        trigger_time = datetime.now(timezone.utc).isoformat()
+                        self.state[config_id]['triggered'] = 'true'
+                        self.state[config_id]['trigger_price'] = str(current_price)
+                        self.state[config_id]['trigger_time'] = trigger_time
+                        self.state[config_id]['order_id'] = order_id
+                        self.state[config_id]['activated_on'] = trigger_time  # Record when rule was activated
+                        
                         self.log('INFO', 
-                                f"Updated config.csv for triggered config {config_id}",
-                                config_id=config_id)
+                                f"Successfully triggered config {config_id}",
+                                config_id=config_id, order_id=order_id)
                     except Exception as e:
-                        # Log error but don't fail - state was updated successfully
+                        # Log error updating state, but order was created
                         self.log('ERROR', 
-                                f"Failed to update config.csv for {config_id}: {str(e)}",
-                                config_id=config_id, error=str(e))
-                    
+                                f"Order created but failed to update state: {str(e)}",
+                                config_id=config_id, order_id=order_id, error=str(e))
+                else:
+                    # In dry-run mode, just log what would happen
                     self.log('INFO', 
-                            f"Successfully triggered config {config_id}",
+                            f"[DRY RUN] Would mark config {config_id} as triggered",
                             config_id=config_id, order_id=order_id)
-                except Exception as e:
-                    # Log error updating state, but order was created
-                    self.log('ERROR', 
-                            f"Order created but failed to update state: {str(e)}",
-                            config_id=config_id, order_id=order_id, error=str(e))
             else:
                 # Order creation failed - order_id is None
                 # Log that order was not created
@@ -837,13 +828,17 @@ class TTSLO:
                         f'Unexpected exception processing config {config_id}: {str(e)}',
                         config_id=config_id, error=str(e))
         
-        # Step 8: Save state after processing all configs
-        try:
-            self.save_state()
-        except Exception as e:
-            # Log error but don't crash - state will be saved next iteration
-            self.log('ERROR', f'Failed to save state: {str(e)}',
-                    error=str(e))
+        # Step 6: Save state after processing all configs
+        # SAFETY: In dry-run mode, do not save state to disk
+        if not self.dry_run:
+            try:
+                self.save_state()
+            except Exception as e:
+                # Log error but don't crash - state will be saved next iteration
+                self.log('ERROR', f'Failed to save state: {str(e)}',
+                        error=str(e))
+        else:
+            self.log('DEBUG', '[DRY RUN] Not saving state to disk')
     
     def run_continuous(self, interval=60):
         """
