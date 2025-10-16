@@ -101,7 +101,7 @@ uv run ttslo.py --create-sample-config
 
 **Option A: Using the CSV Editor TUI**
 ```bash
-python csv_editor.py config_sample.csv
+uv run python csv_editor.py config_sample.csv
 # Edit the file, then press Ctrl+S to save
 # Copy or rename to config.csv
 ```
@@ -136,13 +136,13 @@ TTSLO includes an interactive TUI (Text User Interface) for editing configuratio
 
 ```bash
 # Edit the main config file
-python csv_editor.py config.csv
+uv run python csv_editor.py config.csv
 
 # Edit the sample config
-python csv_editor.py config_sample.csv
+uv run python csv_editor.py config_sample.csv
 
 # Edit any CSV file
-python csv_editor.py yourfile.csv
+uv run python csv_editor.py yourfile.csv
 ```
 
 ### Key Bindings
@@ -238,47 +238,9 @@ The state file tracks which triggers have fired. This file is automatically mana
 
 All events are logged to this CSV file with timestamps, log levels, and relevant details.
 
-```bash
+## Command Line Options
 
-## CSV Editor
-
-TTSLO includes an interactive TUI (Text User Interface) for editing configuration files. The CSV editor provides a user-friendly way to view and modify your configuration without manually editing CSV files.
-
-### Usage
-
-```bash
-# Edit the main config file
-python csv_editor.py config.csv
-
-# Edit the sample config
-python csv_editor.py config_sample.csv
-
-# Edit any CSV file
-python csv_editor.py yourfile.csv
-```
-
-### Key Bindings
-
-- `Ctrl+S`: Save the CSV file
-- `Ctrl+Q`: Quit the application
-- `Ctrl+N`: Add a new row
-- `Ctrl+D`: Delete the current row
-- `Enter`: Edit the selected cell
-- `Arrow Keys`: Navigate the table
-- `Tab/Shift+Tab`: Navigate between cells
-
-### Features
-
-- Interactive table view with color-coded rows
-- Modal dialog for editing cell values
-- Add and delete rows
-- Visual notifications for all operations
-- Keyboard-driven workflow
-
-For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
-
-## Safety and Security
-```
+```text
 --config FILE           Configuration file (default: config.csv)
 --state FILE            State file (default: state.csv)
 --log FILE              Log file (default: logs.csv)
@@ -289,6 +251,14 @@ For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
 --create-sample-config  Create a sample configuration file and exit
 --validate-config       Validate configuration file and exit (shows what will be executed)
 --env-file FILE         Path to .env file (default: .env)
+```
+
+## Testing
+
+Run the full test suite inside the uv-managed environment to verify Kraken API and TTSLO integrations:
+
+```bash
+uv run pytest -q
 ```
 
 ## Kraken API Setup

@@ -149,3 +149,55 @@ class ConfigManager:
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
+    
+    def update_config_on_trigger(self, config_id, order_id, trigger_time, trigger_price):
+        """
+        Update configuration file when a config is triggered.
+        
+        Updates the row with the given config_id to:
+        - Set enabled='false'
+        - Add/update order_id
+        - Add/update trigger_time
+        - Add/update trigger_price
+        
+        Args:
+            config_id: ID of the configuration to update
+            order_id: Kraken order ID from the triggered order
+            trigger_time: ISO format timestamp when trigger occurred
+            trigger_price: Price at which the trigger occurred
+        """
+        if not os.path.exists(self.config_file):
+            return
+        
+        # Read all rows
+        rows = []
+        fieldnames = None
+        with open(self.config_file, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            
+            # Ensure we have the new columns in fieldnames
+            if fieldnames:
+                fieldnames = list(fieldnames)
+                if 'order_id' not in fieldnames:
+                    fieldnames.append('order_id')
+                if 'trigger_time' not in fieldnames:
+                    fieldnames.append('trigger_time')
+                if 'trigger_price' not in fieldnames:
+                    fieldnames.append('trigger_price')
+            
+            for row in reader:
+                # Update the matching row
+                if row.get('id') == config_id:
+                    row['enabled'] = 'false'
+                    row['order_id'] = order_id
+                    row['trigger_time'] = trigger_time
+                    row['trigger_price'] = trigger_price
+                rows.append(row)
+        
+        # Write all rows back
+        if fieldnames:
+            with open(self.config_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
