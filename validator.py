@@ -161,23 +161,38 @@ class ConfigValidator:
                              'Consider using a shorter ID')
     
     def _validate_pair(self, config: Dict, config_id: str, result: ValidationResult):
-        """Validate the trading pair."""
+        """Validate the trading pair, including live Kraken pair check."""
         pair = config.get('pair', '').strip().upper()
         if not pair:
             return  # Already caught by required fields
-        
-        # Check if it's a known pair
+
+        # Check if it's a known pair (legacy warning)
         if pair not in self.KNOWN_PAIRS:
-            result.add_warning(config_id, 'pair', 
-                             f'Trading pair "{pair}" is not in the list of known pairs. '
-                             f'Please verify this is a valid Kraken pair. '
-                             f'Common examples: XXBTZUSD (BTC/USD), XETHZUSD (ETH/USD), SOLUSD (SOL/USD)')
-        
+            result.add_warning(
+                config_id, 'pair',
+                f'Trading pair "{pair}" is not in the list of known pairs. '
+                f'Please verify this is a valid Kraken pair. '
+                f'Common examples: XXBTZUSD (BTC/USD), XETHZUSD (ETH/USD), XXBTUSDT (BTC/USDT)')
+
         # Check format
         if not re.match(r'^[A-Z0-9]+$', pair):
-            result.add_error(config_id, 'pair', 
-                           f'Trading pair "{pair}" has invalid format. '
-                           'It should only contain uppercase letters and numbers')
+            result.add_error(config_id, 'pair',
+                f'Trading pair "{pair}" has invalid format. '
+                'It should only contain uppercase letters and numbers')
+
+        # Live Kraken pair validation (if possible)
+        try:
+            from kraken_pairs_util import fetch_kraken_pairs
+            live_pairs = fetch_kraken_pairs()
+            if pair not in live_pairs:
+                result.add_error(
+                    config_id, 'pair',
+                    f'Trading pair "{pair}" is NOT a valid Kraken pair (checked live). '
+                    f'Check https://api.kraken.com/0/public/AssetPairs for valid pairs.')
+        except Exception as e:
+            result.add_warning(
+                config_id, 'pair',
+                f'Could not check live Kraken pairs: {e}')
     
     def _validate_threshold_price(self, config: Dict, config_id: str, 
                                   result: ValidationResult):

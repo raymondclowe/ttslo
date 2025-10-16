@@ -56,7 +56,7 @@ class TestKrakenAPIPublic:
         mock_response = MockResponse({
             "error": [],
             "result": {
-                "XXBTZUSD": {
+                "XXBTUSDT": {
                     "a": ["50000.00000", "1", "1.000"],
                     "b": ["49999.00000", "2", "2.000"],
                     "c": ["50000.50000", "0.00100000"],
@@ -70,12 +70,10 @@ class TestKrakenAPIPublic:
             }
         })
         mock_get.return_value = mock_response
-        
         api = KrakenAPI()
-        result = api.get_ticker('XXBTZUSD')
-        
-        assert 'XXBTZUSD' in result
-        assert result['XXBTZUSD']['c'][0] == "50000.50000"
+        result = api.get_ticker('XXBTUSDT')
+        assert 'XXBTUSDT' in result
+        assert result['XXBTUSDT']['c'][0] == "50000.50000"
         mock_get.assert_called_once()
     
     @patch('kraken_api.requests.get')
@@ -96,7 +94,7 @@ class TestKrakenAPIPublic:
         mock_response = MockResponse({
             "error": [],
             "result": {
-                "XXBTZUSD": {
+                "XBTUSDT": {
                     "c": ["50000.50000", "0.00100000"]
                 }
             }
@@ -104,8 +102,7 @@ class TestKrakenAPIPublic:
         mock_get.return_value = mock_response
         
         api = KrakenAPI()
-        price = api.get_current_price('XXBTZUSD')
-        
+        price = api.get_current_price('XXBTUSDT')
         assert price == 50000.50000
         mock_get.assert_called_once()
     
@@ -140,7 +137,7 @@ class TestKrakenAPIPrivate:
             "error": [],
             "result": {
                 "XXBT": "10.5000",
-                "ZUSD": "50000.0000"
+                "USDT": "50000.0000"
             }
         })
         mock_post.return_value = mock_response
@@ -149,7 +146,7 @@ class TestKrakenAPIPrivate:
         result = api.get_balance()
         
         assert result['XXBT'] == "10.5000"
-        assert result['ZUSD'] == "50000.0000"
+    assert result['USDT'] == "50000.0000"
         
         # Verify the request was made with JSON content type
         call_args = mock_post.call_args
@@ -177,7 +174,7 @@ class TestKrakenAPIPrivate:
                     "ORDER-ID-1": {
                         "status": "open",
                         "descr": {
-                            "pair": "XBTUSDT",
+                            "pair": "XXBTUSDT",
                             "type": "buy",
                             "ordertype": "limit",
                             "price": "50000.0"
@@ -281,7 +278,7 @@ class TestKrakenAPIPrivate:
             "error": [],
             "result": {
                 "descr": {
-                    "order": "buy 0.1 XBTUSDT @ limit 50000.0"
+                    "order": "buy 0.1 XXBTUSDT @ limit 50000.0"
                 },
                 "txid": ["NEW-ORDER-ID"]
             }
@@ -297,7 +294,7 @@ class TestKrakenAPIPrivate:
         # Verify parameters were included correctly
         call_args = mock_post.call_args
         request_data = json.loads(call_args[1]['data'])
-        assert request_data['pair'] == 'XBTUSDT'
+        assert request_data['pair'] == 'XXBTUSDT'
         assert request_data['type'] == 'buy'
         assert request_data['ordertype'] == 'limit'
         assert request_data['volume'] == '0.1'
@@ -310,7 +307,7 @@ class TestKrakenAPIPrivate:
             "error": [],
             "result": {
                 "descr": {
-                    "order": "sell 0.1 XBTUSDT @ trailing stop +5.0%"
+                    "order": "sell 0.1 XXBTUSDT @ trailing stop +5.0%"
                 },
                 "txid": ["TRAILING-ORDER-ID"]
             }

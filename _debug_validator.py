@@ -12,12 +12,12 @@ class FakeKrakenAPI:
 
 api = FakeKrakenAPI(
     balance={'XBT.F': '0.0106906064', 'XXBT': '0.0'},
-    prices={'XXBTZUSD': Decimal('129000')}
+    prices={'XBTUSDT': Decimal('129000')}
 )
 validator = ConfigValidator(kraken_api=api)
 config = {
     'id': 'btc_1',
-    'pair': 'XXBTZUSD',
+    'pair': 'XBTUSDT',
     'threshold_price': '130000',
     'threshold_type': 'above',
     'direction': 'sell',
