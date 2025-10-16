@@ -578,6 +578,23 @@ class TTSLO:
                     self.state[config_id]['order_id'] = order_id
                     self.state[config_id]['activated_on'] = trigger_time  # Record when rule was activated
                     
+                    # Update config.csv with trigger information
+                    try:
+                        self.config_manager.update_config_on_trigger(
+                            config_id=config_id,
+                            order_id=order_id,
+                            trigger_time=trigger_time,
+                            trigger_price=str(current_price)
+                        )
+                        self.log('INFO', 
+                                f"Updated config.csv for triggered config {config_id}",
+                                config_id=config_id)
+                    except Exception as e:
+                        # Log error but don't fail - state was updated successfully
+                        self.log('ERROR', 
+                                f"Failed to update config.csv for {config_id}: {str(e)}",
+                                config_id=config_id, error=str(e))
+                    
                     self.log('INFO', 
                             f"Successfully triggered config {config_id}",
                             config_id=config_id, order_id=order_id)
