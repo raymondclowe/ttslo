@@ -18,6 +18,13 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Map .env keys to expected test environment variables
+os.environ['COPILOT_W_KR_RW_PUBLIC'] = os.environ.get('KRAKEN_API_KEY_RW', '')
+os.environ['COPILOT_W_KR_RW_SECRET'] = os.environ.get('KRAKEN_API_SECRET_RW', '')
 
 from kraken_api import KrakenAPI
 
