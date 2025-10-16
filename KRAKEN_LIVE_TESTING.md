@@ -99,11 +99,15 @@ uv run pytest test_kraken_api_live.py::TestKrakenAPILive::test_01_live_add_query
 
 ## Test Scenarios
 
-### Test 1: Complete Order Lifecycle
+The test suite includes **6 comprehensive tests**: 3 for sell orders and 3 equivalent buy order tests.
+
+### Sell Order Tests (BTC/USD)
+
+### Test 1: Complete Sell Order Lifecycle
 
 **test_01_live_add_query_modify_cancel_limit_order**
 
-Tests the full lifecycle of a limit order:
+Tests the full lifecycle of a limit sell order:
 
 1. **Add** limit sell order at 10% above market
 2. **Query** to verify order was created
@@ -151,6 +155,63 @@ Tests handling multiple orders:
 - Type: Limit sell (all orders)
 - Volumes: 0.00011025, 0.00011576, 0.00012155 BTC
 - Price: Current market + 10%
+
+### Buy Order Tests (BTC/USDT)
+
+### Test 4: Complete Buy Order Lifecycle
+
+**test_04_live_buy_limit_order_lifecycle**
+
+Tests the full lifecycle of a limit buy order:
+
+1. **Add** limit buy order at 10% below market
+2. **Query** to verify order was created
+3. **Modify** order (change volume)
+4. **Query** to verify modification
+5. **Cancel** order
+6. **Query** to verify cancellation
+
+**Order Details**:
+- Pair: BTC/USDT
+- Type: Limit buy
+- Volume: 0.000134 BTC
+- Price: Current market - 10%
+
+**Note**: Uses BTC/USDT pair since account has USDT balance for buy orders.
+
+### Test 5: Buy Trailing Stop Order
+
+**test_05_live_buy_trailing_stop_and_cancel**
+
+Tests buy trailing stop orders:
+
+1. **Add** trailing stop buy order with 10% offset
+2. **Query** to verify order was created
+3. **Cancel** order
+4. **Query** to verify cancellation
+
+**Order Details**:
+- Pair: BTC/USDT
+- Type: Trailing stop buy
+- Volume: 0.000141 BTC
+- Offset: +10%
+
+### Test 6: Multiple Buy Orders
+
+**test_06_live_multiple_buy_orders_batch_cancel**
+
+Tests handling multiple buy orders:
+
+1. **Add** 3 limit buy orders with different volumes
+2. **Query** to verify all were created
+3. **Cancel** all orders one by one
+4. **Query** to verify all were cancelled
+
+**Order Details**:
+- Pair: BTC/USDT
+- Type: Limit buy (all orders)
+- Volumes: 0.000148, 0.000155, 0.000163 BTC
+- Price: Current market - 10%
 
 ## Log File Format
 
@@ -267,10 +328,10 @@ Run tests during periods of lower market volatility to ensure prices don't move 
 
 ### 4. Check Account Balance First
 
-Ensure account has sufficient BTC before running tests:
-- Minimum: 0.0001 BTC + small margin for fees
-- Recommended: 0.001 BTC for safety
-- USD balance not required (tests use sell orders)
+Ensure account has sufficient balances before running tests:
+- **BTC**: Minimum 0.0001 BTC + margin for fees (for sell order tests)
+- **USDT**: Minimum ~15 USDT (for buy order tests at ~$100k BTC price)
+- Recommended: 0.001 BTC and 150 USDT for safety
 
 ### 5. Don't Run Concurrently
 
@@ -280,13 +341,19 @@ Don't run multiple instances of live tests simultaneously - they may interfere w
 
 Each test run creates and cancels multiple orders:
 
-- **Test 1**: 1 order (add, modify, cancel)
-- **Test 2**: 1 order (add, cancel)  
-- **Test 3**: 3 orders (add, cancel)
+**Sell Order Tests:**
+- **Test 1**: 1 sell order (add, modify, cancel)
+- **Test 2**: 1 sell order (add, cancel)  
+- **Test 3**: 3 sell orders (add, cancel)
 
-**Total**: ~5 orders per full test run
+**Buy Order Tests:**
+- **Test 4**: 1 buy order (add, modify, cancel)
+- **Test 5**: 1 buy order (add, cancel)  
+- **Test 6**: 3 buy orders (add, cancel)
 
-**Cost**: Zero if no orders execute (by design). Minimal fees (< $0.10) if an order unexpectedly executes due to extreme price movement.
+**Total**: ~10 orders per full test run (5 sell + 5 buy)
+
+**Cost**: Zero if no orders execute (by design). Minimal fees (< $0.20) if an order unexpectedly executes due to extreme price movement.
 
 ## Integration with CI/CD
 
