@@ -180,6 +180,12 @@ def test_dry_run_does_not_update_state():
         # Check that state file was NOT created
         assert not os.path.exists(state_file), "State file should not be created in dry-run mode"
         
+        # Check that config.csv was NOT modified
+        configs_after = cm.load_config()
+        assert len(configs_after) == 1, "Should still have one config"
+        assert configs_after[0]['enabled'] == 'true', "Config should still be enabled in dry-run mode"
+        assert 'order_id' not in configs_after[0], "Config should not have order_id in dry-run mode"
+        
         # Check that in-memory state was NOT updated to triggered=true
         assert 'test1' in ttslo.state, "Config should be initialized in state"
         assert ttslo.state['test1'].get('triggered') != 'true', \
@@ -822,6 +828,134 @@ def test_config_reload_in_run_once():
         print("✓ Config reload in run_once tests passed")
 
 
+def test_config_csv_update_on_trigger():
+    """Test that config.csv is updated when a configuration is triggered."""
+    import tempfile
+    import os
+    import csv
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'logs.csv')
+        
+        # Create initial config
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
+                                                    'threshold_type', 'direction', 'volume',
+                                                    'trailing_offset_percent', 'enabled'])
+            writer.writeheader()
+            writer.writerow({
+                'id': 'test1',
+                'pair': 'XXBTZUSD',
+                'threshold_price': '50000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.01',
+                'trailing_offset_percent': '5.0',
+                'enabled': 'true'
+            })
+        
+        # Create ConfigManager and test the update method
+        cm = ConfigManager(config_file, state_file, log_file)
+        
+        # Test the update_config_on_trigger method directly
+        cm.update_config_on_trigger(
+            config_id='test1',
+            order_id='TEST_ORDER_123',
+            trigger_time='2025-10-16T12:00:00.000000+00:00',
+            trigger_price='51000.0'
+        )
+        
+        # Verify config was updated
+        configs = cm.load_config()
+        assert len(configs) == 1, "Should have one config"
+        config = configs[0]
+        assert config['id'] == 'test1', "Should have test1 config"
+        assert config['enabled'] == 'false', "Config should be disabled"
+        assert config['order_id'] == 'TEST_ORDER_123', "Order ID should be set"
+        assert config['trigger_time'] == '2025-10-16T12:00:00.000000+00:00', "Trigger time should be set"
+        assert config['trigger_price'] == '51000.0', "Trigger price should be set"
+        
+        # Verify fieldnames include new columns
+        with open(config_file, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            assert 'order_id' in fieldnames, "order_id column should exist"
+            assert 'trigger_time' in fieldnames, "trigger_time column should exist"
+            assert 'trigger_price' in fieldnames, "trigger_price column should exist"
+        
+        print("✓ Config CSV update on trigger test passed")
+
+
+def test_config_csv_update_integration():
+    """Test that config.csv is updated when process_config creates an order."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'logs.csv')
+        
+        # Create initial config
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
+                                                    'threshold_type', 'direction', 'volume',
+                                                    'trailing_offset_percent', 'enabled'])
+            writer.writeheader()
+            writer.writerow({
+                'id': 'test1',
+                'pair': 'XXBTZUSD',
+                'threshold_price': '50000',
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': '0.01',
+                'trailing_offset_percent': '5.0',
+                'enabled': 'true'
+            })
+        
+        # Mock Kraken API - simulate successful order creation
+        api_ro = Mock(spec=KrakenAPI)
+        api_ro.get_current_price.return_value = 51000  # Above threshold
+        
+        api_rw = Mock(spec=KrakenAPI)
+        api_rw.add_trailing_stop_loss.return_value = {'txid': ['TEST_ORDER_123']}
+        
+        # Create ConfigManager and TTSLO instance
+        cm = ConfigManager(config_file, state_file, log_file)
+        ttslo = TTSLO(
+            config_manager=cm,
+            kraken_api_readonly=api_ro,
+            kraken_api_readwrite=api_rw,
+            dry_run=False,  # Normal mode
+            verbose=False
+        )
+        
+        ttslo.load_state()
+        
+        # Get the config and process it
+        configs = cm.load_config()
+        config = configs[0]
+        
+        # Process the config (should trigger and create order)
+        ttslo.process_config(config, current_price=51000)
+        
+        # Verify config.csv was updated
+        configs_after = cm.load_config()
+        assert len(configs_after) == 1, "Should have one config"
+        updated_config = configs_after[0]
+        assert updated_config['id'] == 'test1', "Should have test1 config"
+        assert updated_config['enabled'] == 'false', "Config should be disabled after trigger"
+        assert updated_config['order_id'] == 'TEST_ORDER_123', "Order ID should be set"
+        assert 'trigger_time' in updated_config, "Trigger time should be set"
+        assert 'trigger_price' in updated_config, "Trigger price should be set"
+        assert updated_config['trigger_price'] == '51000', "Trigger price should match"
+        
+        # Verify state was also updated
+        assert ttslo.state['test1']['triggered'] == 'true', "State should be marked as triggered"
+        assert ttslo.state['test1']['order_id'] == 'TEST_ORDER_123', "State should have order ID"
+        
+        print("✓ Config CSV update integration test passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running TTSLO tests...\n")
@@ -840,6 +974,8 @@ def run_all_tests():
         test_activated_on_state_recording()
         test_config_file_change_detection()
         test_config_reload_in_run_once()
+        test_config_csv_update_on_trigger()
+        test_config_csv_update_integration()
         
         print("\n✅ All tests passed!")
         return 0
