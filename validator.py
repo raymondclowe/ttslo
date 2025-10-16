@@ -44,28 +44,6 @@ class ValidationResult:
 class ConfigValidator:
     """Validates TTSLO configuration files."""
     
-    # Known Kraken trading pairs (common ones)
-    KNOWN_PAIRS = {
-        # Bitcoin
-        'XXBTZUSD', 'XBTCUSD', 'XXBTZEUR', 'XXBTZGBP', 'XXBTZJPY',
-        # Ethereum
-        'XETHZUSD', 'ETHCUSD', 'XETHZEUR', 'XETHZGBP', 'XETHZJPY',
-        # Solana
-        'SOLUSD', 'SOLEUR', 'SOLGBP',
-        # Cardano
-        'ADAUSD', 'ADAEUR', 'ADAGBP',
-        # Polkadot
-        'DOTUSD', 'DOTEUR', 'DOTGBP',
-        # Avalanche
-        'AVAXUSD', 'AVAXEUR',
-        # Chainlink
-        'LINKUSD', 'LINKEUR',
-        # Other major pairs
-        'USDTUSD', 'USDCUSD', 'DAIUSD',
-        # Legacy format
-        'XBTCZUSD', 'ETHZUSD',
-    }
-    
     # Required fields in configuration
     REQUIRED_FIELDS = ['id', 'pair', 'threshold_price', 'threshold_type', 
                        'direction', 'volume', 'trailing_offset_percent', 'enabled']
@@ -87,6 +65,7 @@ class ConfigValidator:
         """
         self.kraken_api = kraken_api
         self.price_cache = {}  # Cache prices to avoid repeated API calls
+        self._known_pairs_cache = None  # Cache for Kraken pairs list
     
     def validate_config_file(self, configs: List[Dict]) -> ValidationResult:
         """
@@ -160,39 +139,44 @@ class ConfigValidator:
                              f'ID "{id_value}" is very long ({len(id_value)} characters). '
                              'Consider using a shorter ID')
     
+    def _get_known_pairs(self) -> set:
+        """Get the set of known Kraken pairs from cache (refreshed daily)."""
+        if self._known_pairs_cache is None:
+            try:
+                from kraken_pairs_util import get_cached_pairs
+                self._known_pairs_cache = get_cached_pairs()
+            except Exception:
+                # If we can't fetch pairs, return empty set (validation will still work with live check)
+                self._known_pairs_cache = set()
+        return self._known_pairs_cache
+    
     def _validate_pair(self, config: Dict, config_id: str, result: ValidationResult):
         """Validate the trading pair, including live Kraken pair check."""
         pair = config.get('pair', '').strip().upper()
         if not pair:
             return  # Already caught by required fields
 
-        # Check if it's a known pair (legacy warning)
-        if pair not in self.KNOWN_PAIRS:
-            result.add_warning(
-                config_id, 'pair',
-                f'Trading pair "{pair}" is not in the list of known pairs. '
-                f'Please verify this is a valid Kraken pair. '
-                f'Common examples: XXBTZUSD (BTC/USD), XETHZUSD (ETH/USD), XXBTUSDT (BTC/USDT)')
-
         # Check format
         if not re.match(r'^[A-Z0-9]+$', pair):
             result.add_error(config_id, 'pair',
                 f'Trading pair "{pair}" has invalid format. '
                 'It should only contain uppercase letters and numbers')
+            return
 
-        # Live Kraken pair validation (if possible)
+        # Check against cached Kraken pairs (refreshed daily)
         try:
-            from kraken_pairs_util import fetch_kraken_pairs
-            live_pairs = fetch_kraken_pairs()
-            if pair not in live_pairs:
+            known_pairs = self._get_known_pairs()
+            if known_pairs and pair not in known_pairs:
                 result.add_error(
                     config_id, 'pair',
-                    f'Trading pair "{pair}" is NOT a valid Kraken pair (checked live). '
-                    f'Check https://api.kraken.com/0/public/AssetPairs for valid pairs.')
+                    f'Trading pair "{pair}" is NOT a valid Kraken pair. '
+                    f'Common examples: XBTUSDT (BTC/USDT), ETHUSDT (ETH/USDT), SOLUSDT (SOL/USDT). '
+                    f'Check https://api.kraken.com/0/public/AssetPairs for all valid pairs.')
         except Exception as e:
+            # If cached check fails, add a warning but don't fail validation
             result.add_warning(
                 config_id, 'pair',
-                f'Could not check live Kraken pairs: {e}')
+                f'Could not verify pair against Kraken pairs list: {e}')
     
     def _validate_threshold_price(self, config: Dict, config_id: str, 
                                   result: ValidationResult):
@@ -568,21 +552,21 @@ class ConfigValidator:
         """
         # Known mappings for common pairs
         pair_mappings = {
-            'XXBTZUSD': 'XXBT',
-            'XBTCUSD': 'XXBT',
+            'XBTUSDT': 'XXBT',
+            'XBTUSD': 'XXBT',
             'XXBTZEUR': 'XXBT',
             'XXBTZGBP': 'XXBT',
-            'XETHZUSD': 'XETH',
-            'ETHCUSD': 'XETH',
+            'ETHUSDT': 'XETH',
+            'ETHUSD': 'XETH',
             'XETHZEUR': 'XETH',
-            'SOLUSD': 'SOL',
+            'SOLUSDT': 'SOL',
             'SOLEUR': 'SOL',
-            'ADAUSD': 'ADA',
-            'DOTUSD': 'DOT',
-            'AVAXUSD': 'AVAX',
-            'LINKUSD': 'LINK',
-            'USDTUSD': 'USDT',
-            'USDCUSD': 'USDC',
+            'ADAUSDT': 'ADA',
+            'DOTUSDT': 'DOT',
+            'AVAXUSDT': 'AVAX',
+            'LINKUSDT': 'LINK',
+            'USDTZUSD': 'USDT',
+            'USDCUSDT': 'USDC',
         }
         
         # Check if we have a known mapping
@@ -590,8 +574,8 @@ class ConfigValidator:
             return pair_mappings[pair]
         
         # Try to extract from pattern
-        # Most pairs end with 'USD', 'EUR', 'GBP', 'JPY', etc.
-        for quote in ['ZUSD', 'USD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY']:
+        # Most pairs end with 'USDT', 'EUR', 'GBP', 'JPY', etc.
+        for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY']:
             if pair.endswith(quote):
                 base = pair[:-len(quote)]
                 if base:

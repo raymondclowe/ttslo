@@ -115,7 +115,7 @@ If you try to open a non-existent file, the CSV editor will prompt you to create
 When editing TTSLO configuration files, the expected columns are:
 
 - `id`: Unique identifier for the configuration (must be unique across all rows)
-  - `pair`: Kraken trading pair (e.g., `XXBTZUSD`, `XETHZUSD`). Unknown trading pairs are rejected by the editor to prevent invalid configurations; use Kraken pair codes exactly.
+  - `pair`: Kraken trading pair (e.g., `XBTUSDT`, `ETHUSDT`). Unknown trading pairs are rejected by the editor to prevent invalid configurations; use Kraken pair codes exactly.
 - `threshold_price`: Price threshold that triggers the order
 - `threshold_type`: "above" or "below"
 - `direction`: "buy" or "sell"
@@ -141,14 +141,14 @@ When editing a cell, the editor validates your input before allowing you to save
 | `threshold_type` | Must be "above" or "below" | `above`, `below` |
 | `direction` | Must be "buy" or "sell" | `buy`, `sell` |
 | `enabled` | Must be boolean-like | `true`, `false`, `yes`, `no`, `1`, `0` |
-| `pair` | Validated against known Kraken pairs | `XXBTZUSD`, `XETHZUSD`, `SOLUSD` |
+| `pair` | Validated against known Kraken pairs | `XBTUSDT`, `ETHUSDT`, `SOLUSD` |
 | `id` | Must be unique across all rows | `btc_1`, `eth_trigger_2` |
 
 ### Known Trading Pairs
 
 The editor validates pairs against a list of common Kraken trading pairs including:
-- Bitcoin: `XXBTZUSD`, `XBTCUSD`, `XXBTZEUR`, `XXBTZGBP`, `XXBTZJPY`
-- Ethereum: `XETHZUSD`, `ETHCUSD`, `XETHZEUR`, `XETHZGBP`, `XETHZJPY`
+- Bitcoin: `XBTUSDT`, `XBTCUSD`, `XXBTZEUR`, `XXBTZGBP`, `XXBTZJPY`
+- Ethereum: `ETHUSDT`, `ETHCUSD`, `XETHZEUR`, `XETHZGBP`, `XETHZJPY`
 - Solana: `SOLUSD`, `SOLEUR`, `SOLGBP`
 - Cardano: `ADAUSD`, `ADAEUR`, `ADAGBP`
 - Polkadot: `DOTUSD`, `DOTEUR`, `DOTGBP`
@@ -156,7 +156,7 @@ The editor validates pairs against a list of common Kraken trading pairs includi
 - Chainlink: `LINKUSD`, `LINKEUR`
 - Stablecoins: `USDTUSD`, `USDCUSD`, `DAIUSD`
 
-If you use a pair not in this list, the editor will reject the value and you must enter a valid Kraken pair code (for example, `XXBTZUSD` or `XETHZUSD`). This prevents accidental invalid pair formats such as `BTC/USD` or `BTCUSD`.
+If you use a pair not in this list, the editor will reject the value and you must enter a valid Kraken pair code (for example, `XBTUSDT` or `ETHUSDT`). This prevents accidental invalid pair formats such as `BTC/USD` or `BTCUSD`.
 
 ## Tips
 

@@ -1,3 +1,28 @@
+# Kraken Asset Pair Codes: How to Find the Right Code
+
+Kraken uses confusing asset and pair codes. For example:
+
+- BTC/USDTT trading pair:
+	- Kraken pair code: `XBTUSDT`
+	- Base asset: `XXBT` (BTC)
+	- Quote asset: `USDT`
+	- The pair code drops the extra `X` from `XXBT` but keeps `USDT` as-is.
+
+| Common | Kraken Asset | Pair Code Example |
+|--------|-------------|------------------|
+| BTC    | XXBT        | XBTUSDT          |
+| ETH    | XETH        | ETHUSDT          |
+| USDT   | USDT        | XBTUSDT          |
+| USD    | ZUSD        | XBTUSD           |
+
+To avoid mistakes, use the provided utility:
+
+```python
+from kraken_pair_utils import find_kraken_pair_code
+pair_code = find_kraken_pair_code('BTC', 'USDT')  # returns 'XBTUSDT'
+```
+
+This will always return the correct Kraken pair code for any base/quote asset.
 # TTSLO Usage Examples
 
 This document provides real-world examples and scenarios for using TTSLO.
@@ -9,11 +34,11 @@ This document provides real-world examples and scenarios for using TTSLO.
 **Configuration:**
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_profit_55k,XXBTZUSD,55000,above,sell,0.5,5.0,true
+btc_profit_55k,XBTUSDT,55000,above,sell,0.5,5.0,true
 ```
 
 **What happens:**
-1. TTSLO monitors BTC price (Kraken pair `XXBTZUSD`) every 60 seconds (default)
+1. TTSLO monitors BTC price (Kraken pair `XBTUSDT`) every 60 seconds (default)
 2. When BTC reaches $55,000, a trailing stop-loss sell order is created
 3. The TSL order trails the price by 5% (follows price up, sells if it drops 5%)
 4. If BTC goes to $60,000, the stop follows to $57,000 (5% below)
@@ -26,7 +51,7 @@ btc_profit_55k,XXBTZUSD,55000,above,sell,0.5,5.0,true
 **Configuration:**
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-eth_accumulate,XETHZUSD,3000,below,buy,2.0,3.0,true
+eth_accumulate,ETHUSDT,3000,below,buy,2.0,3.0,true
 ```
 
 **What happens:**
@@ -43,10 +68,10 @@ eth_accumulate,XETHZUSD,3000,below,buy,2.0,3.0,true
 **Configuration:**
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_tp1,XXBTZUSD,55000,above,sell,0.25,4.0,true
-btc_tp2,XXBTZUSD,60000,above,sell,0.25,5.0,true
-btc_tp3,XXBTZUSD,70000,above,sell,0.25,6.0,true
-btc_tp4,XXBTZUSD,80000,above,sell,0.25,7.0,true
+btc_tp1,XBTUSDT,55000,above,sell,0.25,4.0,true
+btc_tp2,XBTUSDT,60000,above,sell,0.25,5.0,true
+btc_tp3,XBTUSDT,70000,above,sell,0.25,6.0,true
+btc_tp4,XBTUSDT,80000,above,sell,0.25,7.0,true
 ```
 
 **What happens:**
@@ -92,8 +117,8 @@ avax_accumulate,AVAXUSD,25.00,below,buy,20,4.5,true
 **Configuration:**
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_conservative,XXBTZUSD,52000,above,sell,0.1,2.0,true
-eth_conservative,XETHZUSD,3100,above,sell,1.0,2.5,true
+btc_conservative,XBTUSDT,52000,above,sell,0.1,2.0,true
+eth_conservative,ETHUSDT,3100,above,sell,1.0,2.5,true
 ```
 
 **Benefits:**
@@ -108,8 +133,8 @@ eth_conservative,XETHZUSD,3100,above,sell,1.0,2.5,true
 **Configuration:**
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_moonshot,XXBTZUSD,50000,above,sell,0.5,10.0,true
-eth_moonshot,XETHZUSD,3000,above,sell,5.0,8.0,true
+btc_moonshot,XBTUSDT,50000,above,sell,0.5,10.0,true
+eth_moonshot,ETHUSDT,3000,above,sell,5.0,8.0,true
 ```
 
 **Benefits:**
@@ -126,7 +151,7 @@ eth_moonshot,XETHZUSD,3000,above,sell,5.0,8.0,true
 # Create test config
 cat > test_config.csv << EOF
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-test_btc,XXBTZUSD,50000,above,sell,0.01,5.0,true
+test_btc,XBTUSDT,50000,above,sell,0.01,5.0,true
 EOF
 
 # Run in dry-run mode
@@ -168,17 +193,17 @@ uv run ttslo.py --config strategy2.csv --state state2.csv --log log2.csv
 Use tighter stops at lower prices, looser stops at higher prices:
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_50k,XXBTZUSD,50000,above,sell,0.1,3.0,true
-btc_60k,XXBTZUSD,60000,above,sell,0.1,5.0,true
-btc_70k,XXBTZUSD,70000,above,sell,0.1,7.0,true
+btc_50k,XBTUSDT,50000,above,sell,0.1,3.0,true
+btc_60k,XBTUSDT,60000,above,sell,0.1,5.0,true
+btc_70k,XBTUSDT,70000,above,sell,0.1,7.0,true
 ```
 
 ### Tip 2: Symmetrical Strategy
 Buy dips and sell rallies at symmetrical levels:
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-eth_buy_2800,XETHZUSD,2800,below,buy,1.0,4.0,true
-eth_sell_3200,XETHZUSD,3200,above,sell,1.0,4.0,true
+eth_buy_2800,ETHUSDT,2800,below,buy,1.0,4.0,true
+eth_sell_3200,ETHUSDT,3200,above,sell,1.0,4.0,true
 ```
 
 ### Tip 3: Disable After Trigger
@@ -192,7 +217,7 @@ nano state.csv
 Always test with minimal volumes first:
 ```csv
 # Test with tiny amount
-test_btc,XXBTZUSD,50000,above,sell,0.0001,5.0,true
+test_btc,XBTUSDT,50000,above,sell,0.0001,5.0,true
 ```
 
 ### Tip 5: Monitor Regularly
@@ -210,8 +235,8 @@ grep "true" config.csv | wc -l
 ## Common Pitfalls
 
 ### Pitfall 1: Wrong Pair Format
-❌ Wrong: `BTC/USD`, `BTCUSD`
-✅ Correct: `XXBTZUSD`
+❌ Wrong: `BTC/USDT`, `BTCUSD`
+✅ Correct: `XBTUSDT`
 
 Check Kraken's documentation for exact pair names.
 

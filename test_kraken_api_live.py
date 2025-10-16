@@ -120,10 +120,10 @@ def btc_current_price(live_api, test_logger):
 def btc_usdt_current_price(live_api, test_logger):
     """Get current BTC/USDT price for calculating unreasonable prices."""
     try:
-        price = live_api.get_current_price('XBTUSDT')
+        price = live_api.get_current_price('XXBTZUSDT')
         test_logger.log_operation(
             'get_current_price',
-            {'pair': 'XBTUSDT'},
+            {'pair': 'XXBTZUSDT'},
             {'price': price}
         )
         logger.info(f"Current BTC/USDT price: ${price:,.2f}")
@@ -131,7 +131,7 @@ def btc_usdt_current_price(live_api, test_logger):
     except Exception as e:
         test_logger.log_operation(
             'get_current_price',
-            {'pair': 'XBTUSDT'},
+            {'pair': 'XXBTZUSDT'},
             None,
             error=e
         )

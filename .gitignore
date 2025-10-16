@@ -216,3 +216,4 @@ logs.csv
 .env.local
 .env.*.local
 !.env.example
+.kraken_pairs_cache.json

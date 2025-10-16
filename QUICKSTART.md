@@ -83,23 +83,23 @@ uv run ttslo.py --interval 120
 ### Protect BTC Profits Above $50k
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_profit,XXBTZUSD,50000,above,sell,0.1,5.0,true
+btc_profit,XBTUSDT,50000,above,sell,0.1,5.0,true
 ```
 **What it does:** When BTC reaches $50,000, creates a sell TSL order for 0.1 BTC with 5% trailing offset.
 
 ### Buy ETH Dip Below $2500
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-eth_dip,XETHZUSD,2500,below,buy,1.0,3.0,true
+eth_dip,ETHUSDT,2500,below,buy,1.0,3.0,true
 ```
 **What it does:** When ETH drops below $2,500, creates a buy TSL order for 1.0 ETH with 3% trailing offset.
 
 ### Multiple Strategies
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_high,XXBTZUSD,60000,above,sell,0.05,5.0,true
-btc_low,XXBTZUSD,40000,below,buy,0.05,4.0,true
-eth_high,XETHZUSD,3500,above,sell,0.5,4.5,true
+btc_high,XBTUSDT,60000,above,sell,0.05,5.0,true
+btc_low,XBTUSDT,40000,below,buy,0.05,4.0,true
+eth_high,ETHUSDT,3500,above,sell,0.5,4.5,true
 sol_breakout,SOLUSD,150,above,sell,10,6.0,true
 ```
 
@@ -172,7 +172,7 @@ Your `config.csv` is missing or empty. Run `--create-sample-config`.
 ### Order creation fails
 - Verify API key permissions
 - Check account balance
-- Confirm trading pair format (XXBTZUSD, not BTC/USD)
+- Confirm trading pair format (XBTUSDT, not BTC/USDT)
 
 ### Wrong price detected
 - Kraken may use different pair names

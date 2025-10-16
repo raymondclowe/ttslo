@@ -136,7 +136,7 @@ The configuration validator now checks if sufficient balance is available for se
 
 **Key Characteristics:**
 - Non-blocking: Issues warnings only, allows users to add funds later
-- Intelligent asset extraction: Handles various pair formats (XXBTZUSD, SOLUSD, etc.)
+- Intelligent asset extraction: Handles various pair formats (XBTUSDT, SOLUSD, etc.)
 - Safe fallback: Validation continues even if balance check fails
 - Focus on sell orders: Most common use case for trailing stop losses
 

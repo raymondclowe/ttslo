@@ -153,11 +153,11 @@ from kraken_api import KrakenAPI
 api = KrakenAPI()
 
 # Get ticker information
-ticker = api.get_ticker('XXBTZUSD')
+ticker = api.get_ticker('XBTUSDT')
 
 # Get current price
-price = api.get_current_price('XXBTZUSD')
-print(f"Current BTC/USD price: ${price:,.2f}")
+price = api.get_current_price('XBTUSDT')
+print(f"Current BTC/USDT price: ${price:,.2f}")
 ```
 
 ### Private Methods
@@ -181,7 +181,7 @@ for order_id, order in orders.get('open', {}).items():
 
 # Add a limit order
 result = api.add_order(
-    pair='XXBTZUSD',
+    pair='XBTUSDT',
     order_type='limit',
     direction='buy',
     volume=0.001,
@@ -191,7 +191,7 @@ print(f"Order placed: {result['txid']}")
 
 # Add a trailing stop loss order
 result = api.add_trailing_stop_loss(
-    pair='XXBTZUSD',
+    pair='XBTUSDT',
     direction='sell',
     volume=0.001,
     trailing_offset_percent=5.0
@@ -204,7 +204,7 @@ print(f"Order cancelled: {result}")
 # Edit an order
 result = api.edit_order(
     txid='ORDER-ID-HERE',
-    pair='XXBTZUSD',
+    pair='XBTUSDT',
     volume=0.002,
     price='46000.0'
 )

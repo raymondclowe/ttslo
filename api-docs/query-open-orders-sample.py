@@ -87,14 +87,14 @@ if __name__ == "__main__":
 #         "starttm": 0,
 #         "expiretm": 0,
 #         "descr": {
-#           "pair": "XBTUSDT",
+#           "pair": "XXBTZUSDT",
 #           "aclass": "forex",
 #           "type": "buy",
 #           "ordertype": "trailing-stop",
 #           "price": "+15.0000%",
 #           "price2": "0",
 #           "leverage": "none",
-#           "order": "buy 0.00006000 XBTUSDT @ trailing stop +15.0000%",
+#           "order": "buy 0.00006000 XXBTZUSDT @ trailing stop +15.0000%",
 #           "close": ""
 #         },
 #         "vol": "0.00006000",
@@ -116,14 +116,14 @@ if __name__ == "__main__":
 #         "starttm": 0,
 #         "expiretm": 0,
 #         "descr": {
-#           "pair": "XBTUSDT",
+#           "pair": "XXBTZUSDT",
 #           "aclass": "forex",
 #           "type": "sell",
 #           "ordertype": "trailing-stop",
 #           "price": "+10.0000%",
 #           "price2": "0",
 #           "leverage": "none",
-#           "order": "sell 0.00005000 XBTUSDT @ trailing stop +10.0000%",
+#           "order": "sell 0.00005000 XXBTZUSDT @ trailing stop +10.0000%",
 #           "close": ""
 #         },
 #         "vol": "0.00005000",

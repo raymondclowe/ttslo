@@ -56,7 +56,7 @@ class TestKrakenAPIPublic:
         mock_response = MockResponse({
             "error": [],
             "result": {
-                "XXBTUSDT": {
+                "XXXBTZUSDT": {
                     "a": ["50000.00000", "1", "1.000"],
                     "b": ["49999.00000", "2", "2.000"],
                     "c": ["50000.50000", "0.00100000"],
@@ -71,9 +71,9 @@ class TestKrakenAPIPublic:
         })
         mock_get.return_value = mock_response
         api = KrakenAPI()
-        result = api.get_ticker('XXBTUSDT')
-        assert 'XXBTUSDT' in result
-        assert result['XXBTUSDT']['c'][0] == "50000.50000"
+        result = api.get_ticker('XXXBTZUSDT')
+        assert 'XXXBTZUSDT' in result
+        assert result['XXXBTZUSDT']['c'][0] == "50000.50000"
         mock_get.assert_called_once()
     
     @patch('kraken_api.requests.get')
@@ -94,7 +94,7 @@ class TestKrakenAPIPublic:
         mock_response = MockResponse({
             "error": [],
             "result": {
-                "XBTUSDT": {
+                "XXBTZUSDT": {
                     "c": ["50000.50000", "0.00100000"]
                 }
             }
@@ -102,7 +102,7 @@ class TestKrakenAPIPublic:
         mock_get.return_value = mock_response
         
         api = KrakenAPI()
-        price = api.get_current_price('XXBTUSDT')
+        price = api.get_current_price('XXXBTZUSDT')
         assert price == 50000.50000
         mock_get.assert_called_once()
     
@@ -174,7 +174,7 @@ class TestKrakenAPIPrivate:
                     "ORDER-ID-1": {
                         "status": "open",
                         "descr": {
-                            "pair": "XXBTUSDT",
+                            "pair": "XXXBTZUSDT",
                             "type": "buy",
                             "ordertype": "limit",
                             "price": "50000.0"
@@ -278,7 +278,7 @@ class TestKrakenAPIPrivate:
             "error": [],
             "result": {
                 "descr": {
-                    "order": "buy 0.1 XXBTUSDT @ limit 50000.0"
+                    "order": "buy 0.1 XXXBTZUSDT @ limit 50000.0"
                 },
                 "txid": ["NEW-ORDER-ID"]
             }
@@ -286,7 +286,7 @@ class TestKrakenAPIPrivate:
         mock_post.return_value = mock_response
         
         api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=")
-        result = api.add_order('XBTUSDT', 'limit', 'buy', 0.1, price='50000.0')
+        result = api.add_order('XXBTZUSDT', 'limit', 'buy', 0.1, price='50000.0')
         
         assert 'txid' in result
         assert result['txid'][0] == 'NEW-ORDER-ID'
@@ -294,7 +294,7 @@ class TestKrakenAPIPrivate:
         # Verify parameters were included correctly
         call_args = mock_post.call_args
         request_data = json.loads(call_args[1]['data'])
-        assert request_data['pair'] == 'XXBTUSDT'
+        assert request_data['pair'] == 'XXXBTZUSDT'
         assert request_data['type'] == 'buy'
         assert request_data['ordertype'] == 'limit'
         assert request_data['volume'] == '0.1'
@@ -307,7 +307,7 @@ class TestKrakenAPIPrivate:
             "error": [],
             "result": {
                 "descr": {
-                    "order": "sell 0.1 XXBTUSDT @ trailing stop +5.0%"
+                    "order": "sell 0.1 XXXBTZUSDT @ trailing stop +5.0%"
                 },
                 "txid": ["TRAILING-ORDER-ID"]
             }
@@ -315,7 +315,7 @@ class TestKrakenAPIPrivate:
         mock_post.return_value = mock_response
         
         api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=")
-        result = api.add_trailing_stop_loss('XBTUSDT', 'sell', 0.1, 5.0)
+        result = api.add_trailing_stop_loss('XXBTZUSDT', 'sell', 0.1, 5.0)
         
         assert 'txid' in result
         
@@ -422,15 +422,15 @@ class TestKrakenAPIErrorHandling:
         
         # Test invalid direction
         with pytest.raises(ValueError, match="direction must be 'buy' or 'sell'"):
-            api.add_trailing_stop_loss('XBTUSDT', 'invalid', 0.1, 5.0)
+            api.add_trailing_stop_loss('XXBTZUSDT', 'invalid', 0.1, 5.0)
         
         # Test zero volume
         with pytest.raises(ValueError, match="volume must be positive"):
-            api.add_trailing_stop_loss('XBTUSDT', 'sell', 0, 5.0)
+            api.add_trailing_stop_loss('XXBTZUSDT', 'sell', 0, 5.0)
         
         # Test negative offset
         with pytest.raises(ValueError, match="trailing_offset_percent must be positive"):
-            api.add_trailing_stop_loss('XBTUSDT', 'sell', 0.1, -5.0)
+            api.add_trailing_stop_loss('XXBTZUSDT', 'sell', 0.1, -5.0)
 
 
 if __name__ == '__main__':
