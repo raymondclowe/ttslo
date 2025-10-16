@@ -297,6 +297,7 @@ class KrakenAPI:
         
         # Format trailing offset with sign and percentage
         # Example: 5.0 becomes "+5.0%"
+        # For trailing stop orders, this is passed as 'price' parameter
         trailingoffset_str = f"{offset_float:+.1f}%"
         
         # Create parameters dictionary
@@ -305,7 +306,7 @@ class KrakenAPI:
             'type': direction_lower,
             'ordertype': 'trailing-stop',
             'volume': volume_str,
-            'trailingoffset': trailingoffset_str
+            'price': trailingoffset_str  # Trailing offset is passed as 'price' for trailing-stop orders
         }
         
         # Step 6: Add any additional parameters

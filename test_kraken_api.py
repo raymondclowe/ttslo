@@ -326,7 +326,7 @@ class TestKrakenAPIPrivate:
         call_args = mock_post.call_args
         request_data = json.loads(call_args[1]['data'])
         assert request_data['ordertype'] == 'trailing-stop'
-        assert request_data['trailingoffset'] == '+5.0%'
+        assert request_data['price'] == '+5.0%'  # Trailing offset is passed as 'price'
     
     @patch('kraken_api.requests.post')
     def test_get_trade_balance_success(self, mock_post):
