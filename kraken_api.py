@@ -8,6 +8,9 @@ import time
 import urllib.parse
 import json
 import requests
+import os
+
+from creds import find_kraken_credentials
 
 
 class KrakenAPI:
@@ -22,10 +25,22 @@ class KrakenAPI:
             api_secret: Kraken API secret
             base_url: Base URL for Kraken API
         """
+        # Do not auto-discover credentials in the constructor to preserve
+        # predictable behavior for unit tests. Use `from_env` to create a
+        # KrakenAPI instance that loads credentials from environment/.env/copilot
         self.api_key = api_key
         self.api_secret = api_secret
         self.base_url = base_url
-        
+
+    @classmethod
+    def from_env(cls, readwrite: bool = False, env_file: str = '.env', base_url: str = "https://api.kraken.com"):
+        """Construct a KrakenAPI using credentials discovered from env/.env/copilot.
+
+        This keeps the constructor side-effect free for unit tests while
+        providing an explicit helper for the live application.
+        """
+        key, secret = find_kraken_credentials(readwrite=readwrite, env_file=env_file)
+        return cls(api_key=key, api_secret=secret, base_url=base_url)
     def _get_kraken_signature(self, urlpath, data, nonce):
         """
         Generate Kraken API signature for authentication.
