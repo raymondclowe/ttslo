@@ -168,13 +168,20 @@ def test_dry_run_does_not_update_state():
         
         cm = ConfigManager(config_file, state_file, log_file)
         api_ro = Mock(spec=KrakenAPI)
-        api_ro.get_current_price.return_value = 51000  # Above threshold
+        # Set price below threshold initially for validation
+        api_ro.get_current_price.return_value = 45000  # Below threshold (50k)
         
         # Create TTSLO in dry-run mode
         ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=None, dry_run=True, verbose=False)
         ttslo.load_state()
         
-        # Run once (should trigger)
+        # Validate and load config (required before run_once)
+        ttslo.validate_and_load_config()
+        
+        # Change price to above threshold to trigger the condition
+        api_ro.get_current_price.return_value = 51000  # Above threshold - should trigger
+        
+        # Run once (should trigger since price is now above threshold)
         ttslo.run_once()
         
         # Check that state file was NOT created
@@ -754,6 +761,9 @@ def test_config_reload_in_run_once():
         )
         
         ttslo.load_state()
+        
+        # Validate and load config (required before run_once)
+        ttslo.validate_and_load_config()
         
         # Run once - should work fine
         ttslo.run_once()

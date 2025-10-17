@@ -45,6 +45,8 @@ class TTSLO:
         # debug mode enables very verbose, comparison-focused messages
         self.debug = debug
         self.state = {}
+        # Store configs in memory - loaded once at startup, not reloaded during runtime
+        self.configs = None
         
     def log(self, level, message, **kwargs):
         """
@@ -698,7 +700,11 @@ class TTSLO:
         if result.has_warnings() and self.verbose:
             print("Configuration has warnings. Review them to ensure they are expected.")
         
-        # Step 12: Validation passed for at least some configs - safe to proceed
+        # Step 12: Store validated configs in memory for use during runtime
+        # This prevents automatic reloading - configs are only loaded once at startup
+        self.configs = result.configs
+        
+        # Step 13: Validation passed for at least some configs - safe to proceed
         return True
     
     def run_once(self):
@@ -715,19 +721,14 @@ class TTSLO:
             self.log('ERROR', 'Configuration manager is not initialized')
             return
         
-        # Step 2: Load configurations from file
-        try:
-            configs = self.config_manager.load_config()
-        except Exception as e:
-            # SAFETY: Cannot load configs - do not process
-            self.log('ERROR', f'Failed to load configuration file: {str(e)}',
-                    error=str(e))
-            return
+        # Step 2: Use in-memory configurations (loaded once at startup)
+        # Do NOT reload from disk - this prevents automatic config reloading
+        configs = self.configs
         
-        # Step 3: Check if any configurations were loaded
+        # Step 3: Check if configurations were loaded at startup
         if not configs:
-            # SAFETY: No configs - do not process
-            self.log('WARNING', 'No configurations found in config file')
+            # SAFETY: No configs loaded at startup - do not process
+            self.log('WARNING', 'No configurations loaded at startup')
             return
         
         # Step 4: Log how many configs we are processing
