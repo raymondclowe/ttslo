@@ -87,8 +87,15 @@ class ConfigValidator:
         
         for idx, config in enumerate(configs):
             config_id = config.get('id', f'row_{idx+1}')
-            result.configs.append(config)
-            
+
+            # only use enabled configs for summary
+            if config.get('enabled', 'false').lower() == 'true':
+                result.configs.append(config)
+
+            # if disabled skip to next item
+            if config.get('enabled', 'false').lower() not in ['true', 'yes', '1']:
+                continue
+
             # Validate required fields
             self._validate_required_fields(config, config_id, result)
             
