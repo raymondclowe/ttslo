@@ -368,6 +368,37 @@ class KrakenAPI:
             
         return result.get('result', {})
     
+    def get_ohlc(self, pair, interval=1440, since=None):
+        """
+        Get OHLC (Open, High, Low, Close) data for a trading pair.
+        
+        Args:
+            pair: Trading pair (e.g., 'XXBTZUSD' for BTC/USD)
+            interval: Time frame interval in minutes (default: 1440 = 1 day)
+                     Valid values: 1, 5, 15, 30, 60, 240, 1440, 10080, 21600
+            since: Return committed OHLC data since given timestamp (optional)
+            
+        Returns:
+            Dictionary containing OHLC data with structure:
+            {
+                'pair_name': [
+                    [time, open, high, low, close, vwap, volume, count],
+                    ...
+                ],
+                'last': timestamp
+            }
+        """
+        params = {'pair': pair, 'interval': interval}
+        if since is not None:
+            params['since'] = since
+            
+        result = self._query_public('OHLC', params)
+        
+        if result.get('error'):
+            raise Exception(f"Kraken API error: {result['error']}")
+            
+        return result.get('result', {})
+    
     def get_current_price(self, pair):
         """
         Get current price for a trading pair.
