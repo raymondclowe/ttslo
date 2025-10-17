@@ -12,6 +12,7 @@ class ValidationResult:
     def __init__(self):
         self.errors = []
         self.warnings = []
+        self.infos = []
         self.configs = []
         
     def add_error(self, config_id: str, field: str, message: str):
@@ -30,6 +31,15 @@ class ValidationResult:
             'field': field,
             'message': message,
             'type': 'WARNING'
+        })
+    
+    def add_info(self, config_id: str, field: str, message: str):
+        """Add a validation info message."""
+        self.infos.append({
+            'config_id': config_id,
+            'field': field,
+            'message': message,
+            'type': 'INFO'
         })
     
     def is_valid(self) -> bool:
@@ -517,27 +527,32 @@ class ConfigValidator:
                     # If we can't parse the configured volume, skip balance check
                     return
 
-                # Always add an informational warning about available balance (helps debugging)
+                # Add balance information - INFO when sufficient, WARNING when insufficient
                 if contrib:
                     contrib_str = ', '.join([f"{k}={self._format_decimal(amt)}" for k, amt in contrib])
-                    # Indicate whether the available balance is sufficient for the configured volume
-                    suff_msg = 'sufficient' if available >= volume_dec else 'insufficient'
-                    result.add_warning(
-                        config_id,
-                        'balance',
-                        f'Available {base_asset} (spot+funding): {self._format_decimal(available)} (Contributors: {contrib_str}) — {suff_msg} for required volume {self._format_decimal(volume_dec)}'
-                    )
-
-                # Only add a separate volume warning if it's insufficient; if sufficient, avoid duplicate warnings
-                if available < volume_dec:
-                    # If insufficient, add a specific volume warning
-                    result.add_warning(
-                        config_id,
-                        'volume',
-                        f'Insufficient {base_asset} balance for sell order. '
-                        f'Required: {self._format_decimal(volume_dec)}, Available: {self._format_decimal(available)}. '
-                        f'You can add funds before the order triggers.'
-                    )
+                    
+                    if available >= volume_dec:
+                        # Sufficient balance - add as INFO (only shown in verbose/debug mode)
+                        result.add_info(
+                            config_id,
+                            'balance',
+                            f'Available {base_asset} (spot+funding): {self._format_decimal(available)} (Contributors: {contrib_str}) — sufficient for required volume {self._format_decimal(volume_dec)}'
+                        )
+                    else:
+                        # Insufficient balance - add as WARNING
+                        result.add_warning(
+                            config_id,
+                            'balance',
+                            f'Available {base_asset} (spot+funding): {self._format_decimal(available)} (Contributors: {contrib_str}) — insufficient for required volume {self._format_decimal(volume_dec)}'
+                        )
+                        # Also add a specific volume warning
+                        result.add_warning(
+                            config_id,
+                            'volume',
+                            f'Insufficient {base_asset} balance for sell order. '
+                            f'Required: {self._format_decimal(volume_dec)}, Available: {self._format_decimal(available)}. '
+                            f'You can add funds before the order triggers.'
+                        )
             # For buy orders, we would need to check quote currency (e.g., USD)
             # but this is more complex as we need the price, so we'll skip for now
             # and focus on the more common sell case
@@ -643,6 +658,16 @@ def format_validation_result(result: ValidationResult, verbose: bool = False) ->
         for warning in result.warnings:
             lines.append(f"  [{warning['config_id']}] {warning['field']}")
             lines.append(f"    ⚠ {warning['message']}")
+            lines.append("")
+    
+    # Info messages (only shown in verbose mode)
+    if verbose and hasattr(result, 'infos') and result.infos:
+        lines.append("=" * 80)
+        lines.append("INFO (verbose mode)")
+        lines.append("=" * 80)
+        for info in result.infos:
+            lines.append(f"  [{info['config_id']}] {info['field']}")
+            lines.append(f"    ℹ {info['message']}")
             lines.append("")
     
     # Show what will be executed (if valid or verbose)
