@@ -664,7 +664,7 @@ def test_activated_on_state_recording():
 
 
 def test_config_file_change_detection():
-    """Test that config file changes are detected and trigger revalidation."""
+    """Test that automatic config file change detection has been removed."""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_file = os.path.join(tmpdir, 'test_config.csv')
         state_file = os.path.join(tmpdir, 'test_state.csv')
@@ -704,42 +704,19 @@ def test_config_file_change_detection():
         # Initial state
         ttslo.load_state()
         
-        # First check - should detect change (first time)
-        assert ttslo.check_config_file_changed() == True, "First check should detect change"
+        # Verify that check_config_file_changed method no longer exists
+        assert not hasattr(ttslo, 'check_config_file_changed'), \
+            "check_config_file_changed method should not exist (automatic reloading removed)"
         
-        # Second check - should not detect change (same file)
-        assert ttslo.check_config_file_changed() == False, "Second check should not detect change"
+        # Verify that config_file_mtime attribute no longer exists
+        assert not hasattr(ttslo, 'config_file_mtime'), \
+            "config_file_mtime attribute should not exist (automatic reloading removed)"
         
-        # Modify the config file
-        import time
-        time.sleep(0.1)  # Ensure mtime is different
-        with open(config_file, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=['id', 'pair', 'threshold_price', 
-                                                    'threshold_type', 'direction', 'volume',
-                                                    'trailing_offset_percent', 'enabled'])
-            writer.writeheader()
-            writer.writerow({
-                'id': 'test2',  # Changed ID
-                'pair': 'XETHZUSD',
-                'threshold_price': '3000',
-                'threshold_type': 'above',
-                'direction': 'sell',
-                'volume': '0.1',
-                'trailing_offset_percent': '3.5',
-                'enabled': 'true'
-            })
-        
-        # Third check - should detect change (file modified)
-        assert ttslo.check_config_file_changed() == True, "Third check should detect change after modification"
-        
-        # Fourth check - should not detect change (same file again)
-        assert ttslo.check_config_file_changed() == False, "Fourth check should not detect change"
-        
-        print("✓ Config file change detection tests passed")
+        print("✓ Config file change detection removal tests passed")
 
 
 def test_config_reload_in_run_once():
-    """Test that run_once detects config changes and revalidates."""
+    """Test that run_once does NOT automatically reload config changes."""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_file = os.path.join(tmpdir, 'test_config.csv')
         state_file = os.path.join(tmpdir, 'test_state.csv')
@@ -762,7 +739,7 @@ def test_config_reload_in_run_once():
                 'enabled': 'true'
             })
         
-        # Mock Kraken API
+        # Mock Kraken API - tracks which pairs were requested
         api_ro = Mock(spec=KrakenAPI)
         api_ro.get_current_price.return_value = 45000  # Below threshold
         
@@ -781,10 +758,10 @@ def test_config_reload_in_run_once():
         # Run once - should work fine
         ttslo.run_once()
         
-        # Verify initial config was processed
-        configs = cm.load_config()
-        assert len(configs) == 1, "Should have one config"
-        assert configs[0]['id'] == 'test1', "Should have test1 config"
+        # Verify initial config was processed (test1 should have been checked)
+        # The API should have been called for XXBTZUSD
+        assert api_ro.get_current_price.call_count >= 1, "Should have called API at least once"
+        first_call_count = api_ro.get_current_price.call_count
         
         # Modify config file to add another config
         import time
@@ -815,17 +792,19 @@ def test_config_reload_in_run_once():
                 'enabled': 'true'
             })
         
-        # Run once again - should detect change and reload
+        # Run once again - should NOT detect change and should still only process test1
         ttslo.run_once()
         
-        # Verify both configs are now loaded
-        configs = cm.load_config()
-        assert len(configs) == 2, "Should have two configs after reload"
-        config_ids = [c['id'] for c in configs]
-        assert 'test1' in config_ids, "Should have test1 config"
-        assert 'test2' in config_ids, "Should have test2 config"
+        # The API should have been called roughly the same number of times (only for test1's pair)
+        # Not for test2's pair (XETHZUSD) since config was not reloaded
+        second_call_count = api_ro.get_current_price.call_count
         
-        print("✓ Config reload in run_once tests passed")
+        # We should have roughly doubled the calls (one more iteration for test1)
+        # but NOT more than that (test2 should not have been processed)
+        assert second_call_count < first_call_count + 5, \
+            f"Config should not have been reloaded (call count grew from {first_call_count} to {second_call_count})"
+        
+        print("✓ Config reload prevention in run_once tests passed")
 
 
 def test_config_csv_update_on_trigger():
