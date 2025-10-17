@@ -120,6 +120,7 @@
         }
 
         .pane-content {
+            position: relative;
             padding: 20px;
             max-height: 600px;
             overflow-y: auto;
@@ -249,6 +250,23 @@
             color: #c33;
         }
 
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: 500;
+            pointer-events: none;
+            z-index: 10;
+        }
+
         @media (max-width: 768px) {
             .container {
                 grid-template-columns: 1fr;
@@ -312,169 +330,154 @@
     <script>
         let refreshInterval = null;
 
+        function showLoadingOverlay(container) {
+            if (!container) {
+                return;
+            }
+
+            if (container.querySelector('.loading-overlay')) {
+                return;
+            }
+
+            const hasDataCards = container.querySelector('.order-card');
+            if (!hasDataCards) {
+                return;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.textContent = 'Refreshing...';
+            container.appendChild(overlay);
+        }
+
         // Fetch and display pending orders
         async function fetchPendingOrders() {
+            const content = document.getElementById('pending-content');
+            const count = document.getElementById('pending-count');
+
+            showLoadingOverlay(content);
+
             try {
                 const response = await fetch('/api/pending');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
                 const orders = await response.json();
-                
-                const content = document.getElementById('pending-content');
-                const count = document.getElementById('pending-count');
-                count.textContent = orders.length;
 
-                if (orders.length === 0) {
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">✓</div>
-                            <div>No pending orders</div>
-                        </div>
-                    `;
+                if (count) {
+                    count.textContent = orders.length;
+                }
+
+                if (!orders.length) {
+                    if (content) {
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">✓</div>
+                                <div>No pending orders</div>
+                            </div>
+                        `;
+                    }
                     return;
                 }
 
-                content.innerHTML = orders.map(order => {
-                    const distance = order.distance;
-                    let progressHTML = '';
-                    
-                    if (distance && order.current_price) {
-                        const percentText = Math.abs(distance.percent).toFixed(2) + '%';
-                        const triggered = distance.triggered;
-                        const progressPercent = Math.min(Math.abs(distance.percent) * 10, 100);
-                        
-                        progressHTML = `
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${progressPercent}%">
-                                    ${progressPercent > 20 ? percentText : ''}
-                                </div>
-                            </div>
-                            <div class="progress-text">
-                                ${triggered ? 'READY TO TRIGGER' : 
-                                  order.threshold_type === 'above' ? 
-                                    `$${Math.abs(distance.absolute).toFixed(2)} below threshold` :
-                                    `$${Math.abs(distance.absolute).toFixed(2)} above threshold`}
-                            </div>
-                        `;
-                    } else {
-                        progressHTML = `
-                            <div class="progress-text">Price data unavailable</div>
-                        `;
-                    }
+                if (content) {
+                    content.innerHTML = orders.map(order => {
+                        const distance = order.distance;
+                        let progressHTML = '';
 
-                    return `
-                        <div class="order-card">
-                            <div class="order-header">
-                                <div class="order-id">${order.id}</div>
-                                <div class="order-pair">${order.pair || 'N/A'}</div>
+                        if (distance && order.current_price) {
+                            const percentText = Math.abs(distance.percent).toFixed(2) + '%';
+                            const triggered = distance.triggered;
+                            const progressPercent = Math.min(Math.abs(distance.percent) * 10, 100);
+
+                            progressHTML = `
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${progressPercent}%">
+                                        ${progressPercent > 20 ? percentText : ''}
+                                    </div>
+                                </div>
+                                <div class="progress-text">
+                                    ${triggered ? 'READY TO TRIGGER' : 
+                                      order.threshold_type === 'above' ? 
+                                        `$${Math.abs(distance.absolute).toFixed(2)} below threshold` :
+                                        `$${Math.abs(distance.absolute).toFixed(2)} above threshold`}
+                                </div>
+                            `;
+                        } else {
+                            progressHTML = `
+                                <div class="progress-text">Price data unavailable</div>
+                            `;
+                        }
+
+                        return `
+                            <div class="order-card">
+                                <div class="order-header">
+                                    <div class="order-id">${order.id}</div>
+                                    <div class="order-pair">${order.pair || 'N/A'}</div>
+                                </div>
+                                <div class="order-details">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Threshold:</span>
+                                        <span class="detail-value">$${parseFloat(order.threshold_price || 0).toFixed(2)} (${order.threshold_type || 'N/A'})</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Current:</span>
+                                        <span class="detail-value">${order.current_price ? '$' + parseFloat(order.current_price).toFixed(2) : 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Direction:</span>
+                                        <span class="detail-value">${order.direction || 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Volume:</span>
+                                        <span class="detail-value">${order.volume || 'N/A'}</span>
+                                    </div>
+                                </div>
+                                ${progressHTML}
                             </div>
-                            <div class="order-details">
-                                <div class="detail-row">
-                                    <span class="detail-label">Threshold:</span>
-                                    <span class="detail-value">$${parseFloat(order.threshold_price || 0).toFixed(2)} (${order.threshold_type || 'N/A'})</span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-label">Current:</span>
-                                    <span class="detail-value">${order.current_price ? '$' + parseFloat(order.current_price).toFixed(2) : 'N/A'}</span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-label">Direction:</span>
-                                    <span class="detail-value">${order.direction || 'N/A'}</span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-label">Volume:</span>
-                                    <span class="detail-value">${order.volume || 'N/A'}</span>
-                                </div>
-                            </div>
-                            ${progressHTML}
-                        </div>
-                    `;
-                }).join('');
+                        `;
+                    }).join('');
+                }
             } catch (error) {
-                document.getElementById('pending-content').innerHTML = 
-                    `<div class="error">Error loading pending orders: ${error.message}</div>`;
+                if (content) {
+                    content.innerHTML =
+                        `<div class="error">Error loading pending orders: ${error.message}</div>`;
+                }
             }
         }
 
         // Fetch and display active orders
         async function fetchActiveOrders() {
+            const content = document.getElementById('active-content');
+            const count = document.getElementById('active-count');
+
+            showLoadingOverlay(content);
+
             try {
                 const response = await fetch('/api/active');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
                 const orders = await response.json();
-                
-                const content = document.getElementById('active-content');
-                const count = document.getElementById('active-count');
-                count.textContent = orders.length;
 
-                if (orders.length === 0) {
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">○</div>
-                            <div>No active orders</div>
-                        </div>
-                    `;
+                if (count) {
+                    count.textContent = orders.length;
+                }
+
+                if (!orders.length) {
+                    if (content) {
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">○</div>
+                                <div>No active orders</div>
+                            </div>
+                        `;
+                    }
                     return;
                 }
 
-                content.innerHTML = orders.map(order => `
-                    <div class="order-card">
-                        <div class="order-header">
-                            <div class="order-id">${order.id}</div>
-                            <div class="order-pair">${order.pair || 'N/A'}</div>
-                        </div>
-                        <div class="order-details">
-                            <div class="detail-row">
-                                <span class="detail-label">Order ID:</span>
-                                <span class="detail-value">${order.order_id ? order.order_id.substring(0, 12) + '...' : 'N/A'}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Trigger Price:</span>
-                                <span class="detail-value">$${parseFloat(order.trigger_price || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Volume:</span>
-                                <span class="detail-value">${order.volume || 'N/A'}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Status:</span>
-                                <span class="detail-value">${order.status || 'N/A'}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Triggered:</span>
-                                <span class="detail-value">${order.trigger_time ? new Date(order.trigger_time).toLocaleString() : 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (error) {
-                document.getElementById('active-content').innerHTML = 
-                    `<div class="error">Error loading active orders: ${error.message}</div>`;
-            }
-        }
-
-        // Fetch and display completed orders
-        async function fetchCompletedOrders() {
-            try {
-                const response = await fetch('/api/completed');
-                const orders = await response.json();
-                
-                const content = document.getElementById('completed-content');
-                const count = document.getElementById('completed-count');
-                count.textContent = orders.length;
-
-                if (orders.length === 0) {
-                    content.innerHTML = `
-                        <div class="empty-state">
-                            <div class="empty-state-icon">◎</div>
-                            <div>No completed orders</div>
-                        </div>
-                    `;
-                    return;
-                }
-
-                content.innerHTML = orders.map(order => {
-                    const benefitClass = order.benefit >= 0 ? 'benefit-positive' : 'benefit-negative';
-                    const benefitSign = order.benefit >= 0 ? '+' : '';
-                    
-                    return `
+                if (content) {
+                    content.innerHTML = orders.map(order => `
                         <div class="order-card">
                             <div class="order-header">
                                 <div class="order-id">${order.id}</div>
@@ -482,38 +485,115 @@
                             </div>
                             <div class="order-details">
                                 <div class="detail-row">
-                                    <span class="detail-label">Trigger Price:</span>
-                                    <span class="detail-value">$${order.trigger_price.toFixed(2)}</span>
+                                    <span class="detail-label">Order ID:</span>
+                                    <span class="detail-value">${order.order_id ? order.order_id.substring(0, 12) + '...' : 'N/A'}</span>
                                 </div>
                                 <div class="detail-row">
-                                    <span class="detail-label">Executed Price:</span>
-                                    <span class="detail-value">$${order.executed_price.toFixed(2)}</span>
+                                    <span class="detail-label">Trigger Price:</span>
+                                    <span class="detail-value">$${parseFloat(order.trigger_price || 0).toFixed(2)}</span>
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label">Volume:</span>
                                     <span class="detail-value">${order.volume || 'N/A'}</span>
                                 </div>
                                 <div class="detail-row">
-                                    <span class="detail-label">Direction:</span>
-                                    <span class="detail-value">${order.direction || 'N/A'}</span>
+                                    <span class="detail-label">Status:</span>
+                                    <span class="detail-value">${order.status || 'N/A'}</span>
                                 </div>
                                 <div class="detail-row">
-                                    <span class="detail-label">Benefit:</span>
-                                    <span class="detail-value ${benefitClass}">
-                                        ${benefitSign}$${Math.abs(order.benefit).toFixed(2)} (${benefitSign}${order.benefit_percent.toFixed(2)}%)
-                                    </span>
-                                </div>
-                                <div class="detail-row">
-                                    <span class="detail-label">Closed:</span>
-                                    <span class="detail-value">${order.close_time ? new Date(order.close_time).toLocaleString() : 'N/A'}</span>
+                                    <span class="detail-label">Triggered:</span>
+                                    <span class="detail-value">${order.trigger_time ? new Date(order.trigger_time).toLocaleString() : 'N/A'}</span>
                                 </div>
                             </div>
                         </div>
-                    `;
-                }).join('');
+                    `).join('');
+                }
             } catch (error) {
-                document.getElementById('completed-content').innerHTML = 
-                    `<div class="error">Error loading completed orders: ${error.message}</div>`;
+                if (content) {
+                    content.innerHTML =
+                        `<div class="error">Error loading active orders: ${error.message}</div>`;
+                }
+            }
+        }
+
+        // Fetch and display completed orders
+        async function fetchCompletedOrders() {
+            const content = document.getElementById('completed-content');
+            const count = document.getElementById('completed-count');
+
+            showLoadingOverlay(content);
+
+            try {
+                const response = await fetch('/api/completed');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const orders = await response.json();
+
+                if (count) {
+                    count.textContent = orders.length;
+                }
+
+                if (!orders.length) {
+                    if (content) {
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">◎</div>
+                                <div>No completed orders</div>
+                            </div>
+                        `;
+                    }
+                    return;
+                }
+
+                if (content) {
+                    content.innerHTML = orders.map(order => {
+                        const benefitClass = order.benefit >= 0 ? 'benefit-positive' : 'benefit-negative';
+                        const benefitSign = order.benefit >= 0 ? '+' : '';
+
+                        return `
+                            <div class="order-card">
+                                <div class="order-header">
+                                    <div class="order-id">${order.id}</div>
+                                    <div class="order-pair">${order.pair || 'N/A'}</div>
+                                </div>
+                                <div class="order-details">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Trigger Price:</span>
+                                        <span class="detail-value">$${order.trigger_price.toFixed(2)}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Executed Price:</span>
+                                        <span class="detail-value">$${order.executed_price.toFixed(2)}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Volume:</span>
+                                        <span class="detail-value">${order.volume || 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Direction:</span>
+                                        <span class="detail-value">${order.direction || 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Benefit:</span>
+                                        <span class="detail-value ${benefitClass}">
+                                            ${benefitSign}$${Math.abs(order.benefit).toFixed(2)} (${benefitSign}${order.benefit_percent.toFixed(2)}%)
+                                        </span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Closed:</span>
+                                        <span class="detail-value">${order.close_time ? new Date(order.close_time).toLocaleString() : 'N/A'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                if (content) {
+                    content.innerHTML =
+                        `<div class="error">Error loading completed orders: ${error.message}</div>`;
+                }
             }
         }
 
