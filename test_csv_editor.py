@@ -210,6 +210,57 @@ def test_volume_validation_formatting():
     print("✓ Volume validation formatting test passed")
 
 
+def test_pair_validation_with_human_readable_names():
+    """Test that pair validation resolves human-readable names to Kraken codes."""
+    from csv_editor import EditCellScreen
+    
+    # Create a mock EditCellScreen to test pair validation
+    screen = EditCellScreen(current_value="", column_name="pair")
+    
+    # Test various pair inputs
+    test_cases = [
+        # (input, should_be_valid, expected_resolved_code)
+        ("BTC/USD", True, "XXBTZUSD"),
+        ("btc/usd", True, "XXBTZUSD"),
+        ("ETH/USDT", True, "ETHUSDT"),
+        ("eth-usdt", True, "ETHUSDT"),
+        ("SOL/EUR", True, "SOLEUR"),
+        ("XXBTZUSD", True, None),  # Already correct code - no resolution needed
+        ("ada/usd", True, "ADAUSD"),
+        ("NOTAREALPAIR", False, None),  # Invalid pair
+    ]
+    
+    for value, expected_valid, expected_code in test_cases:
+        is_valid, message = screen.validate_value(value)
+        assert is_valid == expected_valid, f"Validation of '{value}' should return {expected_valid}, got {is_valid}"
+        
+        if expected_valid and expected_code:
+            # Check if message contains the expected code (may have warning appended)
+            if "|" in message:
+                resolved_code = message.split("|")[0]
+            else:
+                resolved_code = message if message else value
+            assert resolved_code == expected_code, \
+                f"Pair '{value}' should resolve to '{expected_code}', got '{resolved_code}'"
+        elif not expected_valid:
+            assert message != "", f"Invalid pair '{value}' should have an error message"
+    
+    print("✓ Pair validation with human-readable names test passed")
+
+
+def test_pair_exact_match():
+    """Test that exact pair code matches don't trigger resolution."""
+    from csv_editor import EditCellScreen
+    
+    screen = EditCellScreen(current_value="XXBTZUSD", column_name="pair")
+    is_valid, message = screen.validate_value("XXBTZUSD")
+    
+    assert is_valid is True, "Exact pair code should be valid"
+    assert message == "", "Exact match should not have a resolution message"
+    
+    print("✓ Pair exact match test passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running CSV Editor tests...\n")
@@ -222,6 +273,8 @@ def run_all_tests():
         test_volume_formatting()
         test_sample_data_volume_format()
         test_volume_validation_formatting()
+        test_pair_validation_with_human_readable_names()
+        test_pair_exact_match()
         
         print("\n✅ All CSV Editor tests passed!")
         return 0

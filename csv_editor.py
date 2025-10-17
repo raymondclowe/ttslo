@@ -34,6 +34,7 @@ from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import Input, Label, Button
 from textual import events, log, work
+from pair_matcher import find_pair_match, validate_pair_exists
 
 
 class EditCellScreen(ModalScreen[str]):
@@ -136,22 +137,35 @@ class EditCellScreen(ModalScreen[str]):
             if value.lower() not in valid_enabled:
                 return (False, f"Must be true/false, yes/no, or 1/0")
         
-        # Validate pair
+        # Validate pair - now with intelligent matching
         elif column_lower == "pair":
-            known_pairs = {
-                'XXBTZUSD', 'XBTCUSD', 'XXBTZEUR', 'XXBTZGBP', 'XXBTZJPY',
-                'XETHZUSD', 'ETHCUSD', 'XETHZEUR', 'XETHZGBP', 'XETHZJPY',
-                'SOLUSD', 'SOLEUR', 'SOLGBP',
-                'ADAUSD', 'ADAEUR', 'ADAGBP',
-                'DOTUSD', 'DOTEUR', 'DOTGBP',
-                'AVAXUSD', 'AVAXEUR',
-                'LINKUSD', 'LINKEUR',
-                'USDTUSD', 'USDCUSD', 'DAIUSD',
-                'XBTCZUSD', 'ETHZUSD',
-            }
-            if value.upper() not in known_pairs:
-                # Treat unknown trading pair as invalid input to prevent accidental bad configs
-                return (False, f"Invalid trading pair: '{value}'. Use Kraken pair codes like XXBTZUSD or XETHZUSD")
+            # First, try to match the input to a Kraken pair
+            match_result = find_pair_match(value)
+            
+            if match_result:
+                # We found a match!
+                if match_result.is_exact():
+                    # Exact match - value is already correct
+                    return (True, "")
+                elif match_result.is_high_confidence():
+                    # High confidence normalized match
+                    # Return the official pair code as the formatted value
+                    # The calling code will use this to update the cell
+                    return (True, match_result.pair_code)
+                else:
+                    # Fuzzy match - warn the user
+                    warning_msg = (
+                        f"⚠️ Fuzzy match: '{value}' → '{match_result.pair_code}' "
+                        f"(confidence: {match_result.confidence:.0%}). "
+                        f"Verify this is correct!"
+                    )
+                    return (True, match_result.pair_code + "|" + warning_msg)
+            else:
+                # No match found - check if it's a valid Kraken pair code anyway
+                if validate_pair_exists(value):
+                    return (True, "")
+                else:
+                    return (False, f"Unknown trading pair: '{value}'. Try formats like BTC/USD, ETH/USDT, or use official Kraken codes.")
         
         # Validate volume - ensure it's a valid number and format to 8 decimal places
         elif column_lower == "volume":
@@ -186,14 +200,24 @@ class EditCellScreen(ModalScreen[str]):
             
             # For volume field, message contains the formatted value
             final_value = value
+            validation_label = self.query_one("#validation-message", Label)
+            
             if self.column_name and self.column_name.lower() == "volume" and message:
                 final_value = message
                 # Clear any validation message for volume formatting
-                validation_label = self.query_one("#validation-message", Label)
                 validation_label.update("")
+            elif self.column_name and self.column_name.lower() == "pair" and message:
+                # For pair field, check if message contains a warning
+                if "|" in message:
+                    # Format: "PAIR_CODE|warning message"
+                    final_value, warning = message.split("|", 1)
+                    validation_label.update(warning)
+                else:
+                    # Just the resolved pair code
+                    final_value = message
+                    validation_label.update(f"✓ Resolved to: {message}")
             elif message:  # Warning message for other fields
                 # Show warning but allow save
-                validation_label = self.query_one("#validation-message", Label)
                 validation_label.update(message)
             
             self.dismiss(final_value)
@@ -215,6 +239,14 @@ class EditCellScreen(ModalScreen[str]):
         final_value = event.value
         if self.column_name and self.column_name.lower() == "volume" and message:
             final_value = message
+        elif self.column_name and self.column_name.lower() == "pair" and message:
+            # For pair field, extract the resolved pair code
+            if "|" in message:
+                # Format: "PAIR_CODE|warning message"
+                final_value = message.split("|", 1)[0]
+            else:
+                # Just the resolved pair code
+                final_value = message
         
         self.dismiss(final_value)
 
