@@ -146,7 +146,7 @@ class TestKrakenAPIPrivate:
         result = api.get_balance()
         
         assert result['XXBT'] == "10.5000"
-    assert result['USDT'] == "50000.0000"
+        assert result['USDT'] == "50000.0000"
         
         # Verify the request was made with JSON content type
         call_args = mock_post.call_args
