@@ -38,12 +38,15 @@ def test_balance_sufficiency_message():
     ]
 
     result = validator.validate_config_file(configs)
-    # Expect one warning for balance stating "sufficient"
+    # When balance is sufficient, it should be an INFO message, not a warning
     assert result.is_valid()
-    assert result.has_warnings()
+    # Should have no warnings for sufficient balance
     balance_warnings = [w for w in result.warnings if w['field'] == 'balance']
-    assert len(balance_warnings) == 1
-    assert 'sufficient' in balance_warnings[0]['message']
+    assert len(balance_warnings) == 0
+    # Should have an info message instead
+    balance_infos = [i for i in result.infos if i['field'] == 'balance']
+    assert len(balance_infos) == 1
+    assert 'sufficient' in balance_infos[0]['message']
 
 
 def test_balance_insufficient_triggers_volume_warning():

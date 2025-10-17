@@ -682,6 +682,14 @@ class TTSLO:
                         f"Config validation warning [{warning['config_id']}] {warning['field']}: {warning['message']}",
                         config_id=warning['config_id'], field=warning['field'])
         
+        # Step 8b: Log all validation info messages (only in verbose/debug mode)
+        if hasattr(result, 'infos') and result.infos:
+            # Log each info individually (only shown in verbose/debug mode)
+            for info in result.infos:
+                self.log('INFO', 
+                        f"Config validation info [{info['config_id']}] {info['field']}: {info['message']}",
+                        config_id=info['config_id'], field=info['field'])
+        
         # Step 9: Check if validation passed (no errors)
         if not result.is_valid():
             # Get the config IDs that have errors
