@@ -198,6 +198,53 @@ uv run python csv_editor.py yourfile.csv
 - Keyboard-driven workflow
 For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
 
+## Web Dashboard
+
+TTSLO includes a Flask-based web dashboard for monitoring your orders in real-time. The dashboard provides a clean, executive-style interface with three main views:
+
+### Features
+
+- **Pending Orders**: View orders that haven't triggered yet, with visual progress bars showing how close they are to triggering
+- **Active TSL Orders**: Monitor orders that have triggered and are currently active on Kraken
+- **Completed Orders**: Review executed orders with benefit calculations comparing trigger price vs execution price
+- **Real-Time Data**: Auto-refreshes every 30 seconds with live price updates from Kraken
+- **Clean Design**: Simple, professional interface with no distracting colors or gradients
+
+### Usage
+
+Start the dashboard:
+```bash
+# Default settings (localhost:5000)
+uv run python dashboard.py
+
+# Custom host and port
+uv run python dashboard.py --host 0.0.0.0 --port 8080
+
+# Enable debug mode
+uv run python dashboard.py --debug
+```
+
+Then open your browser to `http://localhost:5000` (or your specified host/port).
+
+### Environment Variables
+
+The dashboard respects the following environment variables:
+- `TTSLO_CONFIG_FILE`: Path to config.csv (default: config.csv)
+- `TTSLO_STATE_FILE`: Path to state.csv (default: state.csv)
+- `TTSLO_LOG_FILE`: Path to logs.csv (default: logs.csv)
+
+### API Endpoints
+
+The dashboard exposes REST API endpoints for integration:
+- `GET /api/status` - System status and configuration
+- `GET /api/pending` - List of pending orders
+- `GET /api/active` - List of active TSL orders
+- `GET /api/completed` - List of completed orders
+
+### Security Note
+
+The dashboard runs in read-only mode by default and only requires read-only Kraken API credentials. It's designed for local use and should not be exposed to the internet without additional security measures.
+
 ## Safety and Security
 
 ### Fail-Safe Guarantees

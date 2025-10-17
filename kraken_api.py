@@ -694,6 +694,40 @@ class KrakenAPI:
             
         return result.get('result', {})
     
+    def query_closed_orders(self, trades=False, userref=None, start=None, end=None, ofs=None, closetime='both'):
+        """
+        Query information about closed orders.
+        
+        Args:
+            trades: Whether or not to include trades related to position in output
+            userref: Restrict results to given user reference id
+            start: Starting unix timestamp or order tx id of results (optional)
+            end: Ending unix timestamp or order tx id of results (optional)
+            ofs: Result offset
+            closetime: Which time to use (open, close, both - default: both)
+            
+        Returns:
+            Dictionary containing closed orders information
+        """
+        params = {'closetime': closetime}
+        if trades:
+            params['trades'] = trades
+        if userref is not None:
+            params['userref'] = userref
+        if start is not None:
+            params['start'] = start
+        if end is not None:
+            params['end'] = end
+        if ofs is not None:
+            params['ofs'] = ofs
+            
+        result = self._query_private('ClosedOrders', params)
+        
+        if result.get('error'):
+            raise Exception(f"Kraken API error: {result['error']}")
+            
+        return result.get('result', {})
+    
     def cancel_order(self, txid):
         """
         Cancel an open order.

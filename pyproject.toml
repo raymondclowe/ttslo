@@ -11,4 +11,5 @@ dependencies = [
     "pytest>=8.4.2",
     "python-dotenv>=1.1.1",
     "websocket-client>=1.9.0",
+    "flask>=3.1.2",
 ]
