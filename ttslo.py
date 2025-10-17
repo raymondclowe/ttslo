@@ -687,8 +687,8 @@ class TTSLO:
             # Get the config IDs that have errors
             config_ids_with_errors = result.get_config_ids_with_errors()
             
-            # Disable configs with errors in the CSV file
-            if config_ids_with_errors:
+            # Disable configs with errors in the CSV file (but not in dry-run mode)
+            if config_ids_with_errors and not self.dry_run:
                 try:
                     self.config_manager.disable_configs(config_ids_with_errors)
                     # Print to console about disabled configs
@@ -704,6 +704,15 @@ class TTSLO:
                 except Exception as e:
                     self.log('ERROR', f'Failed to disable configs with errors: {str(e)}',
                             error=str(e))
+            elif config_ids_with_errors and self.dry_run:
+                # In dry-run mode, just report errors but don't modify the CSV
+                print(f"\n[DRY RUN] Validation failed for the following configs (not modifying CSV in dry-run mode):")
+                for config_id in sorted(config_ids_with_errors):
+                    config_errors = [e for e in result.errors if e['config_id'] == config_id]
+                    print(f"  [{config_id}]:")
+                    for error in config_errors:
+                        print(f"    - {error['field']}: {error['message']}")
+                print()
             
             # SAFETY: Validation has errors - do not proceed
             self.log('ERROR', 'Configuration validation failed. Please fix errors.')
