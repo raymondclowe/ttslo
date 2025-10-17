@@ -12,6 +12,78 @@ Usage:
     python realtime_price_tui.py
     python realtime_price_tui.py --pairs XBT/USD ETH/USD SOL/USD
 """
+
+REALTIME_HELP = """
+Monitor realtime prices for one or more trading pairs.
+
+Pair syntax:
+- Case-insensitive. Allowed forms are equivalent after normalization:
+  BTCUSD, BTC/USD, BTC-USD, btc_usdt, etc.
+- Normalization rule: remove non-alphanumeric characters and uppercase the result.
+  Example: "btc/usd" -> "BTCUSD".
+
+Important:
+- USD and USDT are distinct assets. Specify both if you want BTC vs USD and BTC vs USDT.
+  Example: BTC/USD != BTC/USDT
+- Exchanges may use alternate asset codes (e.g. Kraken uses XBT for BTC and may return keys like 'XXBT' or 'XBT.F').
+  The app normalizes common mappings (XBT -> BTC) and strips funding suffixes ('.F') when matching.
+
+Examples:
+  uv run python realtime_price_tui.py --pairs BTC/USD BTC/USDT
+  uv run python realtime_price_tui.py --pairs BTC-USD BTC-USDT
+"""
+
+import json
+import sys
+import argparse
+import threading
+import re
+from datetime import datetime, timezone
+from typing import Dict, Optional
+from decimal import Decimal
+
+
+def normalize_pair_for_kraken(pair: str) -> str:
+    """Normalize user-provided pair into Kraken's expected pair format.
+
+    Rules:
+    - Case-insensitive input.
+    - Accepts separators like '/', '-', '_' or no separator.
+    - Maps common asset aliases (BTC -> XBT) used by Kraken.
+    - Returns a pair like 'XBT/USD' suitable for Kraken subscription.
+    """
+    if not pair or not isinstance(pair, str):
+        return pair
+
+    # Replace any non-alphanumeric characters with a single '/'
+    cleaned = re.sub(r"[^A-Za-z0-9]+", '/', pair.strip())
+    parts = [p for p in cleaned.split('/') if p]
+
+    if len(parts) >= 2:
+        base, quote = parts[0].upper(), parts[1].upper()
+    else:
+        # Try to split common concatenated forms like BTCUSD (base variable length)
+        s = re.sub(r"[^A-Za-z0-9]", '', pair).upper()
+        # Assume quote is 3 or 4 chars (USD, USDT, EUR, etc.)
+        if len(s) > 3:
+            # prefer 4-char quote if present (e.g., USDT)
+            if s[-4:] in ("USDT",):
+                base, quote = s[:-4], s[-4:]
+            else:
+                base, quote = s[:-3], s[-3:]
+        else:
+            base, quote = s, ''
+
+    # Map common aliases to Kraken conventions
+    alias_map = {
+        'BTC': 'XBT',
+        # add more mappings here if needed
+    }
+    base = alias_map.get(base, base)
+
+    if not quote:
+        return f"{base}"
+    return f"{base}/{quote}"
 import json
 import sys
 import argparse
@@ -477,14 +549,17 @@ def main():
     parser.add_argument(
         '--pairs',
         nargs='+',
-        default=['XBT/USD', 'ETH/USD', 'SOL/USD', 'ADA/USD', 'DOT/USD'],
-        help='Trading pairs to monitor (default: XBT/USD ETH/USD SOL/USD ADA/USD DOT/USD)'
+        default=['XBT/USD', 'XBT/USDT', 'XBT/USDC', 'ETH/USD', 'SOL/USD', 'ADA/USD', 'DOT/USD'],
+        help=REALTIME_HELP
     )
     
     args = parser.parse_args()
     
+    # Normalize pairs to Kraken naming conventions before launching
+    normalized_pairs = [normalize_pair_for_kraken(p) for p in args.pairs]
+
     # Run the app
-    app = PriceMonitorApp(args.pairs)
+    app = PriceMonitorApp(normalized_pairs)
     app.run()
 
 
