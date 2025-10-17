@@ -153,6 +153,19 @@ class EditCellScreen(ModalScreen[str]):
                 # Treat unknown trading pair as invalid input to prevent accidental bad configs
                 return (False, f"Invalid trading pair: '{value}'. Use Kraken pair codes like XXBTZUSD or XETHZUSD")
         
+        # Validate volume - ensure it's a valid number and format to 8 decimal places
+        elif column_lower == "volume":
+            try:
+                volume_float = float(value)
+                if volume_float <= 0:
+                    return (False, "Volume must be greater than 0")
+                # Format to 8 decimal places
+                formatted_value = f"{volume_float:.8f}"
+                # Return success with the formatted value as the validation message
+                # The calling code will need to be updated to use this formatted value
+                return (True, formatted_value)
+            except ValueError:
+                return (False, "Volume must be a valid number")
         
         return (True, "")
     
@@ -170,12 +183,20 @@ class EditCellScreen(ModalScreen[str]):
                 validation_label = self.query_one("#validation-message", Label)
                 validation_label.update(message)
                 return
-            elif message:  # Warning message
+            
+            # For volume field, message contains the formatted value
+            final_value = value
+            if self.column_name and self.column_name.lower() == "volume" and message:
+                final_value = message
+                # Clear any validation message for volume formatting
+                validation_label = self.query_one("#validation-message", Label)
+                validation_label.update("")
+            elif message:  # Warning message for other fields
                 # Show warning but allow save
                 validation_label = self.query_one("#validation-message", Label)
                 validation_label.update(message)
             
-            self.dismiss(value)
+            self.dismiss(final_value)
         else:
             self.dismiss(None)
     
@@ -190,7 +211,12 @@ class EditCellScreen(ModalScreen[str]):
             validation_label.update(message)
             return
         
-        self.dismiss(event.value)
+        # For volume field, message contains the formatted value
+        final_value = event.value
+        if self.column_name and self.column_name.lower() == "volume" and message:
+            final_value = message
+        
+        self.dismiss(final_value)
 
 
 class CSVEditor(App):
@@ -499,8 +525,8 @@ def main():
                 writer = csv.writer(f)
                 writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
                                'direction', 'volume', 'trailing_offset_percent', 'enabled'])
-                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true'])
-                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true'])
+                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'])
+                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'])
             print(f"Sample file created: {filepath}")
         else:
             print("Exiting without creating file.")
