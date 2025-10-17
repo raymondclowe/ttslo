@@ -23,6 +23,7 @@ The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can 
 - **Price Threshold Triggers**: Set price levels (above/below) that trigger TSL order creation
 - **CSV-based Configuration**: Simple CSV files for configuration, state, and logs
 - **Interactive CSV Editor**: Built-in TUI for editing configuration files with keyboard navigation
+- **Telegram Notifications**: Get real-time alerts via Telegram for triggers, orders, and errors (optional)
 - **Dry-Run Mode**: Test your configurations without creating real orders
 - **Verbose Debug Mode**: Detailed logging for troubleshooting
 - **Continuous Monitoring**: Runs continuously and checks prices at regular intervals
@@ -312,6 +313,63 @@ The state file tracks which triggers have fired. This file is automatically mana
 ### Log File (logs.csv)
 
 All events are logged to this CSV file with timestamps, log levels, and relevant details.
+
+## Telegram Notifications (Optional)
+
+TTSLO can send real-time Telegram notifications for important events. This feature is completely optional - the system works normally without it.
+
+### Setup
+
+1. **Create a Telegram Bot**
+   - Message [@BotFather](https://t.me/BotFather) on Telegram
+   - Send `/newbot` and follow the prompts
+   - Copy the bot token (e.g., `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
+
+2. **Get Your Chat ID**
+   - Message [@userinfobot](https://t.me/userinfobot) on Telegram
+   - Copy your chat ID (e.g., `123456789`)
+
+3. **Configure Environment**
+   - Add to your `.env` file:
+     ```
+     TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+     ```
+
+4. **Create Notifications Config**
+   - Copy `notifications.ini.example` to `notifications.ini`
+   - Add your username and chat ID in the `[recipients]` section
+   - Configure which events you want to be notified about
+
+### Example Configuration
+
+```ini
+[recipients]
+alice = 123456789
+
+[notify.config_changed]
+users = alice
+
+[notify.validation_error]
+users = alice
+
+[notify.trigger_reached]
+users = alice
+
+[notify.tsl_created]
+users = alice
+
+[notify.tsl_filled]
+users = alice
+```
+
+### Testing Notifications
+
+Test your notification setup:
+```bash
+uv run python demo_notifications.py
+```
+
+For complete documentation, see [NOTIFICATIONS_README.md](NOTIFICATIONS_README.md).
 
 ## Command Line Options
 
