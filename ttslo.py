@@ -690,47 +690,52 @@ class TTSLO:
                         f"Config validation info [{info['config_id']}] {info['field']}: {info['message']}",
                         config_id=info['config_id'], field=info['field'])
         
-        # Step 9: Check if validation passed (no errors)
-        if not result.is_valid():
-            # Get the config IDs that have errors
-            config_ids_with_errors = result.get_config_ids_with_errors()
-            
-            # Disable configs with errors in the CSV file (but not in dry-run mode)
-            if config_ids_with_errors and not self.dry_run:
-                try:
-                    self.config_manager.disable_configs(config_ids_with_errors)
-                    # Print to console about disabled configs
-                    print(f"\nERROR: Validation failed for the following configs. They have been disabled:")
-                    for config_id in sorted(config_ids_with_errors):
-                        # Get all errors for this config
-                        config_errors = [e for e in result.errors if e['config_id'] == config_id]
-                        print(f"  [{config_id}]:")
-                        for error in config_errors:
-                            print(f"    - {error['field']}: {error['message']}")
-                    print("\nThese configs have been set to enabled=false in the configuration file.")
-                    print("Fix the errors and set enabled=true to re-enable them.\n")
-                except Exception as e:
-                    self.log('ERROR', f'Failed to disable configs with errors: {str(e)}',
-                            error=str(e))
-            elif config_ids_with_errors and self.dry_run:
-                # In dry-run mode, just report errors but don't modify the CSV
-                print(f"\n[DRY RUN] Validation failed for the following configs (not modifying CSV in dry-run mode):")
+        # Step 9: Disable configs with validation errors
+        config_ids_with_errors = result.get_config_ids_with_errors()
+        if config_ids_with_errors and not self.dry_run:
+            try:
+                self.config_manager.disable_configs(config_ids_with_errors)
+                # Print to console about disabled configs
+                print(f"\nThe following configs had validation errors and have been disabled:")
                 for config_id in sorted(config_ids_with_errors):
+                    # Get all errors for this config
                     config_errors = [e for e in result.errors if e['config_id'] == config_id]
                     print(f"  [{config_id}]:")
                     for error in config_errors:
                         print(f"    - {error['field']}: {error['message']}")
-                print()
-            
-            # SAFETY: Validation has errors - do not proceed
-            self.log('ERROR', 'Configuration validation failed. Please fix errors.')
+                print("\nThese configs have been set to enabled=false in the configuration file.")
+                print("Fix the errors and set enabled=true to re-enable them.\n")
+            except Exception as e:
+                self.log('ERROR', f'Failed to disable configs with errors: {str(e)}',
+                        error=str(e))
+        elif config_ids_with_errors and self.dry_run:
+            # In dry-run mode, just report errors but don't modify the CSV
+            print(f"\n[DRY RUN] The following configs have validation errors (not modifying CSV in dry-run mode):")
+            for config_id in sorted(config_ids_with_errors):
+                config_errors = [e for e in result.errors if e['config_id'] == config_id]
+                print(f"  [{config_id}]:")
+                for error in config_errors:
+                    print(f"    - {error['field']}: {error['message']}")
+            print()
+        
+        # Step 10: Check if we have any valid enabled configs left
+        # Count configs that are enabled and don't have errors
+        valid_enabled_configs = 0
+        for config in result.configs:
+            config_id = config.get('id', '')
+            if config_id not in config_ids_with_errors:
+                valid_enabled_configs += 1
+        
+        if valid_enabled_configs == 0:
+            # SAFETY: No valid configs left - do not proceed
+            self.log('ERROR', 'All configurations have validation errors. Cannot proceed.')
             return False
         
-        # Step 10: Warn about warnings if in verbose mode
+        # Step 11: Warn about warnings if in verbose mode
         if result.has_warnings() and self.verbose:
             print("Configuration has warnings. Review them to ensure they are expected.")
         
-        # Step 11: Validation passed - safe to proceed
+        # Step 12: Validation passed for at least some configs - safe to proceed
         return True
     
     def run_once(self):

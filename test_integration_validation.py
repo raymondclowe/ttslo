@@ -67,11 +67,11 @@ def test_validation_error_disables_config():
         )
         
         # Attempt to validate and load config
-        # This should fail due to bad_1 having invalid threshold_price
+        # This should succeed because good_1 is valid, bad_1 gets disabled
         validation_passed = ttslo.validate_and_load_config()
         
-        # Validation should fail
-        assert not validation_passed, "Validation should fail with invalid config"
+        # Validation should succeed (good_1 is valid)
+        assert validation_passed, "Validation should succeed with at least one valid config"
         
         # Reload the config file to check if bad_1 was disabled
         configs = config_manager.load_config()
@@ -152,8 +152,8 @@ def test_validation_with_multiple_errors():
         # Attempt to validate and load config
         validation_passed = ttslo.validate_and_load_config()
         
-        # Validation should fail
-        assert not validation_passed, "Validation should fail with invalid configs"
+        # Validation should succeed (good_1 and good_2 are valid)
+        assert validation_passed, "Validation should succeed with valid configs remaining"
         
         # Reload the config file to check disabled configs
         configs = config_manager.load_config()
