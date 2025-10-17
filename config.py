@@ -201,3 +201,39 @@ class ConfigManager:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(rows)
+    
+    def disable_configs(self, config_ids):
+        """
+        Disable configurations by setting their enabled field to 'false'.
+        
+        Args:
+            config_ids: Set or list of config IDs to disable
+        """
+        if not os.path.exists(self.config_file):
+            return
+        
+        if not config_ids:
+            return
+        
+        # Convert to set for efficient lookup
+        config_ids_set = set(config_ids)
+        
+        # Read all rows
+        rows = []
+        fieldnames = None
+        with open(self.config_file, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            
+            for row in reader:
+                # Disable matching rows
+                if row.get('id') in config_ids_set:
+                    row['enabled'] = 'false'
+                rows.append(row)
+        
+        # Write all rows back
+        if fieldnames:
+            with open(self.config_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)

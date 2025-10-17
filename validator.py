@@ -13,6 +13,7 @@ class ValidationResult:
         self.errors = []
         self.warnings = []
         self.configs = []
+        self.configs_with_errors = set()  # Track which configs have errors
         
     def add_error(self, config_id: str, field: str, message: str):
         """Add a validation error."""
@@ -22,6 +23,8 @@ class ValidationResult:
             'message': message,
             'type': 'ERROR'
         })
+        # Track this config as having errors
+        self.configs_with_errors.add(config_id)
     
     def add_warning(self, config_id: str, field: str, message: str):
         """Add a validation warning."""
@@ -39,6 +42,10 @@ class ValidationResult:
     def has_warnings(self) -> bool:
         """Check if there are any warnings."""
         return len(self.warnings) > 0
+    
+    def get_config_ids_with_errors(self) -> set:
+        """Get set of config IDs that have validation errors."""
+        return self.configs_with_errors.copy()
 
 
 class ConfigValidator:
