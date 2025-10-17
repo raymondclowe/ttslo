@@ -15,8 +15,8 @@ test_file = os.path.join(test_dir, 'test_config.csv')
 # Create test data that matches the TTSLO config format
 test_data = [
     ['id', 'pair', 'threshold_price', 'threshold_type', 'direction', 'volume', 'trailing_offset_percent', 'enabled'],
-    ['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true'],
-    ['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true'],
+    ['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'],
+    ['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'],
 ]
 
 with open(test_file, 'w', newline='') as f:
