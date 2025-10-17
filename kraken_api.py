@@ -9,14 +9,240 @@ import urllib.parse
 import json
 import requests
 import os
+import threading
+from typing import Optional, Dict
+
+try:
+    import websocket
+    WEBSOCKET_AVAILABLE = True
+except ImportError:
+    WEBSOCKET_AVAILABLE = False
 
 from creds import find_kraken_credentials
+
+
+class WebSocketPriceProvider:
+    """
+    Real-time price provider using Kraken WebSocket API.
+    
+    This class maintains a WebSocket connection to Kraken and provides
+    real-time price updates via the ticker channel.
+    """
+    
+    def __init__(self):
+        """Initialize WebSocket price provider."""
+        self.ws = None
+        self.running = False
+        self.connected = False
+        self.prices = {}  # pair -> price (WebSocket format: XBT/USD)
+        self.lock = threading.Lock()
+        self.ws_thread = None
+        self.subscribed_pairs = set()
+        
+    def _normalize_pair_to_ws_format(self, pair: str) -> str:
+        """
+        Convert REST API pair format to WebSocket format.
+        
+        Args:
+            pair: Trading pair in REST format (e.g., 'XXBTZUSD', 'XETHZUSD')
+            
+        Returns:
+            Trading pair in WebSocket format (e.g., 'XBT/USD', 'ETH/USD')
+        """
+        # Common conversions
+        conversions = {
+            'XXBTZUSD': 'XBT/USD',
+            'XETHZUSD': 'ETH/USD',
+            'XXBTZUSDT': 'XBT/USDT',
+            'XETHZUSDT': 'ETH/USDT',
+        }
+        
+        if pair in conversions:
+            return conversions[pair]
+        
+        # Generic conversion for other pairs
+        # Remove leading X's and insert slash before currency
+        # e.g., XXRPZUSD -> XRP/USD
+        if pair.startswith('X'):
+            # Strip leading X's and try to split
+            cleaned = pair.lstrip('X')
+            # Most pairs are <asset>Z<currency> or <asset><currency>
+            if 'Z' in cleaned:
+                parts = cleaned.split('Z', 1)
+                return f"{parts[0]}/{parts[1]}"
+            # Fallback: assume last 3-4 chars are currency
+            for cur_len in [4, 3]:
+                if len(cleaned) > cur_len:
+                    return f"{cleaned[:-cur_len]}/{cleaned[-cur_len:]}"
+        
+        # If we can't convert, return as-is and let WebSocket API handle it
+        return pair
+    
+    def subscribe(self, pair: str):
+        """
+        Subscribe to price updates for a trading pair.
+        
+        Args:
+            pair: Trading pair in REST format (e.g., 'XXBTZUSD')
+        """
+        if not WEBSOCKET_AVAILABLE:
+            return
+        
+        # Convert to WebSocket format
+        ws_pair = self._normalize_pair_to_ws_format(pair)
+        
+        with self.lock:
+            if ws_pair in self.subscribed_pairs:
+                return  # Already subscribed
+            self.subscribed_pairs.add(ws_pair)
+        
+        if not self.connected:
+            self._start_connection()
+        
+        # Send subscription message
+        if self.ws and self.connected:
+            subscribe_msg = {
+                "event": "subscribe",
+                "pair": [ws_pair],
+                "subscription": {"name": "ticker"}
+            }
+            try:
+                self.ws.send(json.dumps(subscribe_msg))
+            except Exception as e:
+                print(f"Error subscribing to {ws_pair}: {e}")
+    
+    def get_current_price(self, pair: str) -> Optional[float]:
+        """
+        Get the most recent price for a trading pair.
+        
+        Args:
+            pair: Trading pair in REST format (e.g., 'XXBTZUSD')
+            
+        Returns:
+            Current price or None if not available
+        """
+        ws_pair = self._normalize_pair_to_ws_format(pair)
+        
+        with self.lock:
+            return self.prices.get(ws_pair)
+    
+    def _on_message(self, ws, message):
+        """Handle incoming WebSocket messages."""
+        try:
+            data = json.loads(message)
+            
+            # Handle ticker updates
+            if isinstance(data, list) and len(data) >= 4:
+                channel_name = data[-2] if len(data) > 2 else None
+                pair_name = data[-1] if len(data) > 0 else None
+                
+                if channel_name == 'ticker':
+                    ticker_data = data[1]
+                    
+                    # Extract current price from 'c' field (last trade closed)
+                    if isinstance(ticker_data, dict) and 'c' in ticker_data:
+                        price_array = ticker_data['c']
+                        if isinstance(price_array, list) and len(price_array) > 0:
+                            price = float(price_array[0])
+                            
+                            # Store the latest price
+                            with self.lock:
+                                self.prices[pair_name] = price
+                                
+        except Exception as e:
+            # Silently ignore parse errors to avoid flooding logs
+            pass
+    
+    def _on_error(self, ws, error):
+        """Handle WebSocket errors."""
+        # Only log significant errors
+        if not isinstance(error, (ConnectionResetError, BrokenPipeError)):
+            print(f"WebSocket error: {error}")
+    
+    def _on_close(self, ws, close_status_code, close_msg):
+        """Handle WebSocket close."""
+        self.connected = False
+        # Attempt to reconnect after a short delay
+        if self.running:
+            time.sleep(5)
+            self._reconnect()
+    
+    def _on_open(self, ws):
+        """Handle WebSocket open."""
+        self.connected = True
+        
+        # Re-subscribe to all pairs after connection
+        with self.lock:
+            pairs_to_subscribe = list(self.subscribed_pairs)
+        
+        for pair in pairs_to_subscribe:
+            subscribe_msg = {
+                "event": "subscribe",
+                "pair": [pair],
+                "subscription": {"name": "ticker"}
+            }
+            try:
+                ws.send(json.dumps(subscribe_msg))
+            except Exception:
+                pass
+    
+    def _start_connection(self):
+        """Start WebSocket connection in background thread."""
+        if not WEBSOCKET_AVAILABLE:
+            return
+        
+        if self.running:
+            return  # Already running
+        
+        self.ws = websocket.WebSocketApp(
+            "wss://ws.kraken.com/",
+            on_open=self._on_open,
+            on_message=self._on_message,
+            on_error=self._on_error,
+            on_close=self._on_close
+        )
+        
+        self.running = True
+        self.ws_thread = threading.Thread(target=self.ws.run_forever, daemon=True)
+        self.ws_thread.start()
+        
+        # Wait for connection (with timeout)
+        timeout = 10
+        start = time.time()
+        while not self.connected and time.time() - start < timeout:
+            time.sleep(0.1)
+    
+    def _reconnect(self):
+        """Attempt to reconnect to WebSocket."""
+        if not self.running:
+            return
+        
+        try:
+            if self.ws:
+                self.ws.close()
+        except Exception:
+            pass
+        
+        self._start_connection()
+    
+    def stop(self):
+        """Stop WebSocket connection."""
+        self.running = False
+        if self.ws:
+            try:
+                self.ws.close()
+            except Exception:
+                pass
 
 
 class KrakenAPI:
     """Client for interacting with Kraken API."""
     
-    def __init__(self, api_key=None, api_secret=None, base_url="https://api.kraken.com"):
+    # Shared WebSocket price provider (singleton pattern for efficiency)
+    _ws_provider = None
+    _ws_provider_lock = threading.Lock()
+    
+    def __init__(self, api_key=None, api_secret=None, base_url="https://api.kraken.com", use_websocket=True):
         """
         Initialize Kraken API client.
         
@@ -24,6 +250,7 @@ class KrakenAPI:
             api_key: Kraken API key
             api_secret: Kraken API secret
             base_url: Base URL for Kraken API
+            use_websocket: If True, use WebSocket for price data (default: True)
         """
         # Do not auto-discover credentials in the constructor to preserve
         # predictable behavior for unit tests. Use `from_env` to create a
@@ -31,16 +258,29 @@ class KrakenAPI:
         self.api_key = api_key
         self.api_secret = api_secret
         self.base_url = base_url
+        self.use_websocket = use_websocket and WEBSOCKET_AVAILABLE
+        
+        # Initialize WebSocket provider if needed
+        if self.use_websocket:
+            with KrakenAPI._ws_provider_lock:
+                if KrakenAPI._ws_provider is None:
+                    KrakenAPI._ws_provider = WebSocketPriceProvider()
 
     @classmethod
-    def from_env(cls, readwrite: bool = False, env_file: str = '.env', base_url: str = "https://api.kraken.com"):
+    def from_env(cls, readwrite: bool = False, env_file: str = '.env', base_url: str = "https://api.kraken.com", use_websocket: bool = True):
         """Construct a KrakenAPI using credentials discovered from env/.env/copilot.
 
         This keeps the constructor side-effect free for unit tests while
         providing an explicit helper for the live application.
+        
+        Args:
+            readwrite: If True, use read-write credentials
+            env_file: Path to .env file
+            base_url: Base URL for Kraken API
+            use_websocket: If True, use WebSocket for price data (default: True)
         """
         key, secret = find_kraken_credentials(readwrite=readwrite, env_file=env_file)
-        return cls(api_key=key, api_secret=secret, base_url=base_url)
+        return cls(api_key=key, api_secret=secret, base_url=base_url, use_websocket=use_websocket)
     def _get_kraken_signature(self, urlpath, data, nonce):
         """
         Generate Kraken API signature for authentication.
@@ -155,18 +395,47 @@ class KrakenAPI:
         if not isinstance(pair, str):
             raise ValueError(f"pair must be a string, got {type(pair)}")
         
-        # Step 2: Get ticker data from API
+        # Step 2: Try to get price from WebSocket if enabled
+        if self.use_websocket and KrakenAPI._ws_provider:
+            # Subscribe to the pair if not already subscribed
+            KrakenAPI._ws_provider.subscribe(pair)
+            
+            # Try to get cached price from WebSocket
+            ws_price = KrakenAPI._ws_provider.get_current_price(pair)
+            
+            # If we have a WebSocket price, use it
+            if ws_price is not None:
+                return ws_price
+            
+            # If no WebSocket price yet, wait a short time for first update
+            # This handles the case where we just subscribed
+            max_wait = 2.0  # seconds
+            wait_interval = 0.1  # seconds
+            elapsed = 0.0
+            
+            while elapsed < max_wait:
+                time.sleep(wait_interval)
+                elapsed += wait_interval
+                
+                ws_price = KrakenAPI._ws_provider.get_current_price(pair)
+                if ws_price is not None:
+                    return ws_price
+            
+            # If still no price from WebSocket, fall back to REST API
+        
+        # Step 3: Fall back to REST API (original implementation)
+        # Get ticker data from API
         # This will raise an exception if the API call fails
         ticker = self.get_ticker(pair)
         
-        # Step 3: Validate ticker response
+        # Step 4: Validate ticker response
         if not isinstance(ticker, dict):
             raise Exception(f"Invalid ticker response: expected dictionary, got {type(ticker)}")
         
         if not ticker:
             raise Exception(f"Empty ticker response for {pair}")
         
-        # Step 4: Extract price from ticker data
+        # Step 5: Extract price from ticker data
         # Ticker response contains pair data with 'c' key for last trade closed
         # The format is [price, lot_volume]
         for pair_key, pair_data in ticker.items():
@@ -202,7 +471,7 @@ class KrakenAPI:
                 # Return the valid price
                 return price_float
         
-        # Step 5: If we reach here, we couldn't extract the price
+        # Step 6: If we reach here, we couldn't extract the price
         raise Exception(f"Could not extract price for {pair} from ticker response")
     
     def add_order(self, pair, order_type, direction, volume, **kwargs):
