@@ -238,6 +238,50 @@ Example: For Bitcoin (XBT), both `XXBT` (spot) and `XBT.F` (funding) balances ar
 
 ---
 
+## Fat-Finger Protection (Advanced Validation)
+
+When a Kraken API connection is available, the validator provides additional protection against common input errors like extra zeros or misplaced decimal points.
+
+### Price Validation Against Recent History
+
+The validator compares threshold prices against the recent 7-day price range from OHLC (Open, High, Low, Close) data.
+
+#### WARNINGS:
+- **Price 10x Above Recent High**: Threshold price is more than 10x the highest price in the last 7 days
+  - Example: `Threshold price 600000.00 is more than 10x the recent 7-day high (52000.00). This may indicate a typo (extra zero or misplaced decimal). Current price: 50000.00`
+  - Common cause: User meant $60,000 but typed $600,000
+
+- **Price 0.1x Below Recent Low**: Threshold price is less than 0.1x the lowest price in the last 7 days
+  - Example: `Threshold price 4000.00 is less than 0.1x the recent 7-day low (47000.00). This may indicate a typo (missing zero or misplaced decimal). Current price: 50000.00`
+  - Common cause: User meant $40,000 but typed $4,000
+
+### Price and Volume Validation Against Existing Orders
+
+The validator compares threshold prices and volumes against the user's existing open and recent closed orders for the same trading pair.
+
+#### WARNINGS:
+- **Price 10x Above Existing Orders**: Threshold price is more than 10x the highest price in existing orders
+  - Example: `Threshold price 600000.00 is more than 10x the highest price in your existing XXBTZUSD orders (52000.00). This may indicate a typo.`
+
+- **Price 0.1x Below Existing Orders**: Threshold price is less than 0.1x the lowest price in existing orders
+  - Example: `Threshold price 4000.00 is less than 0.1x the lowest price in your existing XXBTZUSD orders (48000.00). This may indicate a typo.`
+
+- **Volume 10x Above Existing Orders**: Volume is more than 10x the highest volume in existing orders
+  - Example: `Volume 10.00000000 is more than 10x the highest volume in your existing XXBTZUSD orders (0.02000000). This may indicate a typo.`
+  - Common cause: User meant 1.0 BTC but typed 10.0 BTC
+
+- **Volume 0.1x Below Existing Orders**: Volume is less than 0.1x the lowest volume in existing orders
+  - Example: `Volume 0.00100000 is less than 0.1x the lowest volume in your existing XXBTZUSD orders (0.02000000). This may indicate a typo.`
+
+**Note**: Fat-finger protection warnings are only generated when:
+1. A Kraken API connection is available
+2. There is sufficient historical data (at least 2 OHLC candles)
+3. There are at least 2 existing orders for the trading pair (for order comparison)
+
+These are **warnings only**, not errors, as users may intentionally want unusual values.
+
+---
+
 ## Decimal Precision
 
 All price, volume, and percentage calculations use Python's `Decimal` type to avoid floating-point precision issues. The validator uses 28 digits of precision for currency arithmetic.
