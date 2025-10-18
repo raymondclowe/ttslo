@@ -18,6 +18,7 @@ ENV_FILE="${ENV_DIR}/ttslo.env"
 REPO_DIR="/opt/ttslo"
 DASHBOARD_PUBLIC_PORT=5080
 APP_PORT=5000
+UV_BIN="${UV_BIN:-/snap/bin/uv}"
 
 require_root() {
   if [[ $(id -u) -ne 0 ]]; then

@@ -43,9 +43,8 @@ DASHBOARD_BASIC_AUTH_PASSWORD=""
 # UFW: allow SSH from anywhere (rate-limited) and dashboard only from private subnets
 # LAN CIDR(s) allowed to reach nginx proxy for the dashboard
 # Assuming your LAN is 192.168.0.0/24; change if needed
-ALLOW_DASHBOARD_CIDRS=(
-  "192.168.0.0/24"
-)
+# Allowlist of LAN CIDRs for dashboard access; override by exporting ALLOW_DASHBOARD_CIDRS
+ALLOW_DASHBOARD_CIDRS=( ${ALLOW_DASHBOARD_CIDRS:-"192.168.0.0/24"} )
 
 # Optional: install and enable fail2ban for sshd (complements PAM lockouts)
 ENABLE_FAIL2BAN="false"
@@ -59,7 +58,8 @@ SERVICE_GROUP="ttslo"
 
 # How to run the service
 USE_UV="true"                        # if false, use venv python instead
-UV_BIN="/usr/bin/uv"
+# Prefer Snap-installed uv if present; allow env override
+UV_BIN="${UV_BIN:-/snap/bin/uv}"
 VENV_PY="${DEPLOY_PATH}/.venv/bin/python"
 
 
@@ -161,7 +161,7 @@ configure_sshd() {
   local start="# BEGIN ttslo-hardening"
   local end="# END ttslo-hardening"
   local block
-  read -r -d '' block <<'EOF'
+  block=$(cat <<'EOF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
@@ -171,6 +171,7 @@ UsePAM yes
 # Optional: restrict users
 # AllowUsers tc3
 EOF
+)
 
   insert_or_replace_block "$sshd" "$start" "$end" "$block"
   systemctl reload ssh
@@ -193,21 +194,23 @@ configure_pam_faillock() {
   local start="# ttslo-hardening pam_faillock start"
   local end="# ttslo-hardening pam_faillock end"
   local block_sshd
-  read -r -d '' block_sshd <<'EOF'
+  block_sshd=$(cat <<'EOF'
 auth required pam_faillock.so preauth silent deny=5 unlock_time=900
 auth [success=1 default=bad] pam_unix.so
 auth [default=die] pam_faillock.so authfail deny=5 unlock_time=900
 auth sufficient pam_faillock.so authsucc
 EOF
+)
   insert_or_replace_block "$sshd_pam" "$start" "$end" "$block_sshd"
 
   local block_sudo
-  read -r -d '' block_sudo <<'EOF'
+  block_sudo=$(cat <<'EOF'
 auth required pam_faillock.so preauth silent deny=5 unlock_time=900
 auth [success=1 default=bad] pam_unix.so
 auth [default=die] pam_faillock.so authfail deny=5 unlock_time=900
 auth sufficient pam_faillock.so authsucc
 EOF
+)
   insert_or_replace_block "$sudo_pam" "$start" "$end" "$block_sudo"
 
   echo "[OK] PAM faillock configured for sshd and sudo. Use 'pam_faillock --user ${ADMIN_USER} --reset' if needed."
