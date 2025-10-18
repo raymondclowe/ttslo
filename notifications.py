@@ -202,6 +202,56 @@ class NotificationManager:
         
         self.notify_event('tsl_filled', message)
     
+    def notify_insufficient_balance(self, config_id: str, pair: str,
+                                   direction: str, volume: str,
+                                   available: str, trigger_price: float):
+        """
+        Notify that an order could not be created due to insufficient balance.
+        
+        Args:
+            config_id: Configuration ID
+            pair: Trading pair
+            direction: Order direction (buy/sell)
+            volume: Requested order volume
+            available: Available balance
+            trigger_price: Price at which threshold was triggered
+        """
+        message = (f"⚠️ TTSLO: Cannot create order - Insufficient balance!\n\n"
+                  f"Config: {config_id}\n"
+                  f"Pair: {pair}\n"
+                  f"Direction: {direction}\n"
+                  f"Required Volume: {volume}\n"
+                  f"Available Balance: {available}\n"
+                  f"Trigger Price: {trigger_price}\n\n"
+                  f"⚠️ Action needed: Add funds to your account or adjust the order volume.")
+        
+        self.notify_event('insufficient_balance', message)
+    
+    def notify_order_failed(self, config_id: str, pair: str,
+                           direction: str, volume: str,
+                           error: str, trigger_price: float):
+        """
+        Notify that an order failed to be created on Kraken.
+        
+        Args:
+            config_id: Configuration ID
+            pair: Trading pair
+            direction: Order direction (buy/sell)
+            volume: Order volume
+            error: Error message from Kraken API
+            trigger_price: Price at which threshold was triggered
+        """
+        message = (f"❌ TTSLO: Order creation failed!\n\n"
+                  f"Config: {config_id}\n"
+                  f"Pair: {pair}\n"
+                  f"Direction: {direction}\n"
+                  f"Volume: {volume}\n"
+                  f"Trigger Price: {trigger_price}\n\n"
+                  f"Error: {error}\n\n"
+                  f"⚠️ Please check your account balance and configuration.")
+        
+        self.notify_event('order_failed', message)
+    
     def notify_application_exit(self, reason: str = "unknown"):
         """
         Notify that the application has exited.
@@ -252,6 +302,14 @@ users =
 
 [notify.tsl_filled]
 # Notified when a TSL order is filled
+users = 
+
+[notify.insufficient_balance]
+# Notified when an order cannot be created due to insufficient balance
+users = 
+
+[notify.order_failed]
+# Notified when an order fails to be created on Kraken
 users = 
 
 [notify.app_exit]
