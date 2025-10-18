@@ -73,14 +73,16 @@ class ConfigValidator:
     VALID_DIRECTIONS = ['buy', 'sell']
     VALID_ENABLED_VALUES = ['true', 'false', 'yes', 'no', '1', '0']
     
-    def __init__(self, kraken_api=None):
+    def __init__(self, kraken_api=None, debug_mode=False):
         """
         Initialize the validator.
         
         Args:
             kraken_api: Optional KrakenAPI instance for fetching current prices
+            debug_mode: If True, convert certain errors to warnings to allow live testing with small transactions
         """
         self.kraken_api = kraken_api
+        self.debug_mode = debug_mode
         self.price_cache = {}  # Cache prices to avoid repeated API calls
         self._known_pairs_cache = None  # Cache for Kraken pairs list
     
@@ -414,14 +416,20 @@ class ConfigValidator:
         
         # Check if threshold already met (trigger would fire immediately)
         if threshold_type == 'above' and current_price >= threshold_price:
-            result.add_error(config_id, 'threshold_price',
-                           f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
-                           f'For "above" threshold, set price higher than current market price.')
+            msg = (f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
+                   f'For "above" threshold, set price higher than current market price.')
+            if self.debug_mode:
+                result.add_warning(config_id, 'threshold_price', f'[DEBUG MODE] {msg}')
+            else:
+                result.add_error(config_id, 'threshold_price', msg)
 
         if threshold_type == 'below' and current_price <= threshold_price:
-            result.add_error(config_id, 'threshold_price',
-                           f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
-                           f'For "below" threshold, set price lower than current market price.')
+            msg = (f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
+                   f'For "below" threshold, set price lower than current market price.')
+            if self.debug_mode:
+                result.add_warning(config_id, 'threshold_price', f'[DEBUG MODE] {msg}')
+            else:
+                result.add_error(config_id, 'threshold_price', msg)
 
         # Check for insufficient gap between threshold and current price
         # The gap should be at least large enough to accommodate the trailing offset
@@ -434,10 +442,13 @@ class ConfigValidator:
         min_gap_percent = trailing_offset * Decimal('2')
 
         if price_diff_percent < trailing_offset:
-            result.add_error(config_id, 'threshold_price',
-                           f'Insufficient gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '
-                           f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
-                           f'Order would trigger immediately or not work as intended.')
+            msg = (f'Insufficient gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '
+                   f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
+                   f'Order would trigger immediately or not work as intended.')
+            if self.debug_mode:
+                result.add_warning(config_id, 'threshold_price', f'[DEBUG MODE] {msg}')
+            else:
+                result.add_error(config_id, 'threshold_price', msg)
         elif price_diff_percent < min_gap_percent:
             result.add_warning(config_id, 'threshold_price',
                              f'Small gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '

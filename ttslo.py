@@ -850,7 +850,7 @@ class TTSLO:
         
         # Step 5: Create validator with API for market price checks
         try:
-            validator = ConfigValidator(kraken_api=self.kraken_api_readonly)
+            validator = ConfigValidator(kraken_api=self.kraken_api_readonly, debug_mode=self.debug)
         except Exception as e:
             # SAFETY: Cannot create validator - do not proceed
             self.log('ERROR', f'Failed to create configuration validator: {str(e)}',
@@ -1181,7 +1181,7 @@ Environment variables:
             print("Note: API credentials not found. Skipping market price validation.")
             print("      Set KRAKEN_API_KEY and KRAKEN_API_SECRET for complete validation.\n")
         
-        validator = ConfigValidator(kraken_api=kraken_api)
+        validator = ConfigValidator(kraken_api=kraken_api, debug_mode=args.debug)
         result = validator.validate_config_file(configs)
         
         # Print formatted validation result
