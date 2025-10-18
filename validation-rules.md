@@ -8,6 +8,19 @@ The validator checks configuration entries and produces two types of feedback:
 - **ERRORS**: Critical issues that prevent the configuration from running. Must be fixed.
 - **WARNINGS**: Non-critical issues or unusual configurations that should be reviewed but don't prevent execution.
 
+### Debug Mode
+
+When running with the `--debug` flag, certain validation errors are converted to warnings to allow live testing with small transactions. This is useful for:
+- Testing configurations with thresholds that are already met
+- Testing configurations with insufficient gaps for normal operation
+- Live testing with small volumes before committing to larger trades
+
+In debug mode, the following validations become warnings instead of errors:
+- Threshold already met (price has already crossed the threshold)
+- Insufficient gap between threshold and current price
+
+Debug mode warnings are prefixed with `[DEBUG MODE]` to make them easily identifiable.
+
 ## Configuration Structure
 
 Each configuration entry must be enabled (`enabled: true`) to be validated. Disabled configurations are skipped.
@@ -68,11 +81,13 @@ All of the following fields must be present and non-empty:
   - Example: `Invalid threshold price: "abc". Must be a valid number (e.g., 50000, 3000.50)`
 - **Non-Positive**: Price is zero or negative
   - Example: `Threshold price must be positive, got: -100`
-- **Already Met (with market price)**: Current market price has already crossed the threshold
+- **Already Met (with market price)**: Current market price has already crossed the threshold (becomes WARNING in debug mode)
   - For "above" threshold: `Threshold price 50000.00 is already met (current price: 55000.00). For "above" threshold, set price higher than current market price.`
   - For "below" threshold: `Threshold price 30000.00 is already met (current price: 28000.00). For "below" threshold, set price lower than current market price.`
-- **Insufficient Gap**: Gap between threshold and current price is less than trailing offset
+  - In debug mode: `[DEBUG MODE] Threshold price 50000.00 is already met...`
+- **Insufficient Gap**: Gap between threshold and current price is less than trailing offset (becomes WARNING in debug mode)
   - Example: `Insufficient gap between threshold (51000.00) and current price (50000.00). Gap is 2.00% but trailing offset is 5.00%. Order would trigger immediately or not work as intended.`
+  - In debug mode: `[DEBUG MODE] Insufficient gap between threshold...`
 
 #### WARNINGS:
 - **Very Small Price**: Price is less than 0.01
