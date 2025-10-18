@@ -567,6 +567,26 @@ Your `config.csv` file is empty or missing. Run `--create-sample-config` to gene
 - Ensure the trading pair is correct (use `--validate-config` to check)
 - Check Kraken's API status
 
+## Utilities
+
+### Extract Open Orders
+
+A utility to extract open trailing-stop orders from Kraken and output them in config.csv format for easy comparison:
+
+```bash
+# Output to stdout
+uv run python extract_open_orders.py
+
+# Save to file
+uv run python extract_open_orders.py --output-file open_orders.csv
+
+# Compare with your config
+uv run python extract_open_orders.py > open_orders.csv
+diff config.csv open_orders.csv
+```
+
+This is useful when config.csv or state.csv may be out of sync with actual open orders on Kraken. See [EXTRACT_ORDERS_README.md](EXTRACT_ORDERS_README.md) for details.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
