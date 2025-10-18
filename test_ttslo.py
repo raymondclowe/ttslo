@@ -381,6 +381,8 @@ def test_fail_safe_order_creation():
         
         # Mock successful API response
         api_rw.add_trailing_stop_loss.return_value = {'txid': ['ORDER123']}
+        # Mock balance check - sufficient balance for 0.01 BTC
+        api_rw.get_balance.return_value = {'XXBT': '1.0'}
         
         ttslo = TTSLO(cm, api_ro, kraken_api_readwrite=api_rw, dry_run=False, verbose=False)
         
@@ -616,6 +618,8 @@ def test_activated_on_state_recording():
         api_rw = Mock(spec=KrakenAPI)
         api_ro.get_current_price.return_value = 51000  # Above threshold
         api_rw.add_trailing_stop_loss.return_value = {'txid': ['ORDER123']}
+        # Mock balance check - sufficient balance
+        api_rw.get_balance.return_value = {'XXBT': '1.0'}
         
         # Create ConfigManager and TTSLO instance
         cm = ConfigManager(config_file, state_file, log_file)
@@ -907,6 +911,8 @@ def test_config_csv_update_integration():
         
         api_rw = Mock(spec=KrakenAPI)
         api_rw.add_trailing_stop_loss.return_value = {'txid': ['TEST_ORDER_123']}
+        # Mock balance check - sufficient balance
+        api_rw.get_balance.return_value = {'XXBT': '1.0'}
         
         # Create ConfigManager and TTSLO instance
         cm = ConfigManager(config_file, state_file, log_file)
