@@ -68,7 +68,7 @@ id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,
 | direction | Order type | 'buy' or 'sell' |
 | volume | Order volume | Amount to trade |
 | trailing_offset_percent | Order price | Extracted from trailing stop percentage (e.g., "+5.0000%" → "5.0000") |
-| enabled | Always "true" | If it's open, it's effectively enabled |
+| enabled | Always "false" | If it's open, it has already been triggered |
 
 ### Why Some Fields Are Blank
 
@@ -125,8 +125,8 @@ python extract_open_orders.py
 
 # Output:
 # id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-# OZAFUQ-6FB7W-GR63OS,XXBTZUSDT,,,buy,0.00006000,15.0000,true
-# ORWBHN-LMPRM-TG4RWJ,XXBTZUSDT,,,sell,0.00005000,10.0000,true
+# OZAFUQ-6FB7W-GR63OS,XXBTZUSDT,,,buy,0.00006000,15.0000,false
+# ORWBHN-LMPRM-TG4RWJ,XXBTZUSDT,,,sell,0.00005000,10.0000,false
 ```
 
 ## Demo

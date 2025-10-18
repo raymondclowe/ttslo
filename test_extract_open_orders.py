@@ -67,7 +67,7 @@ def test_extract_trailing_stop_orders_filters_correctly():
     assert orders[0]['trailing_offset_percent'] == '5.0000'
     assert orders[0]['threshold_price'] == ''
     assert orders[0]['threshold_type'] == ''
-    assert orders[0]['enabled'] == 'true'
+    assert orders[0]['enabled'] == 'false'
     
     # Check second order
     assert orders[1]['id'] == 'ORDER-3'
@@ -144,7 +144,7 @@ def test_output_as_csv_format():
             'direction': 'sell',
             'volume': '0.01',
             'trailing_offset_percent': '5.0',
-            'enabled': 'true'
+            'enabled': 'false'
         }
     ]
     
@@ -172,7 +172,7 @@ def test_output_as_csv_format():
     assert rows[0]['trailing_offset_percent'] == '5.0'
     assert rows[0]['threshold_price'] == ''
     assert rows[0]['threshold_type'] == ''
-    assert rows[0]['enabled'] == 'true'
+    assert rows[0]['enabled'] == 'false'
 
 
 def test_extract_orders_from_real_api_format():

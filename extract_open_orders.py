@@ -68,7 +68,7 @@ def extract_trailing_stop_orders(api):
             'direction': direction,
             'volume': volume,
             'trailing_offset_percent': trailing_offset_percent,
-            'enabled': 'true'  # If it's open, it's effectively enabled
+            'enabled': 'false'  # If it's open, it has already been triggered
         }
         
         trailing_stop_orders.append(order_info)
