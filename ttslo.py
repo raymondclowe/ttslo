@@ -15,6 +15,7 @@ from kraken_api import KrakenAPI
 from config import ConfigManager
 from validator import ConfigValidator, format_validation_result
 from creds import load_env, find_kraken_credentials, get_env_var
+from notifications import NotificationManager
 
 
 # Use centralized creds helpers (load .env and lookup variants)
@@ -26,7 +27,7 @@ class TTSLO:
     """Main application for triggered trailing stop loss orders."""
     
     def __init__(self, config_manager, kraken_api_readonly, kraken_api_readwrite=None, 
-                 dry_run=False, verbose=False, debug=False):
+                 dry_run=False, verbose=False, debug=False, notification_manager=None):
         """
         Initialize TTSLO application.
         
@@ -36,6 +37,7 @@ class TTSLO:
             kraken_api_readwrite: KrakenAPI instance with read-write credentials (optional)
             dry_run: If True, don't actually create orders
             verbose: If True, print verbose output
+            notification_manager: NotificationManager instance (optional)
         """
         self.config_manager = config_manager
         self.kraken_api_readonly = kraken_api_readonly
@@ -47,6 +49,8 @@ class TTSLO:
         self.state = {}
         # Track config file modification time for change detection
         self.config_file_mtime = None
+        # Notification manager for Telegram alerts
+        self.notification_manager = notification_manager
         
     def log(self, level, message, **kwargs):
         """
@@ -387,6 +391,18 @@ class TTSLO:
         self.log('INFO', 
                 f"TSL order created successfully: order_id={order_id}",
                 config_id=config_id, order_id=order_id)
+        
+        # Send notification about TSL order created
+        if self.notification_manager:
+            try:
+                self.notification_manager.notify_tsl_order_created(
+                    config_id, order_id, pair, direction, volume,
+                    trailing_offset, trigger_price_float
+                )
+            except Exception as e:
+                self.log('WARNING', f'Failed to send TSL created notification: {str(e)}',
+                        config_id=config_id, error=str(e))
+        
         return order_id
     
     def process_config(self, config, current_price=None):
@@ -513,6 +529,18 @@ class TTSLO:
                     f"threshold={threshold_price} ({threshold_type})",
                     config_id=config_id, pair=pair, price=current_price)
             
+            # Send notification about trigger price reached
+            if self.notification_manager:
+                try:
+                    threshold_price_float = float(threshold_price) if threshold_price != 'unknown' else 0
+                    self.notification_manager.notify_trigger_price_reached(
+                        config_id, pair, float(current_price), 
+                        threshold_price_float, str(threshold_type)
+                    )
+                except Exception as e:
+                    self.log('WARNING', f'Failed to send trigger notification: {str(e)}',
+                            config_id=config_id, error=str(e))
+            
             # Step 13: Attempt to create TSL order
             order_id = self.create_tsl_order(config, current_price)
             
@@ -592,6 +620,9 @@ class TTSLO:
             # First check or file has been modified
             if self.config_file_mtime is None or current_mtime != self.config_file_mtime:
                 self.config_file_mtime = current_mtime
+                # Only notify on subsequent changes, not first check
+                if self.config_file_mtime is not None and self.notification_manager:
+                    self.notification_manager.notify_config_changed()
                 return True
             
             return False
@@ -673,6 +704,9 @@ class TTSLO:
                 self.log('ERROR', 
                         f"Config validation error [{error['config_id']}] {error['field']}: {error['message']}",
                         config_id=error['config_id'], field=error['field'])
+            # Send notification about validation errors
+            if self.notification_manager:
+                self.notification_manager.notify_validation_errors(result.errors)
         
         # Step 8: Log all validation warnings
         if result.warnings:
@@ -900,12 +934,16 @@ class TTSLO:
         except KeyboardInterrupt:
             # User pressed Ctrl+C - shutdown gracefully
             self.log('INFO', 'Interrupted by user, shutting down')
+            if self.notification_manager:
+                self.notification_manager.notify_application_exit('User interrupted (Ctrl+C)')
             sys.exit(0)
         except Exception as e:
             # Unexpected exception in main loop
             # Log it and exit to prevent unknown state
             self.log('ERROR', f'Unexpected exception in main loop: {str(e)}',
                     error=str(e))
+            if self.notification_manager:
+                self.notification_manager.notify_application_exit(f'Exception: {str(e)}')
             sys.exit(1)
 
 
@@ -1082,7 +1120,18 @@ Environment variables:
             print("Continuing without read-write API (orders cannot be created).", file=sys.stderr)
             kraken_api_readwrite = None
     
-    # Step 10: Initialize TTSLO application
+    # Step 10: Initialize notification manager
+    notification_manager = None
+    try:
+        notification_manager = NotificationManager()
+        if notification_manager.enabled:
+            if args.verbose:
+                print(f"Telegram notifications enabled for {len(notification_manager.recipients)} recipients")
+    except Exception as e:
+        if args.verbose:
+            print(f"Warning: Failed to initialize notifications: {str(e)}", file=sys.stderr)
+    
+    # Step 11: Initialize TTSLO application
     try:
         ttslo = TTSLO(
             config_manager=config_manager,
@@ -1090,13 +1139,14 @@ Environment variables:
             kraken_api_readwrite=kraken_api_readwrite,
             dry_run=args.dry_run,
             verbose=args.verbose,
-            debug=args.debug
+            debug=args.debug,
+            notification_manager=notification_manager
         )
     except Exception as e:
         print(f"ERROR: Failed to initialize TTSLO application: {str(e)}", file=sys.stderr)
         sys.exit(1)
     
-    # Step 11: Load initial state from file
+    # Step 12: Load initial state from file
     try:
         ttslo.load_state()
     except Exception as e:
@@ -1104,7 +1154,7 @@ Environment variables:
         print("Starting with empty state.", file=sys.stderr)
         # Not fatal - we can continue with empty state
     
-    # Step 12: Validate configuration before starting
+    # Step 13: Validate configuration before starting
     # SAFETY: Do not start if configuration is invalid
     validation_passed = False
     try:
@@ -1119,11 +1169,11 @@ Environment variables:
               file=sys.stderr)
         sys.exit(1)
     
-    # Step 13: Configuration is valid - log success
+    # Step 14: Configuration is valid - log success
     if args.verbose:
         print("Configuration validation passed. Starting monitoring...\n")
     
-    # Step 14: Run the application
+    # Step 15: Run the application
     try:
         if args.once:
             # Run once and exit
@@ -1136,6 +1186,8 @@ Environment variables:
         print(f"\nERROR: Unexpected exception in main execution: {str(e)}", file=sys.stderr)
         import traceback
         traceback.print_exc()
+        if notification_manager:
+            notification_manager.notify_application_exit(f'Unexpected exception: {str(e)}')
         sys.exit(1)
 
 
