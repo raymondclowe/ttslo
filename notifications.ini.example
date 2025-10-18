@@ -1,0 +1,45 @@
+# TTSLO Notifications Configuration
+# This file configures who receives which notifications via Telegram
+
+# First, define your recipients
+# Format: username = telegram_chat_id
+# To get your chat_id, message @userinfobot on Telegram
+[recipients]
+# Example:
+# alice = 123456789
+# bob = 987654321
+
+# Then, configure which users get notified for each event type
+# Multiple users can be comma-separated
+
+[notify.config_changed]
+# Notified when config.csv is modified
+users = 
+
+[notify.validation_error]
+# Notified when config.csv has validation errors
+users = 
+
+[notify.trigger_reached]
+# Notified when a trigger price is reached
+users = 
+
+[notify.tsl_created]
+# Notified when a TSL order is created on Kraken
+users = 
+
+[notify.tsl_filled]
+# Notified when a TSL order is filled
+users = 
+
+[notify.app_exit]
+# Notified when the application exits or crashes
+# Note: This only works if the app exits gracefully
+users = 
+
+# To enable notifications:
+# 1. Copy this file to notifications.ini
+# 2. Add recipient usernames and their Telegram chat IDs in [recipients]
+# 3. Add usernames to the event types you want to be notified about
+# 4. Set environment variable: TELEGRAM_BOT_TOKEN=your_bot_token
+#    (Get a bot token from @BotFather on Telegram)
