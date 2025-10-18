@@ -3,6 +3,9 @@ Configuration and state management using CSV files.
 """
 import csv
 import os
+import tempfile
+import shutil
+import time
 from datetime import datetime, timezone
 
 
@@ -21,6 +24,94 @@ class ConfigManager:
         self.config_file = config_file
         self.state_file = state_file
         self.log_file = log_file
+    
+    def _atomic_write_csv(self, filepath, fieldnames, rows, max_retries=3, retry_delay=0.1):
+        """
+        Atomically write CSV data to file using write-to-temp-then-rename pattern.
+        
+        This prevents partial writes and data corruption when multiple processes
+        access the file simultaneously.
+        
+        Args:
+            filepath: Target file path
+            fieldnames: List of CSV column names
+            rows: List of row dictionaries
+            max_retries: Maximum number of retry attempts
+            retry_delay: Delay between retries in seconds
+            
+        Raises:
+            Exception: If write fails after all retries
+        """
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                # Create a temporary file in the same directory as the target
+                # This ensures atomic rename on the same filesystem
+                target_dir = os.path.dirname(filepath) or '.'
+                temp_fd, temp_path = tempfile.mkstemp(
+                    dir=target_dir,
+                    prefix='.tmp_',
+                    suffix=os.path.basename(filepath)
+                )
+                
+                try:
+                    # Write to temporary file
+                    with os.fdopen(temp_fd, 'w', newline='') as f:
+                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer.writeheader()
+                        writer.writerows(rows)
+                    
+                    # Atomically replace the target file
+                    # On Unix/Linux, this is atomic. On Windows, it's mostly atomic.
+                    shutil.move(temp_path, filepath)
+                    return  # Success!
+                    
+                except Exception as e:
+                    # Clean up temp file if it exists
+                    try:
+                        if os.path.exists(temp_path):
+                            os.unlink(temp_path)
+                    except Exception:
+                        pass  # Ignore cleanup errors
+                    raise e
+                    
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    # Wait before retry
+                    time.sleep(retry_delay)
+                    continue
+        
+        # All retries failed
+        raise last_error
+    
+    def _read_csv_preserving_all_lines(self, filepath):
+        """
+        Read CSV file and preserve ALL lines including comments and empty rows.
+        
+        Returns a tuple of (fieldnames, rows) where rows includes all lines
+        in their original form.
+        
+        Args:
+            filepath: Path to CSV file
+            
+        Returns:
+            Tuple of (fieldnames, all_rows) where all_rows preserves everything
+        """
+        if not os.path.exists(filepath):
+            return None, []
+        
+        with open(filepath, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            all_rows = []
+            
+            for row in reader:
+                # Keep ALL rows - don't filter anything
+                all_rows.append(row)
+        
+        return fieldnames, all_rows
         
     def load_config(self):
         """
@@ -160,6 +251,9 @@ class ConfigManager:
         - Add/update trigger_time
         - Add/update trigger_price
         
+        SAFETY: Uses atomic write to prevent data loss during concurrent access.
+        Preserves ALL lines including comments and empty rows.
+        
         Args:
             config_id: ID of the configuration to update
             order_id: Kraken order ID from the triggered order
@@ -169,42 +263,38 @@ class ConfigManager:
         if not os.path.exists(self.config_file):
             return
         
-        # Read all rows
-        rows = []
-        fieldnames = None
-        with open(self.config_file, 'r', newline='') as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames
-            
-            # Ensure we have the new columns in fieldnames
-            if fieldnames:
-                fieldnames = list(fieldnames)
-                if 'order_id' not in fieldnames:
-                    fieldnames.append('order_id')
-                if 'trigger_time' not in fieldnames:
-                    fieldnames.append('trigger_time')
-                if 'trigger_price' not in fieldnames:
-                    fieldnames.append('trigger_price')
-            
-            for row in reader:
-                # Update the matching row
-                if row.get('id') == config_id:
-                    row['enabled'] = 'false'
-                    row['order_id'] = order_id
-                    row['trigger_time'] = trigger_time
-                    row['trigger_price'] = trigger_price
-                rows.append(row)
+        # Read all rows using the preserving method
+        fieldnames, all_rows = self._read_csv_preserving_all_lines(self.config_file)
         
-        # Write all rows back
-        if fieldnames:
-            with open(self.config_file, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(rows)
+        if not fieldnames:
+            return
+        
+        # Ensure we have the new columns in fieldnames
+        fieldnames = list(fieldnames)
+        if 'order_id' not in fieldnames:
+            fieldnames.append('order_id')
+        if 'trigger_time' not in fieldnames:
+            fieldnames.append('trigger_time')
+        if 'trigger_price' not in fieldnames:
+            fieldnames.append('trigger_price')
+        
+        # Update matching row while preserving all others (including comments/empty)
+        for row in all_rows:
+            if row.get('id') == config_id:
+                row['enabled'] = 'false'
+                row['order_id'] = order_id
+                row['trigger_time'] = trigger_time
+                row['trigger_price'] = trigger_price
+        
+        # Write atomically to prevent data loss
+        self._atomic_write_csv(self.config_file, fieldnames, all_rows)
     
     def disable_configs(self, config_ids):
         """
         Disable configurations by setting their enabled field to 'false'.
+        
+        SAFETY: Uses atomic write to prevent data loss during concurrent access.
+        Preserves ALL lines including comments and empty rows.
         
         Args:
             config_ids: Set or list of config IDs to disable
@@ -218,22 +308,16 @@ class ConfigManager:
         # Convert to set for efficient lookup
         config_ids_set = set(config_ids)
         
-        # Read all rows
-        rows = []
-        fieldnames = None
-        with open(self.config_file, 'r', newline='') as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames
-            
-            for row in reader:
-                # Disable matching rows
-                if row.get('id') in config_ids_set:
-                    row['enabled'] = 'false'
-                rows.append(row)
+        # Read all rows using the preserving method
+        fieldnames, all_rows = self._read_csv_preserving_all_lines(self.config_file)
         
-        # Write all rows back
-        if fieldnames:
-            with open(self.config_file, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(rows)
+        if not fieldnames:
+            return
+        
+        # Disable matching rows while preserving all others
+        for row in all_rows:
+            if row.get('id') in config_ids_set:
+                row['enabled'] = 'false'
+        
+        # Write atomically to prevent data loss
+        self._atomic_write_csv(self.config_file, fieldnames, all_rows)
