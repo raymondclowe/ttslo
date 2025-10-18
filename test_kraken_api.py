@@ -294,7 +294,7 @@ class TestKrakenAPIPrivate:
         # Verify parameters were included correctly
         call_args = mock_post.call_args
         request_data = json.loads(call_args[1]['data'])
-        assert request_data['pair'] == 'XXXBTZUSDT'
+        assert request_data['pair'] == 'XXBTZUSDT'
         assert request_data['type'] == 'buy'
         assert request_data['ordertype'] == 'limit'
         assert request_data['volume'] == '0.1'

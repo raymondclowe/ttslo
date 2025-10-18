@@ -388,14 +388,14 @@ class ConfigValidator:
         current_price = self._get_current_price(pair)
         if current_price is not None:
             self._validate_market_price(config, config_id, threshold_price, threshold_type, 
-                                       direction, trailing_offset, current_price, result)
+                                       direction, trailing_offset, volume, current_price, result)
         
         # Check if sufficient balance is available (warning only)
         self._check_balance_availability(config, config_id, pair, direction, volume, result)
     
     def _validate_market_price(self, config: Dict, config_id: str, threshold_price: float,
                                threshold_type: str, direction: str, trailing_offset: float,
-                               current_price: float, result: ValidationResult):
+                               volume: float, current_price: float, result: ValidationResult):
         """
         Validate threshold price against current market price.
         
@@ -406,6 +406,7 @@ class ConfigValidator:
             threshold_type: 'above' or 'below'
             direction: 'buy' or 'sell'
             trailing_offset: Trailing offset percentage
+            volume: Configured volume
             current_price: Current market price
             result: ValidationResult to add errors/warnings to
         """
@@ -442,6 +443,188 @@ class ConfigValidator:
                              f'Small gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '
                              f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
                              f'Consider a gap of at least {self._format_decimal(min_gap_percent, 1)}% for best results.')
+        
+        # Check for fat-finger errors (values 10x out of normal range)
+        self._check_fat_finger_protection(config, config_id, threshold_price, volume, 
+                                          pair, current_price, result)
+    
+    def _check_fat_finger_protection(self, config: Dict, config_id: str, 
+                                     threshold_price: Decimal, volume: Decimal,
+                                     pair: str, current_price: Decimal, 
+                                     result: ValidationResult):
+        """
+        Check for fat-finger errors: values that are 10x out of normal range.
+        
+        This validation helps prevent mistakes like:
+        - Missing decimal points (0.1 typed as 01 or 1)
+        - Extra zeros (0.001 typed as 0.0001)
+        - Misplaced decimal points
+        
+        Args:
+            config: Configuration dictionary
+            config_id: Configuration ID
+            threshold_price: Configured threshold price
+            volume: Configured volume
+            pair: Trading pair
+            current_price: Current market price
+            result: ValidationResult to add warnings to
+        """
+        if not self.kraken_api:
+            return  # Can't check without API access
+        
+        # Check threshold price against recent price range
+        self._check_price_against_history(config_id, threshold_price, pair, current_price, result)
+        
+        # Check threshold price and volume against existing orders
+        self._check_against_existing_orders(config_id, threshold_price, volume, pair, result)
+    
+    def _check_price_against_history(self, config_id: str, threshold_price: Decimal,
+                                     pair: str, current_price: Decimal,
+                                     result: ValidationResult):
+        """
+        Check if threshold price is within reasonable range based on recent price history.
+        
+        Warns if price is more than 10x the recent high or less than 0.1x the recent low.
+        """
+        try:
+            # Get recent OHLC data (last 7 days with daily candles)
+            ohlc_data = self.kraken_api.get_ohlc(pair, interval=1440)
+            
+            if not ohlc_data:
+                return  # No data available
+            
+            # Extract the OHLC array (skip the 'last' timestamp field)
+            candles = None
+            for key, value in ohlc_data.items():
+                if key != 'last' and isinstance(value, list):
+                    candles = value
+                    break
+            
+            if not candles or len(candles) < 2:
+                return  # Not enough data
+            
+            # Get highs and lows from recent candles (last 7 days)
+            recent_candles = candles[-7:] if len(candles) >= 7 else candles
+            highs = [Decimal(str(candle[2])) for candle in recent_candles]  # High is index 2
+            lows = [Decimal(str(candle[3])) for candle in recent_candles]   # Low is index 3
+            
+            recent_high = max(highs)
+            recent_low = min(lows)
+            
+            # Check if threshold is 10x above recent high
+            if threshold_price > recent_high * Decimal('10'):
+                result.add_warning(config_id, 'threshold_price',
+                                 f'Threshold price {self._format_decimal(threshold_price, 2)} is more than 10x the recent 7-day high '
+                                 f'({self._format_decimal(recent_high, 2)}). This may indicate a typo (extra zero or misplaced decimal). '
+                                 f'Current price: {self._format_decimal(current_price, 2)}')
+            
+            # Check if threshold is 0.1x (10x less than) below recent low
+            elif threshold_price < recent_low * Decimal('0.1'):
+                result.add_warning(config_id, 'threshold_price',
+                                 f'Threshold price {self._format_decimal(threshold_price, 2)} is less than 0.1x the recent 7-day low '
+                                 f'({self._format_decimal(recent_low, 2)}). This may indicate a typo (missing zero or misplaced decimal). '
+                                 f'Current price: {self._format_decimal(current_price, 2)}')
+        
+        except Exception:
+            # Don't fail validation if historical data check fails
+            # This is just a helpful warning
+            pass
+    
+    def _check_against_existing_orders(self, config_id: str, threshold_price: Decimal,
+                                       volume: Decimal, pair: str, result: ValidationResult):
+        """
+        Check if threshold price and volume are within reasonable range compared to existing orders.
+        
+        Warns if values are 10x different from existing order ranges.
+        """
+        try:
+            # Get open orders
+            open_orders_result = self.kraken_api.query_open_orders()
+            open_orders = open_orders_result.get('open', {})
+            
+            # Also get recent closed orders (last 50)
+            closed_orders_result = self.kraken_api.query_closed_orders(ofs=0)
+            closed_orders = closed_orders_result.get('closed', {})
+            
+            # Combine all orders for this pair
+            all_orders = {}
+            all_orders.update(open_orders)
+            all_orders.update(closed_orders)
+            
+            # Filter orders for the same pair
+            pair_orders = []
+            for order_id, order_data in all_orders.items():
+                if isinstance(order_data, dict):
+                    order_pair = order_data.get('descr', {}).get('pair', '')
+                    if order_pair == pair:
+                        pair_orders.append(order_data)
+            
+            if len(pair_orders) < 2:
+                return  # Not enough orders to establish a pattern
+            
+            # Extract prices and volumes from existing orders
+            prices = []
+            volumes = []
+            for order in pair_orders:
+                descr = order.get('descr', {})
+                # Get price from order description
+                order_price = descr.get('price')
+                if order_price and order_price != '0':
+                    try:
+                        prices.append(Decimal(str(order_price)))
+                    except (InvalidOperation, ValueError):
+                        pass
+                
+                # Get volume
+                order_volume = order.get('vol')
+                if order_volume:
+                    try:
+                        volumes.append(Decimal(str(order_volume)))
+                    except (InvalidOperation, ValueError):
+                        pass
+            
+            # Check threshold price against existing order prices
+            if len(prices) >= 2:
+                max_price = max(prices)
+                min_price = min(prices)
+                
+                # Warn if threshold is 10x above max existing order price
+                if threshold_price > max_price * Decimal('10'):
+                    result.add_warning(config_id, 'threshold_price',
+                                     f'Threshold price {self._format_decimal(threshold_price, 2)} is more than 10x the highest '
+                                     f'price in your existing {pair} orders ({self._format_decimal(max_price, 2)}). '
+                                     f'This may indicate a typo.')
+                
+                # Warn if threshold is 0.1x (10x less) below min existing order price
+                elif min_price > 0 and threshold_price < min_price * Decimal('0.1'):
+                    result.add_warning(config_id, 'threshold_price',
+                                     f'Threshold price {self._format_decimal(threshold_price, 2)} is less than 0.1x the lowest '
+                                     f'price in your existing {pair} orders ({self._format_decimal(min_price, 2)}). '
+                                     f'This may indicate a typo.')
+            
+            # Check volume against existing order volumes
+            if len(volumes) >= 2:
+                max_volume = max(volumes)
+                min_volume = min(volumes)
+                
+                # Warn if volume is 10x above max existing order volume
+                if volume > max_volume * Decimal('10'):
+                    result.add_warning(config_id, 'volume',
+                                     f'Volume {self._format_decimal(volume)} is more than 10x the highest '
+                                     f'volume in your existing {pair} orders ({self._format_decimal(max_volume)}). '
+                                     f'This may indicate a typo.')
+                
+                # Warn if volume is 0.1x (10x less) below min existing order volume
+                elif min_volume > 0 and volume < min_volume * Decimal('0.1'):
+                    result.add_warning(config_id, 'volume',
+                                     f'Volume {self._format_decimal(volume)} is less than 0.1x the lowest '
+                                     f'volume in your existing {pair} orders ({self._format_decimal(min_volume)}). '
+                                     f'This may indicate a typo.')
+        
+        except Exception:
+            # Don't fail validation if order check fails
+            # This is just a helpful warning
+            pass
     
     def _normalize_asset(self, asset: str) -> str:
         """Normalize asset key by removing X prefix and .F suffix.
