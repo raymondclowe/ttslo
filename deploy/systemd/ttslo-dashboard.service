@@ -1,0 +1,42 @@
+[Unit]
+Description=TTSLO Dashboard (Flask) - localhost only
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ttslo
+Group=ttslo
+WorkingDirectory=/opt/ttslo
+EnvironmentFile=/etc/ttslo/ttslo.env
+Environment=PYTHONUNBUFFERED=1
+Environment=UV_SYSTEM_PYTHON=1
+ExecStart=/usr/bin/uv run python dashboard.py --host 127.0.0.1 --port 5000
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+ReadOnlyPaths=/opt/ttslo
+ReadWritePaths=/var/lib/ttslo
+ReadOnlyPaths=/etc/ssl /usr/share/ca-certificates /etc/ca-certificates /usr/share/zoneinfo
+ProtectHostname=yes
+ProcSubset=pid
+ProtectClock=yes
+ProtectProc=invisible
+
+[Install]
+WantedBy=multi-user.target
