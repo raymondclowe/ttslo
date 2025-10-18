@@ -18,7 +18,7 @@
 # - Console login for user tc3 with password remains functional (only SSH is key-only)
 # - If you get locked out by PAM faillock, use console and run:
 #     pam_faillock --user <your-admin-user> --reset
-# - To revert all changes, run ./remove-security-harden.s
+# - To revert all changes, run ./remove-security-harden.sh
 
 set -euo pipefail
 
@@ -26,6 +26,7 @@ set -euo pipefail
 # Configuration (edit here) #
 #############################
 
+# IMPORTANT: Change ADMIN_USER to match your actual admin username
 # Admin user that will SSH to the box
 ADMIN_USER="tc3"
 
@@ -143,6 +144,14 @@ configure_sshd() {
     echo "[ERROR] ${auth_keys} is missing or empty. To avoid lockout, add a public key first." >&2
     exit 1
   fi
+  
+  # Validate that authorized_keys contains at least one valid SSH public key
+  if ! grep -qE '^(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com) ' "$auth_keys"; then
+    echo "[ERROR] ${auth_keys} does not contain any valid SSH public keys. To avoid lockout, add a valid key first." >&2
+    echo "[ERROR] Supported key types: ssh-rsa, ssh-ed25519, ecdsa-*, sk-ssh-ed25519@openssh.com, sk-ecdsa-*" >&2
+    exit 1
+  fi
+  
   chown ${ADMIN_USER}:${ADMIN_USER} "$auth_keys" || true
   chmod 600 "$auth_keys" || true
 
@@ -243,6 +252,7 @@ configure_nginx_dashboard() {
   if [[ -z "$DASHBOARD_BASIC_AUTH_PASSWORD" ]]; then
     DASHBOARD_BASIC_AUTH_PASSWORD=$(rand_password)
     echo "[INFO] Generated dashboard password for user '${DASHBOARD_BASIC_AUTH_USER}': ${DASHBOARD_BASIC_AUTH_PASSWORD}"
+    echo "[SECURITY] Save this password now! It will not be displayed again."
   fi
 
   # Create/update htpasswd entry idempotently
@@ -272,11 +282,11 @@ server {
         auth_basic "TTSLO Dashboard";
         auth_basic_user_file ${htpasswd_file};
 
-    proxy_pass http://127.0.0.1:${APP_PORT};
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:${APP_PORT};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_http_version 1.1;
         proxy_buffering off;
     }
@@ -491,7 +501,7 @@ main() {
   echo "- Nginx proxy with Basic Auth in front of dashboard (password printed above if generated)"
   echo "- TTSLO runs as systemd service user '${SERVICE_USER}' with sandboxing"
   echo
-  echo "Revert with: ./remove-security-harden.s"
+  echo "Revert with: ./remove-security-harden.sh"
 }
 
 main "$@"

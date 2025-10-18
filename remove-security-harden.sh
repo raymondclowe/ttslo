@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# remove-security-harden.s
+# remove-security-harden.sh
 #
 # Purpose: Revert the changes made by security-harden.sh on Ubuntu 24.04
 # - Restore sshd_config, PAM faillock, UFW, nginx site, and disable the systemd service
@@ -11,11 +11,18 @@
 
 set -euo pipefail
 
+# Variables for potential future use in cleanup operations
+# shellcheck disable=SC2034
 ADMIN_USER="tc3"
+# shellcheck disable=SC2034
 DEPLOY_PATH="/opt/ttslo"
+# shellcheck disable=SC2034
 DATA_PATH="/var/lib/ttslo"
+# shellcheck disable=SC2034
 ENV_PATH="/etc/ttslo/ttslo.env"
+# shellcheck disable=SC2034
 SERVICE_USER="ttslo"
+# shellcheck disable=SC2034
 SERVICE_GROUP="ttslo"
 
 require_root() {
@@ -28,7 +35,8 @@ require_root() {
 restore_latest_backup() {
   local file="$1"
   local backup
-  backup=$(ls -1t ${file}.bak.ttslo.* 2>/dev/null | head -n1 || true)
+  # shellcheck disable=SC2012
+  backup=$(ls -1t "${file}".bak.ttslo.* 2>/dev/null | head -n1 || true)
   if [[ -n "$backup" ]]; then
     cp -a "$backup" "$file"
     echo "[OK] Restored backup for $file from $backup"
@@ -90,7 +98,9 @@ revert_nginx() {
   rm -f "$site_enabled" || true
   rm -f "$site_avail" || true
   rm -f "/etc/nginx/.htpasswd-ttslo" || true
-  nginx -t && systemctl reload nginx || true
+  if nginx -t 2>/dev/null; then
+    systemctl reload nginx || true
+  fi
   echo "[OK] Nginx dashboard site removed."
 }
 

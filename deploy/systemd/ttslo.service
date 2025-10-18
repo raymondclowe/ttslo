@@ -66,7 +66,10 @@ SystemCallArchitectures=native
 ReadOnlyPaths=/opt/ttslo
 ReadWritePaths=/var/lib/ttslo
 # Allow reading CA certs and time zones
-ReadOnlyPaths=/etc/ssl /usr/share/ca-certificates /etc/ca-certificates /usr/share/zoneinfo
+ReadOnlyPaths=/etc/ssl
+ReadOnlyPaths=/usr/share/ca-certificates
+ReadOnlyPaths=/etc/ca-certificates
+ReadOnlyPaths=/usr/share/zoneinfo
 
 # Capability bounding (Python should not need elevated caps)
 CapabilityBoundingSet=
