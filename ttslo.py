@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, getcontext
 
 from kraken_api import KrakenAPI
 from config import ConfigManager
@@ -46,6 +47,7 @@ class TTSLO:
         self.verbose = verbose
         # debug mode enables very verbose, comparison-focused messages
         self.debug = debug
+        self.notification_manager = notification_manager
         self.state = {}
         # Store configs in memory - loaded once at startup, not reloaded during runtime
         self.configs = None
@@ -198,6 +200,154 @@ class TTSLO:
                     config_id=config_id)
             return False
     
+    def _normalize_asset(self, asset: str) -> str:
+        """
+        Normalize asset key by removing X prefix and .F suffix.
+        
+        Examples:
+            'XXBT' -> 'BT'
+            'XBT.F' -> 'BT'
+            
+        Args:
+            asset: Asset key from Kraken API
+            
+        Returns:
+            Normalized asset key
+        """
+        if not asset:
+            return ''
+        asset = asset.upper().strip()
+        # Remove funding suffix
+        if asset.endswith('.F'):
+            asset = asset[:-2]
+        # Strip leading X or Z characters commonly used by Kraken
+        asset = asset.lstrip('XZ')
+        return asset
+    
+    def _extract_base_asset(self, pair: str) -> str:
+        """
+        Extract the base asset from a trading pair.
+        
+        Args:
+            pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD')
+            
+        Returns:
+            Base asset code (e.g., 'XXBT', 'XETH') or empty string if can't determine
+        """
+        # Known mappings for common pairs
+        pair_mappings = {
+            'XBTUSDT': 'XXBT',
+            'XBTUSD': 'XXBT',
+            'XXBTZEUR': 'XXBT',
+            'XXBTZGBP': 'XXBT',
+            'XXBTZUSD': 'XXBT',
+            'ETHUSDT': 'XETH',
+            'ETHUSD': 'XETH',
+            'XETHZEUR': 'XETH',
+            'XETHZUSD': 'XETH',
+            'SOLUSDT': 'SOL',
+            'SOLEUR': 'SOL',
+            'ADAUSDT': 'ADA',
+            'DOTUSDT': 'DOT',
+            'AVAXUSDT': 'AVAX',
+            'LINKUSDT': 'LINK',
+        }
+        
+        # Check if we have a known mapping
+        if pair in pair_mappings:
+            return pair_mappings[pair]
+        
+        # Try to extract from pattern
+        for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY']:
+            if pair.endswith(quote):
+                base = pair[:-len(quote)]
+                if base:
+                    return base
+        
+        return ''
+    
+    def check_sufficient_balance(self, pair: str, direction: str, volume: float, config_id: str = None) -> tuple:
+        """
+        Check if there is sufficient balance to create an order.
+        
+        Args:
+            pair: Trading pair (e.g., 'XXBTZUSD')
+            direction: Order direction ('buy' or 'sell')
+            volume: Order volume
+            config_id: Configuration ID for logging (optional)
+            
+        Returns:
+            Tuple of (is_sufficient: bool, message: str, available: Decimal or None)
+        """
+        # Only check balance for sell orders (we don't check quote currency for buy orders)
+        if direction.lower() != 'sell':
+            return (True, 'Balance check skipped for buy orders', None)
+        
+        # Validate we have API access
+        if not self.kraken_api_readwrite:
+            return (False, 'No API credentials available for balance check', None)
+        
+        try:
+            # Get account balance
+            balance = self.kraken_api_readwrite.get_balance()
+            if not balance:
+                return (False, 'Could not retrieve account balance', None)
+            
+            # Extract base asset from pair
+            base_asset = self._extract_base_asset(pair)
+            if not base_asset:
+                return (False, f'Could not extract base asset from pair: {pair}', None)
+            
+            # Normalize all balance keys and sum totals for each normalized asset
+            # This handles both spot wallet (e.g., 'XXBT') and funding wallet (e.g., 'XBT.F')
+            getcontext().prec = 28
+            normalized_totals = {}
+            contributors = {}
+            
+            for k, v in balance.items():
+                try:
+                    amount = Decimal(str(v))
+                except (InvalidOperation, Exception):
+                    continue
+                    
+                norm = self._normalize_asset(k)
+                if not norm:
+                    continue
+                    
+                normalized_totals.setdefault(norm, Decimal('0'))
+                normalized_totals[norm] += amount
+                contributors.setdefault(norm, []).append((k, amount))
+            
+            # Normalize the base_asset for lookup
+            canonical_norm = self._normalize_asset(base_asset)
+            
+            # Get available balance for the asset
+            available = normalized_totals.get(canonical_norm, Decimal('0'))
+            contrib = contributors.get(canonical_norm, [])
+            
+            # Convert volume to Decimal
+            try:
+                volume_dec = Decimal(str(volume))
+            except (InvalidOperation, Exception) as e:
+                return (False, f'Invalid volume value: {volume}', None)
+            
+            # Build detailed message with contributors
+            contrib_str = ', '.join([f"{k}={amount}" for k, amount in contrib]) if contrib else 'none'
+            
+            # Check if balance is sufficient
+            if available >= volume_dec:
+                message = (f'Sufficient {base_asset} balance: {available} '
+                          f'(Contributors: {contrib_str}) >= required {volume_dec}')
+                return (True, message, available)
+            else:
+                message = (f'Insufficient {base_asset} balance: {available} '
+                          f'(Contributors: {contrib_str}) < required {volume_dec}')
+                return (False, message, available)
+                
+        except Exception as e:
+            error_msg = f'Error checking balance: {str(e)}'
+            return (False, error_msg, None)
+    
     def create_tsl_order(self, config, trigger_price):
         """
         Create a trailing stop loss order.
@@ -318,13 +468,55 @@ class TTSLO:
             # Return None to indicate no order was created
             return None
         
-        # Step 10: Log that we are about to create a real order
+        # Step 10: Check if we have sufficient balance before creating the order
+        # This prevents sending orders to Kraken that will fail due to insufficient funds
+        is_sufficient, balance_msg, available = self.check_sufficient_balance(
+            pair=pair,
+            direction=direction,
+            volume=volume,
+            config_id=config_id
+        )
+        
+        if not is_sufficient:
+            # Log the insufficient balance error
+            self.log('ERROR', 
+                    f"Cannot create TSL order: {balance_msg}",
+                    config_id=config_id, trigger_price=trigger_price, 
+                    pair=pair, direction=direction, volume=volume)
+            
+            # Print error message for immediate visibility
+            print(f"ERROR: Cannot create order for {config_id}: {balance_msg}")
+            
+            # Send Telegram notification about insufficient balance
+            if self.notification_manager:
+                try:
+                    self.notification_manager.notify_insufficient_balance(
+                        config_id=config_id,
+                        pair=pair,
+                        direction=direction,
+                        volume=volume,
+                        available=str(available) if available is not None else 'unknown',
+                        trigger_price=trigger_price_float
+                    )
+                except Exception as e:
+                    self.log('WARNING', f'Failed to send insufficient balance notification: {str(e)}',
+                            config_id=config_id)
+            
+            # Return None to indicate no order was created
+            return None
+        else:
+            # Log that balance check passed
+            self.log('INFO', 
+                    f"Balance check passed: {balance_msg}",
+                    config_id=config_id)
+        
+        # Step 11: Log that we are about to create a real order
         self.log('INFO', 
                 f"Creating TSL order: pair={pair}, direction={direction}, "
                 f"volume={volume}, trailing_offset={trailing_offset}%",
                 config_id=config_id, trigger_price=trigger_price)
         
-        # Step 11: Attempt to create the order via API
+        # Step 12: Attempt to create the order via API
         # Wrap in try-except to catch ANY errors
         try:
             # Call the Kraken API to create the trailing stop loss order
@@ -345,6 +537,23 @@ class TTSLO:
             if 'permission' in error_msg.lower() or 'invalid key' in error_msg.lower():
                 print(f"ERROR: API credentials may not have proper permissions for creating orders. "
                       f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
+            
+            # Check if error is related to insufficient funds
+            if 'insufficient' in error_msg.lower() or 'balance' in error_msg.lower():
+                # Send notification about insufficient balance from Kraken API
+                if self.notification_manager:
+                    try:
+                        self.notification_manager.notify_order_failed(
+                            config_id=config_id,
+                            pair=pair,
+                            direction=direction,
+                            volume=volume,
+                            error=error_msg,
+                            trigger_price=trigger_price_float
+                        )
+                    except Exception as notify_error:
+                        self.log('WARNING', f'Failed to send order failure notification: {str(notify_error)}',
+                                config_id=config_id)
             
             # Return None to indicate order was NOT created
             return None

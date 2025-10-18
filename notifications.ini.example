@@ -32,6 +32,14 @@ users =
 # Notified when a TSL order is filled
 users = 
 
+[notify.insufficient_balance]
+# Notified when an order cannot be created due to insufficient balance
+users = 
+
+[notify.order_failed]
+# Notified when an order fails to be created on Kraken
+users = 
+
 [notify.app_exit]
 # Notified when the application exits or crashes
 # Note: This only works if the app exits gracefully
