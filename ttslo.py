@@ -47,10 +47,8 @@ class TTSLO:
         # debug mode enables very verbose, comparison-focused messages
         self.debug = debug
         self.state = {}
-        # Track config file modification time for change detection
-        self.config_file_mtime = None
-        # Notification manager for Telegram alerts
-        self.notification_manager = notification_manager
+        # Store configs in memory - loaded once at startup, not reloaded during runtime
+        self.configs = None
         
     def log(self, level, message, **kwargs):
         """
@@ -600,36 +598,7 @@ class TTSLO:
             # No need to log at INFO level to reduce noise
             pass
     
-    def check_config_file_changed(self) -> bool:
-        """
-        Check if the config file has been modified since last check.
-        
-        Returns:
-            True if file has changed or this is the first check, False otherwise
-        """
-        if not self.config_manager:
-            return False
-        
-        config_file = self.config_manager.config_file
-        if not os.path.exists(config_file):
-            return False
-        
-        try:
-            current_mtime = os.path.getmtime(config_file)
-            
-            # First check or file has been modified
-            if self.config_file_mtime is None or current_mtime != self.config_file_mtime:
-                self.config_file_mtime = current_mtime
-                # Only notify on subsequent changes, not first check
-                if self.config_file_mtime is not None and self.notification_manager:
-                    self.notification_manager.notify_config_changed()
-                return True
-            
-            return False
-        except Exception as e:
-            self.log('WARNING', f'Error checking config file modification time: {str(e)}',
-                    error=str(e))
-            return False
+
     
     def validate_and_load_config(self) -> bool:
         """
@@ -648,15 +617,6 @@ class TTSLO:
         if not self.config_manager:
             self.log('ERROR', 'Configuration manager is not initialized')
             return False
-        
-        # Step 1a: Update the config file mtime so we don't re-validate unnecessarily
-        # This happens after startup validation or when called explicitly
-        config_file = self.config_manager.config_file
-        if os.path.exists(config_file):
-            try:
-                self.config_file_mtime = os.path.getmtime(config_file)
-            except Exception:
-                pass  # Ignore errors, will be caught later if needed
         
         # Step 2: Attempt to load configurations from file
         try:
@@ -769,7 +729,11 @@ class TTSLO:
         if result.has_warnings() and self.verbose:
             print("Configuration has warnings. Review them to ensure they are expected.")
         
-        # Step 12: Validation passed for at least some configs - safe to proceed
+        # Step 12: Store validated configs in memory for use during runtime
+        # This prevents automatic reloading - configs are only loaded once at startup
+        self.configs = result.configs
+        
+        # Step 13: Validation passed for at least some configs - safe to proceed
         return True
     
     def run_once(self):
@@ -786,47 +750,21 @@ class TTSLO:
             self.log('ERROR', 'Configuration manager is not initialized')
             return
         
-        # Step 2: Check if config file has been modified and re-validate if needed
-        if self.check_config_file_changed():
-            self.log('INFO', 'Configuration file has been modified, reloading and validating')
-            validation_passed = False
-            try:
-                validation_passed = self.validate_and_load_config()
-            except Exception as e:
-                self.log('ERROR', f'Configuration validation failed with exception: {str(e)}',
-                        error=str(e))
-                return
-            
-            if not validation_passed:
-                self.log('ERROR', 'Configuration validation failed after reload. Skipping this iteration.')
-                if not self.dry_run:
-                    return
-                # In dry-run mode continue processing so tests can proceed without
-                # requiring perfect config alignment with live market prices.
-                self.log('WARNING', 'Continuing in dry-run mode despite validation errors for testing purposes.')
-            
-            self.log('INFO', 'Configuration reloaded and validated successfully')
+        # Step 2: Use in-memory configurations (loaded once at startup)
+        # Do NOT reload from disk - this prevents automatic config reloading
+        configs = self.configs
         
-        # Step 3: Load configurations from file
-        try:
-            configs = self.config_manager.load_config()
-        except Exception as e:
-            # SAFETY: Cannot load configs - do not process
-            self.log('ERROR', f'Failed to load configuration file: {str(e)}',
-                    error=str(e))
-            return
-        
-        # Step 4: Check if any configurations were loaded
+        # Step 3: Check if configurations were loaded at startup
         if not configs:
-            # SAFETY: No configs - do not process
-            self.log('WARNING', 'No configurations found in config file')
+            # SAFETY: No configs loaded at startup - do not process
+            self.log('WARNING', 'No configurations loaded at startup')
             return
         
-        # Step 5: Log how many configs we are processing
+        # Step 4: Log how many configs we are processing
         num_configs = len(configs)
         self.log('INFO', f'Processing {num_configs} configurations')
         
-        # Step 6: Deduplicate price requests per-iteration
+        # Step 5: Deduplicate price requests per-iteration
         prices = {}
         pairs_to_fetch = set()
 
@@ -863,7 +801,7 @@ class TTSLO:
                 prices[pair] = None
                 self.log('ERROR', f'Error prefetching price for {pair}: {str(e)}', pair=pair, error=str(e))
 
-        # Step 7: Process each configuration using the cached prices where possible
+        # Step 6: Process each configuration using the cached prices where possible
         for config in configs:
             try:
                 pair = config.get('pair') if isinstance(config, dict) else None
@@ -875,7 +813,7 @@ class TTSLO:
                         f'Unexpected exception processing config {config_id}: {str(e)}',
                         config_id=config_id, error=str(e))
         
-        # Step 6: Save state after processing all configs
+        # Step 7: Save state after processing all configs
         # SAFETY: In dry-run mode, do not save state to disk
         if not self.dry_run:
             try:
