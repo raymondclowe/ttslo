@@ -357,10 +357,10 @@ class KrakenAPI:
     
     def get_ticker(self, pair):
         """
-        Get ticker information for a trading pair.
+        Get ticker information for a trading pair or multiple pairs.
         
         Args:
-            pair: Trading pair (e.g., 'XXBTZUSD' for BTC/USD)
+            pair: Trading pair (e.g., 'XXBTZUSD') or comma-separated pairs
             
         Returns:
             Ticker information dictionary
@@ -511,6 +511,61 @@ class KrakenAPI:
         
         # Step 6: If we reach here, we couldn't extract the price
         raise Exception(f"Could not extract price for {pair} from ticker response")
+    
+    def get_current_prices_batch(self, pairs):
+        """
+        Get current prices for multiple trading pairs in a single API call.
+        
+        This is much more efficient than calling get_current_price() for each pair
+        individually, as it reduces the number of API calls from N to 1.
+        
+        Args:
+            pairs: List or set of trading pairs (e.g., ['XXBTZUSD', 'XETHZUSD'])
+            
+        Returns:
+            Dictionary mapping pairs to their current prices
+            Example: {'XXBTZUSD': 50000.0, 'XETHZUSD': 3000.0}
+        """
+        print(f"[DEBUG] KrakenAPI.get_current_prices_batch: fetching {len(pairs)} pairs")
+        start_time = time.time()
+        
+        if not pairs:
+            return {}
+        
+        # Convert to list if needed
+        pair_list = list(pairs)
+        
+        # Join pairs with commas for batch request
+        pair_param = ','.join(pair_list)
+        
+        try:
+            # Get ticker data for all pairs at once
+            ticker = self.get_ticker(pair_param)
+            
+            # Extract prices from response
+            prices = {}
+            for pair_key, pair_data in ticker.items():
+                if not isinstance(pair_data, dict):
+                    continue
+                
+                # Extract the last trade price
+                last_trade = pair_data.get('c')
+                if last_trade and len(last_trade) > 0:
+                    try:
+                        price = float(last_trade[0])
+                        if price > 0:
+                            prices[pair_key] = price
+                    except (ValueError, TypeError) as e:
+                        print(f"[DEBUG] Could not parse price for {pair_key}: {e}")
+            
+            elapsed = time.time() - start_time
+            print(f"[DEBUG] KrakenAPI.get_current_prices_batch: fetched {len(prices)} prices in {elapsed:.3f}s")
+            return prices
+            
+        except Exception as e:
+            print(f"[DEBUG] Error in get_current_prices_batch: {e}")
+            # On error, return empty dict - caller can fall back to individual requests
+            return {}
     
     def add_order(self, pair, order_type, direction, volume, **kwargs):
     print(f"[DEBUG] KrakenAPI.add_order: pair={pair}, order_type={order_type}, direction={direction}, volume={volume}, kwargs={kwargs}")

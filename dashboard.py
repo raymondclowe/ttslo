@@ -26,6 +26,11 @@ CONFIG_FILE = os.getenv('TTSLO_CONFIG_FILE', 'config.csv')
 STATE_FILE = os.getenv('TTSLO_STATE_FILE', 'state.csv')
 LOG_FILE = os.getenv('TTSLO_LOG_FILE', 'logs.csv')
 
+# Cache for config/state data to reduce file I/O
+_config_cache = {'data': None, 'mtime': 0, 'ttl': 5.0}  # 5 second TTL
+_state_cache = {'data': None, 'mtime': 0, 'ttl': 5.0}  # 5 second TTL
+_price_cache = {'data': {}, 'timestamp': 0, 'ttl': 5.0}  # 5 second TTL for prices
+
 # Initialize managers
 config_manager = ConfigManager(CONFIG_FILE, STATE_FILE, LOG_FILE)
 
@@ -42,8 +47,79 @@ except Exception as e:
 notification_manager = None
 
 
+def get_cached_config():
+    """Get config with file-based caching."""
+    global _config_cache
+    cache_start = time.time()
+    
+    # Check if file exists
+    if not os.path.exists(CONFIG_FILE):
+        print(f"[PERF] get_cached_config: file not found")
+        return []
+    
+    # Get current file modification time
+    current_mtime = os.path.getmtime(CONFIG_FILE)
+    current_time = time.time()
+    
+    # Check if cache is valid (file hasn't changed and TTL not expired)
+    cache_age = current_time - _config_cache['mtime']
+    if (_config_cache['data'] is not None and 
+        _config_cache['mtime'] == current_mtime and 
+        cache_age < _config_cache['ttl']):
+        print(f"[PERF] get_cached_config: using cache (age {cache_age:.3f}s)")
+        return _config_cache['data']
+    
+    # Cache miss or expired - load from file
+    print(f"[PERF] get_cached_config: cache miss, loading from file")
+    configs = config_manager.load_config()
+    
+    # Update cache
+    _config_cache['data'] = configs
+    _config_cache['mtime'] = current_mtime
+    
+    elapsed = time.time() - cache_start
+    print(f"[PERF] get_cached_config: completed in {elapsed:.3f}s")
+    return configs
+
+
+def get_cached_state():
+    """Get state with file-based caching."""
+    global _state_cache
+    cache_start = time.time()
+    
+    # Check if file exists
+    if not os.path.exists(STATE_FILE):
+        print(f"[PERF] get_cached_state: file not found")
+        return {}
+    
+    # Get current file modification time
+    current_mtime = os.path.getmtime(STATE_FILE)
+    current_time = time.time()
+    
+    # Check if cache is valid (file hasn't changed and TTL not expired)
+    cache_age = current_time - _state_cache['mtime']
+    if (_state_cache['data'] is not None and 
+        _state_cache['mtime'] == current_mtime and 
+        cache_age < _state_cache['ttl']):
+        print(f"[PERF] get_cached_state: using cache (age {cache_age:.3f}s)")
+        return _state_cache['data']
+    
+    # Cache miss or expired - load from file
+    print(f"[PERF] get_cached_state: cache miss, loading from file")
+    state = config_manager.load_state()
+    
+    # Update cache
+    _state_cache['data'] = state
+    _state_cache['mtime'] = current_mtime
+    
+    elapsed = time.time() - cache_start
+    print(f"[PERF] get_cached_state: completed in {elapsed:.3f}s")
+    return state
+
+
 def get_current_prices():
     """Get current prices for all pairs in config."""
+    global _price_cache
     start_time = time.time()
     print(f"[PERF] get_current_prices started at {datetime.now(timezone.utc).isoformat()}")
     
@@ -52,23 +128,49 @@ def get_current_prices():
         print(f"[PERF] get_current_prices: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return prices
     
-    load_start = time.time()
-    configs = config_manager.load_config()
-    print(f"[PERF] load_config took {time.time() - load_start:.3f}s")
+    # Use cached config
+    configs = get_cached_config()
     
     pairs = set(config.get('pair') for config in configs if config.get('pair'))
     print(f"[PERF] Found {len(pairs)} unique pairs to fetch prices for")
     
-    # Fetch prices individually (TODO: optimize with batch fetch)
-    for pair in pairs:
-        try:
-            pair_start = time.time()
-            price = kraken_api.get_current_price(pair)
-            if price:
-                prices[pair] = price
-            print(f"[PERF] get_current_price({pair}) took {time.time() - pair_start:.3f}s")
-        except Exception as e:
-            print(f"[PERF] Error getting price for {pair}: {e}")
+    # Check price cache
+    current_time = time.time()
+    cache_age = current_time - _price_cache['timestamp']
+    if cache_age < _price_cache['ttl'] and _price_cache['data']:
+        # Check if we have all needed prices in cache
+        cached_pairs = set(_price_cache['data'].keys())
+        if pairs.issubset(cached_pairs):
+            print(f"[PERF] Using cached prices (age {cache_age:.3f}s)")
+            # Return only the prices we need
+            prices = {pair: _price_cache['data'][pair] for pair in pairs if pair in _price_cache['data']}
+            elapsed = time.time() - start_time
+            print(f"[PERF] get_current_prices completed in {elapsed:.3f}s (from cache), returned {len(prices)} prices")
+            return prices
+    
+    # Batch fetch all prices in a single API call (much faster!)
+    if pairs:
+        batch_start = time.time()
+        prices = kraken_api.get_current_prices_batch(pairs)
+        print(f"[PERF] Batch fetch of {len(pairs)} pairs took {time.time() - batch_start:.3f}s, got {len(prices)} prices")
+        
+        # If batch fetch didn't return all prices, fall back to individual fetches for missing ones
+        missing_pairs = pairs - set(prices.keys())
+        if missing_pairs:
+            print(f"[PERF] Batch fetch missed {len(missing_pairs)} pairs, fetching individually")
+            for pair in missing_pairs:
+                try:
+                    pair_start = time.time()
+                    price = kraken_api.get_current_price(pair)
+                    if price:
+                        prices[pair] = price
+                    print(f"[PERF] get_current_price({pair}) took {time.time() - pair_start:.3f}s")
+                except Exception as e:
+                    print(f"[PERF] Error getting price for {pair}: {e}")
+        
+        # Update price cache
+        _price_cache['data'] = prices
+        _price_cache['timestamp'] = current_time
     
     elapsed = time.time() - start_time
     print(f"[PERF] get_current_prices completed in {elapsed:.3f}s, returned {len(prices)} prices")
@@ -108,10 +210,9 @@ def get_pending_orders():
     start_time = time.time()
     print(f"[PERF] get_pending_orders started at {datetime.now(timezone.utc).isoformat()}")
     
-    load_start = time.time()
-    configs = config_manager.load_config()
-    state = config_manager.load_state()
-    print(f"[PERF] load_config and load_state took {time.time() - load_start:.3f}s")
+    # Use cached config and state
+    configs = get_cached_config()
+    state = get_cached_state()
     
     price_start = time.time()
     prices = get_current_prices()
@@ -169,10 +270,9 @@ def get_active_orders():
         print(f"[PERF] get_active_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return []
     
-    load_start = time.time()
-    state = config_manager.load_state()
-    configs = config_manager.load_config()
-    print(f"[PERF] load_state and load_config took {time.time() - load_start:.3f}s")
+    # Use cached config and state
+    state = get_cached_state()
+    configs = get_cached_config()
     
     # Create a map of config IDs to their configs
     config_map = {c.get('id'): c for c in configs}
@@ -234,10 +334,9 @@ def get_completed_orders():
         print(f"[PERF] get_completed_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return []
     
-    load_start = time.time()
-    state = config_manager.load_state()
-    configs = config_manager.load_config()
-    print(f"[PERF] load_state and load_config took {time.time() - load_start:.3f}s")
+    # Use cached config and state
+    state = get_cached_state()
+    configs = get_cached_config()
     
     # Create a map of config IDs to their configs
     config_map = {c.get('id'): c for c in configs}
