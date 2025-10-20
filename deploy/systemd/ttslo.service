@@ -1,12 +1,5 @@
 # /etc/systemd/system/ttslo.service
 # Hardened systemd unit for TTSLO (Triggered Trailing Stop Loss Orders)
-# Copy this file to /etc/systemd/system/, adjust User/Group and paths, then:
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now ttslo
-#
-# This unit runs the main loop (read-only and optionally read-write) and reads
-# credentials from a root-readable-only env file. It isolates the process with
-# tight sandboxing. Adjust ExecStart to your Python/uv path.
 
 [Unit]
 Description=TTSLO - Triggered Trailing Stop Loss Orders (Kraken)
@@ -24,18 +17,12 @@ Group=ttslo
 WorkingDirectory=/var/lib/ttslo
 StateDirectory=ttslo
 LogsDirectory=ttslo
-# Example files under /var/lib/ttslo:
-#   config.csv, state.csv, logs.csv
 
-# Provide environment via a root-owned file; create from ttslo.env.example
-# and set permissions: chmod 640, chown root:ttslo
+# Provide environment via a root-owned file
 EnvironmentFile=/etc/ttslo/ttslo.env
 
-# Use uv if installed; otherwise point to your venv python
-# ExecStart=/usr/bin/uv run /opt/ttslo/ttslo.py --interval 60
-# Fallback example using venv:
-# ExecStart=/opt/ttslo/.venv/bin/python /opt/ttslo/ttslo.py --interval 60
-ExecStart=/usr/bin/uv run /opt/ttslo/ttslo.py --interval 60
+# Use the Python file with uv shebang
+ExecStart=/opt/ttslo/ttslo.py --interval 60
 
 # Restart policy for robustness
 Restart=on-failure
@@ -58,12 +45,11 @@ RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 SystemCallArchitectures=native
-# Allow only the syscalls needed by Python networking; leave default filter
-# If you have systemd >= 250 you can further fine-tune with SystemCallFilter
 
 # Filesystem access: allow read-only repo directory, read-write state dir
-# Adjust to where you place the repo code (suggest /opt/ttslo checked-out git)
 ReadOnlyPaths=/opt/ttslo
+ReadOnlyPaths=/etc/ttslo
+ReadOnlyPaths=/usr/local/bin
 ReadWritePaths=/var/lib/ttslo
 # Allow reading CA certs and time zones
 ReadOnlyPaths=/etc/ssl
@@ -75,15 +61,10 @@ ReadOnlyPaths=/usr/share/zoneinfo
 CapabilityBoundingSet=
 AmbientCapabilities=
 
-# Networking restrictions: default allow outbound; if you want to limit
-# further, consider IPAddressDeny=any and explicit IPAddressAllow to Kraken
-# endpoints (dynamic CDNs make this brittle). Keep default here.
-
-# Environment tweaks (optional)
+# Environment tweaks
 Environment=PYTHONUNBUFFERED=1
-Environment=UV_SYSTEM_PYTHON=1
 
-# Sandboxing of /proc and mounts (requires newer systemd)
+# Sandboxing of /proc and mounts
 ProtectHostname=yes
 ProcSubset=pid
 ProtectClock=yes

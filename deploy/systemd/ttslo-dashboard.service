@@ -1,19 +1,34 @@
+# /etc/systemd/system/ttslo-dashboard.service
+# Dashboard service for TTSLO (Flask web interface)
+
 [Unit]
 Description=TTSLO Dashboard (Flask) - localhost only
+Documentation=https://github.com/raymondclowe/ttslo
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
+# Run as a dedicated, unprivileged user
 User=ttslo
 Group=ttslo
-WorkingDirectory=/opt/ttslo
+
+# Set working directory
+WorkingDirectory=/var/lib/ttslo
+StateDirectory=ttslo
+LogsDirectory=ttslo
+
+# Provide environment via a root-owned file
 EnvironmentFile=/etc/ttslo/ttslo.env
-Environment=PYTHONUNBUFFERED=1
-Environment=UV_SYSTEM_PYTHON=1
-ExecStart=/usr/bin/uv run python dashboard.py --host 127.0.0.1 --port 5000
+
+# Use the Python file with uv shebang
+ExecStart=/opt/ttslo/dashboard.py --host 0.0.0.0 --port 5000
+
+# Restart policy for robustness
 Restart=on-failure
 RestartSec=5s
 
+# Resource limits and hardening
 NoNewPrivileges=yes
 PrivateTmp=yes
 PrivateDevices=yes
@@ -24,18 +39,30 @@ ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictSUIDSGID=yes
 SystemCallArchitectures=native
+
+# Filesystem access
 ReadOnlyPaths=/opt/ttslo
+ReadOnlyPaths=/etc/ttslo
+ReadOnlyPaths=/usr/local/bin
 ReadWritePaths=/var/lib/ttslo
 ReadOnlyPaths=/etc/ssl
 ReadOnlyPaths=/usr/share/ca-certificates
 ReadOnlyPaths=/etc/ca-certificates
 ReadOnlyPaths=/usr/share/zoneinfo
+
+# Capability bounding
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Environment tweaks
+Environment=PYTHONUNBUFFERED=1
+
+# Sandboxing
 ProtectHostname=yes
 ProcSubset=pid
 ProtectClock=yes
