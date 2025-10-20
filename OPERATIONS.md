@@ -22,8 +22,13 @@ The services also honor environment variables `TTSLO_CONFIG_FILE`, `TTSLO_STATE_
 
 ---
 
-## 1) Stop the service
-Run this before editing your config.
+## 1) Stop the service (Optional)
+
+With the CSV editor, you can edit the config while the service is running (it uses file locking).
+
+**If using CSV Editor**: No need to stop the service - it will automatically pause config reads during editing.
+
+**If editing manually**: Stop the service first to avoid conflicts:
 
 ```bash
 sudo systemctl stop ttslo ttslo-dashboard
@@ -33,11 +38,36 @@ sudo systemctl stop ttslo ttslo-dashboard
 
 ## 2) Edit your config (and notifications, optional)
 
-Back up and edit your trading config:
+**Option A: Using the CSV Editor (Recommended)**
+
+The CSV editor automatically detects the service's config file and uses file locking to prevent conflicts:
+
+```bash
+# If you have the textual dependency installed
+# The editor will automatically use /var/lib/ttslo/config.csv when running as root/ttslo user
+sudo python3 /opt/ttslo/csv_editor.py
+
+# Or explicitly specify the file
+sudo python3 /opt/ttslo/csv_editor.py /var/lib/ttslo/config.csv
+
+# You can also edit while the service is running - it will pause reading the config
+```
+
+The CSV editor provides:
+- File locking to prevent conflicts
+- Field validation
+- Duplicate ID detection
+- Kraken pair validation
+
+**Option B: Manual Text Editor**
+
+Back up and edit your trading config manually:
 ```bash
 sudo cp /var/lib/ttslo/config.csv /var/lib/ttslo/config.csv.bak.$(date +%F)
 sudoedit /var/lib/ttslo/config.csv
 ```
+
+⚠️ **Warning**: If editing manually while the service is running, stop the service first to avoid conflicts.
 
 Optional: enable/adjust Telegram notifications:
 ```bash
