@@ -364,7 +364,11 @@
             const count = document.getElementById('pending-count');
 
             try {
+                console.log(`[DEBUG] Fetching /api/pending at`, new Date().toISOString());
+                const t0 = performance.now();
                 const response = await fetch('/api/pending');
+                const t1 = performance.now();
+                console.log(`[DEBUG] Received /api/pending response at`, new Date().toISOString(), `Elapsed: ${(t1-t0).toFixed(2)} ms`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
@@ -465,7 +469,11 @@
             const count = document.getElementById('active-count');
 
             try {
+                console.log(`[DEBUG] Fetching /api/active at`, new Date().toISOString());
+                const t0 = performance.now();
                 const response = await fetch('/api/active');
+                const t1 = performance.now();
+                console.log(`[DEBUG] Received /api/active response at`, new Date().toISOString(), `Elapsed: ${(t1-t0).toFixed(2)} ms`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
@@ -540,7 +548,11 @@
             const count = document.getElementById('completed-count');
 
             try {
+                console.log(`[DEBUG] Fetching /api/completed at`, new Date().toISOString());
+                const t0 = performance.now();
                 const response = await fetch('/api/completed');
+                const t1 = performance.now();
+                console.log(`[DEBUG] Received /api/completed response at`, new Date().toISOString(), `Elapsed: ${(t1-t0).toFixed(2)} ms`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
