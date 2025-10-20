@@ -328,26 +328,34 @@
     </div>
 
     <script>
-        let refreshInterval = null;
+        // Store current data to compare for changes
+        let currentPendingData = null;
+        let currentActiveData = null;
+        let currentCompletedData = null;
+
+        function removeLoadingOverlay(container) {
+            if (!container) return;
+            const overlay = container.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
 
         function showLoadingOverlay(container) {
-            if (!container) {
-                return;
-            }
+            // Don't show loading overlay anymore - keep existing content visible
+            return;
+        }
 
-            if (container.querySelector('.loading-overlay')) {
-                return;
-            }
-
-            const hasDataCards = container.querySelector('.order-card');
-            if (!hasDataCards) {
-                return;
-            }
-
-            const overlay = document.createElement('div');
-            overlay.className = 'loading-overlay';
-            overlay.textContent = 'Refreshing...';
-            container.appendChild(overlay);
+        // Compare two data arrays to see if they're different
+        function dataHasChanged(oldData, newData) {
+            if (!oldData && newData) return true;
+            if (oldData && !newData) return true;
+            if (!oldData && !newData) return false;
+            
+            if (oldData.length !== newData.length) return true;
+            
+            // Simple comparison - could be made more sophisticated
+            return JSON.stringify(oldData) !== JSON.stringify(newData);
         }
 
         // Fetch and display pending orders
@@ -355,14 +363,19 @@
             const content = document.getElementById('pending-content');
             const count = document.getElementById('pending-count');
 
-            showLoadingOverlay(content);
-
             try {
                 const response = await fetch('/api/pending');
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const orders = await response.json();
+
+                // Only update if data has changed
+                if (!dataHasChanged(currentPendingData, orders)) {
+                    return;
+                }
+                
+                currentPendingData = orders;
 
                 if (count) {
                     count.textContent = orders.length;
@@ -451,14 +464,19 @@
             const content = document.getElementById('active-content');
             const count = document.getElementById('active-count');
 
-            showLoadingOverlay(content);
-
             try {
                 const response = await fetch('/api/active');
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const orders = await response.json();
+
+                // Only update if data has changed
+                if (!dataHasChanged(currentActiveData, orders)) {
+                    return;
+                }
+                
+                currentActiveData = orders;
 
                 if (count) {
                     count.textContent = orders.length;
@@ -521,14 +539,19 @@
             const content = document.getElementById('completed-content');
             const count = document.getElementById('completed-count');
 
-            showLoadingOverlay(content);
-
             try {
                 const response = await fetch('/api/completed');
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const orders = await response.json();
+
+                // Only update if data has changed
+                if (!dataHasChanged(currentCompletedData, orders)) {
+                    return;
+                }
+                
+                currentCompletedData = orders;
 
                 if (count) {
                     count.textContent = orders.length;
