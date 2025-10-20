@@ -46,9 +46,8 @@ prompt_secret() {
     if [[ -n "$default_val" ]]; then
       read -r -s -p "$prompt_msg [leave blank to keep existing]: " val
       echo
-TTSLO_CONFIG_FILE=${DATA_DIR}/config.csv
-TTSLO_STATE_FILE=${DATA_DIR}/state.csv
-TTSLO_LOG_FILE=${DATA_DIR}/logs.csv
+      if [[ -z "$val" ]]; then
+        val="$default_val"
       fi
     else
       read -r -s -p "$prompt_msg: " val
