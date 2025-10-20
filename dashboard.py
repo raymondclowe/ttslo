@@ -13,6 +13,7 @@ import sys
 import signal
 import time
 from datetime import datetime, timezone
+from functools import wraps
 from flask import Flask, render_template, jsonify
 from config import ConfigManager
 from kraken_api import KrakenAPI
@@ -26,10 +27,43 @@ CONFIG_FILE = os.getenv('TTSLO_CONFIG_FILE', 'config.csv')
 STATE_FILE = os.getenv('TTSLO_STATE_FILE', 'state.csv')
 LOG_FILE = os.getenv('TTSLO_LOG_FILE', 'logs.csv')
 
-# Cache for config/state data to reduce file I/O
-_config_cache = {'data': None, 'mtime': 0, 'ttl': 5.0}  # 5 second TTL
-_state_cache = {'data': None, 'mtime': 0, 'ttl': 5.0}  # 5 second TTL
-_price_cache = {'data': {}, 'timestamp': 0, 'ttl': 5.0}  # 5 second TTL for prices
+# TTL cache decorator using native Python functools
+def ttl_cache(seconds=5):
+    """
+    Simple TTL (Time To Live) cache decorator using native Python.
+    Cache expires after the specified number of seconds.
+    
+    Args:
+        seconds: Cache TTL in seconds (default: 5)
+    """
+    def decorator(func):
+        cache = {'result': None, 'timestamp': 0}
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            current_time = time.time()
+            cache_age = current_time - cache['timestamp']
+            
+            # Return cached result if still valid
+            if cache['result'] is not None and cache_age < seconds:
+                print(f"[PERF] {func.__name__}: using cache (age {cache_age:.3f}s)")
+                return cache['result']
+            
+            # Cache miss or expired - call function
+            print(f"[PERF] {func.__name__}: cache miss, executing function")
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            elapsed = time.time() - start_time
+            
+            # Update cache
+            cache['result'] = result
+            cache['timestamp'] = current_time
+            
+            print(f"[PERF] {func.__name__}: completed in {elapsed:.3f}s")
+            return result
+        
+        return wrapper
+    return decorator
 
 # Initialize managers
 config_manager = ConfigManager(CONFIG_FILE, STATE_FILE, LOG_FILE)
@@ -47,79 +81,25 @@ except Exception as e:
 notification_manager = None
 
 
+@ttl_cache(seconds=5)
 def get_cached_config():
-    """Get config with file-based caching."""
-    global _config_cache
-    cache_start = time.time()
-    
-    # Check if file exists
+    """Get config with TTL-based caching."""
     if not os.path.exists(CONFIG_FILE):
-        print(f"[PERF] get_cached_config: file not found")
         return []
-    
-    # Get current file modification time
-    current_mtime = os.path.getmtime(CONFIG_FILE)
-    current_time = time.time()
-    
-    # Check if cache is valid (file hasn't changed and TTL not expired)
-    cache_age = current_time - _config_cache['mtime']
-    if (_config_cache['data'] is not None and 
-        _config_cache['mtime'] == current_mtime and 
-        cache_age < _config_cache['ttl']):
-        print(f"[PERF] get_cached_config: using cache (age {cache_age:.3f}s)")
-        return _config_cache['data']
-    
-    # Cache miss or expired - load from file
-    print(f"[PERF] get_cached_config: cache miss, loading from file")
-    configs = config_manager.load_config()
-    
-    # Update cache
-    _config_cache['data'] = configs
-    _config_cache['mtime'] = current_mtime
-    
-    elapsed = time.time() - cache_start
-    print(f"[PERF] get_cached_config: completed in {elapsed:.3f}s")
-    return configs
+    return config_manager.load_config()
 
 
+@ttl_cache(seconds=5)
 def get_cached_state():
-    """Get state with file-based caching."""
-    global _state_cache
-    cache_start = time.time()
-    
-    # Check if file exists
+    """Get state with TTL-based caching."""
     if not os.path.exists(STATE_FILE):
-        print(f"[PERF] get_cached_state: file not found")
         return {}
-    
-    # Get current file modification time
-    current_mtime = os.path.getmtime(STATE_FILE)
-    current_time = time.time()
-    
-    # Check if cache is valid (file hasn't changed and TTL not expired)
-    cache_age = current_time - _state_cache['mtime']
-    if (_state_cache['data'] is not None and 
-        _state_cache['mtime'] == current_mtime and 
-        cache_age < _state_cache['ttl']):
-        print(f"[PERF] get_cached_state: using cache (age {cache_age:.3f}s)")
-        return _state_cache['data']
-    
-    # Cache miss or expired - load from file
-    print(f"[PERF] get_cached_state: cache miss, loading from file")
-    state = config_manager.load_state()
-    
-    # Update cache
-    _state_cache['data'] = state
-    _state_cache['mtime'] = current_mtime
-    
-    elapsed = time.time() - cache_start
-    print(f"[PERF] get_cached_state: completed in {elapsed:.3f}s")
-    return state
+    return config_manager.load_state()
 
 
+@ttl_cache(seconds=5)
 def get_current_prices():
-    """Get current prices for all pairs in config."""
-    global _price_cache
+    """Get current prices for all pairs in config with TTL-based caching."""
     start_time = time.time()
     print(f"[PERF] get_current_prices started at {datetime.now(timezone.utc).isoformat()}")
     
@@ -133,20 +113,6 @@ def get_current_prices():
     
     pairs = set(config.get('pair') for config in configs if config.get('pair'))
     print(f"[PERF] Found {len(pairs)} unique pairs to fetch prices for")
-    
-    # Check price cache
-    current_time = time.time()
-    cache_age = current_time - _price_cache['timestamp']
-    if cache_age < _price_cache['ttl'] and _price_cache['data']:
-        # Check if we have all needed prices in cache
-        cached_pairs = set(_price_cache['data'].keys())
-        if pairs.issubset(cached_pairs):
-            print(f"[PERF] Using cached prices (age {cache_age:.3f}s)")
-            # Return only the prices we need
-            prices = {pair: _price_cache['data'][pair] for pair in pairs if pair in _price_cache['data']}
-            elapsed = time.time() - start_time
-            print(f"[PERF] get_current_prices completed in {elapsed:.3f}s (from cache), returned {len(prices)} prices")
-            return prices
     
     # Batch fetch all prices in a single API call (much faster!)
     if pairs:
@@ -167,10 +133,6 @@ def get_current_prices():
                     print(f"[PERF] get_current_price({pair}) took {time.time() - pair_start:.3f}s")
                 except Exception as e:
                     print(f"[PERF] Error getting price for {pair}: {e}")
-        
-        # Update price cache
-        _price_cache['data'] = prices
-        _price_cache['timestamp'] = current_time
     
     elapsed = time.time() - start_time
     print(f"[PERF] get_current_prices completed in {elapsed:.3f}s, returned {len(prices)} prices")
