@@ -6,7 +6,8 @@ Description=TTSLO - Triggered Trailing Stop Loss Orders (Kraken)
 Documentation=https://github.com/raymondclowe/ttslo
 After=network-online.target
 Wants=network-online.target
-StartLimitIntervalSec=0
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 # Run as a dedicated, unprivileged user with no shell access
@@ -25,8 +26,10 @@ EnvironmentFile=/etc/ttslo/ttslo.env
 ExecStart=/opt/ttslo/ttslo.py --interval 60
 
 # Restart policy for robustness
+# Allow up to 5 restart attempts within 5 minutes, then give up
+# This prevents infinite crash loops while allowing recovery from transient failures
 Restart=on-failure
-RestartSec=5s
+RestartSec=10s
 
 # Resource limits and hardening
 NoNewPrivileges=yes
