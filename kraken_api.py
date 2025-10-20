@@ -365,8 +365,8 @@ class KrakenAPI:
         Returns:
             Ticker information dictionary
         """
-    print(f"[DEBUG] KrakenAPI.get_ticker: pair={pair}")
-    result = self._query_public('Ticker', {'pair': pair})
+        print(f"[DEBUG] KrakenAPI.get_ticker: pair={pair}")
+        result = self._query_public('Ticker', {'pair': pair})
         
         if result.get('error'):
             raise Exception(f"Kraken API error: {result['error']}")
@@ -393,8 +393,8 @@ class KrakenAPI:
                 'last': timestamp
             }
         """
-    print(f"[DEBUG] KrakenAPI.get_ohlc: pair={pair}, interval={interval}, since={since}")
-    params = {'pair': pair, 'interval': interval}
+        print(f"[DEBUG] KrakenAPI.get_ohlc: pair={pair}, interval={interval}, since={since}")
+        params = {'pair': pair, 'interval': interval}
         if since is not None:
             params['since'] = since
             
@@ -406,7 +406,7 @@ class KrakenAPI:
         return result.get('result', {})
     
     def get_current_price(self, pair):
-    print(f"[DEBUG] KrakenAPI.get_current_price: pair={pair}")
+        print(f"[DEBUG] KrakenAPI.get_current_price: pair={pair}")
         """
         Get current price for a trading pair.
         
