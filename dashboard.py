@@ -294,7 +294,8 @@ if __name__ == '__main__':
     import argparse
     
     # Initialize notification manager here, after environment variables are loaded by systemd
-    global notification_manager
+    # Re-initialize at runtime (overwriting module-level None assignment)
+    notification_manager = None
     try:
         notification_manager = NotificationManager()
         if notification_manager.enabled:
