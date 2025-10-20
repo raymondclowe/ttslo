@@ -37,12 +37,8 @@ except Exception as e:
     print(f"Warning: Could not initialize Kraken API: {e}")
     print("Dashboard will run in limited mode without live Kraken data.")
 
-# Initialize notification manager
+# Notification manager will be initialized in main() after environment is confirmed
 notification_manager = None
-try:
-    notification_manager = NotificationManager()
-except Exception as e:
-    print(f"Warning: Could not initialize notification manager: {e}")
 
 
 def get_current_prices():
@@ -296,6 +292,18 @@ def api_status():
 
 if __name__ == '__main__':
     import argparse
+    
+    # Initialize notification manager here, after environment variables are loaded by systemd
+    global notification_manager
+    try:
+        notification_manager = NotificationManager()
+        if notification_manager.enabled:
+            print(f"Telegram notifications enabled for {len(notification_manager.recipients)} recipients")
+        else:
+            print(f"Telegram notifications disabled (token present: {bool(notification_manager.telegram_token)}, recipients: {len(notification_manager.recipients)})")
+    except Exception as e:
+        print(f"Warning: Could not initialize notification manager: {e}")
+        notification_manager = None
     
     def signal_handler(signum, frame):
         """Handle termination signals gracefully."""
