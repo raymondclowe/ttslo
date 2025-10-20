@@ -1,0 +1,74 @@
+# /etc/systemd/system/ttslo.service
+# Hardened systemd unit for TTSLO (Triggered Trailing Stop Loss Orders)
+
+[Unit]
+Description=TTSLO - Triggered Trailing Stop Loss Orders (Kraken)
+Documentation=https://github.com/raymondclowe/ttslo
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+# Run as a dedicated, unprivileged user with no shell access
+User=ttslo
+Group=ttslo
+
+# Set a restrictive working directory that holds config/state/logs owned by ttslo
+WorkingDirectory=/var/lib/ttslo
+StateDirectory=ttslo
+LogsDirectory=ttslo
+
+# Provide environment via a root-owned file
+EnvironmentFile=/etc/ttslo/ttslo.env
+
+# Use the Python file with uv shebang
+ExecStart=/opt/ttslo/ttslo.py --interval 60
+
+# Restart policy for robustness
+Restart=on-failure
+RestartSec=5s
+
+# Resource limits and hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+
+# Filesystem access: allow read-only repo directory, read-write state dir
+ReadOnlyPaths=/opt/ttslo
+ReadOnlyPaths=/etc/ttslo
+ReadOnlyPaths=/usr/local/bin
+ReadWritePaths=/var/lib/ttslo
+# Allow reading CA certs and time zones
+ReadOnlyPaths=/etc/ssl
+ReadOnlyPaths=/usr/share/ca-certificates
+ReadOnlyPaths=/etc/ca-certificates
+ReadOnlyPaths=/usr/share/zoneinfo
+
+# Capability bounding (Python should not need elevated caps)
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Environment tweaks
+Environment=PYTHONUNBUFFERED=1
+
+# Sandboxing of /proc and mounts
+ProtectHostname=yes
+ProcSubset=pid
+ProtectClock=yes
+ProtectProc=invisible
+
+[Install]
+WantedBy=multi-user.target
