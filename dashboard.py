@@ -295,13 +295,27 @@ if __name__ == '__main__':
     
     # Initialize notification manager here, after environment variables are loaded by systemd
     # Re-initialize at runtime (overwriting module-level None assignment)
+    # Search for notifications.ini in multiple locations
+    def find_notifications_ini():
+        """Find notifications.ini in order: current dir, /var/lib/ttslo, script dir."""
+        search_paths = [
+            'notifications.ini',  # Current working directory
+            '/var/lib/ttslo/notifications.ini',  # State directory
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'notifications.ini')  # Script directory
+        ]
+        for path in search_paths:
+            if os.path.exists(path):
+                return path
+        return 'notifications.ini'  # Default, will fail gracefully
+    
+    notification_ini = find_notifications_ini()
     notification_manager = None
     try:
-        notification_manager = NotificationManager()
+        notification_manager = NotificationManager(notification_ini)
         if notification_manager.enabled:
-            print(f"Telegram notifications enabled for {len(notification_manager.recipients)} recipients")
+            print(f"Telegram notifications enabled for {len(notification_manager.recipients)} recipients (using {notification_ini})")
         else:
-            print(f"Telegram notifications disabled (token present: {bool(notification_manager.telegram_token)}, recipients: {len(notification_manager.recipients)})")
+            print(f"Telegram notifications disabled (token present: {bool(notification_manager.telegram_token)}, recipients: {len(notification_manager.recipients)}, config: {notification_ini})")
     except Exception as e:
         print(f"Warning: Could not initialize notification manager: {e}")
         notification_manager = None

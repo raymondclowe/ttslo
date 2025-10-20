@@ -1289,13 +1289,27 @@ Environment variables:
             kraken_api_readwrite = None
     
     # Step 10: Initialize notification manager
+    # Search for notifications.ini in multiple locations
+    def find_notifications_ini():
+        """Find notifications.ini in order: current dir, /var/lib/ttslo, script dir."""
+        search_paths = [
+            'notifications.ini',  # Current working directory
+            '/var/lib/ttslo/notifications.ini',  # State directory
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'notifications.ini')  # Script directory
+        ]
+        for path in search_paths:
+            if os.path.exists(path):
+                return path
+        return 'notifications.ini'  # Default, will fail gracefully
+    
+    notification_ini = find_notifications_ini()
     notification_manager = None
     try:
-        notification_manager = NotificationManager()
+        notification_manager = NotificationManager(notification_ini)
         notification_manager_global = notification_manager  # Make available to signal handler
         if notification_manager.enabled:
             if args.verbose:
-                print(f"Telegram notifications enabled for {len(notification_manager.recipients)} recipients")
+                print(f"Telegram notifications enabled for {len(notification_manager.recipients)} recipients (using {notification_ini})")
     except Exception as e:
         if args.verbose:
             print(f"Warning: Failed to initialize notifications: {str(e)}", file=sys.stderr)
