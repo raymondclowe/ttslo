@@ -11,6 +11,7 @@ Provides a clean, executive-style dashboard for monitoring:
 import os
 import sys
 import signal
+import time
 from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify
 from config import ConfigManager
@@ -43,21 +44,34 @@ notification_manager = None
 
 def get_current_prices():
     """Get current prices for all pairs in config."""
+    start_time = time.time()
+    print(f"[PERF] get_current_prices started at {datetime.now(timezone.utc).isoformat()}")
+    
     prices = {}
     if not kraken_api:
+        print(f"[PERF] get_current_prices: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return prices
     
+    load_start = time.time()
     configs = config_manager.load_config()
-    pairs = set(config.get('pair') for config in configs if config.get('pair'))
+    print(f"[PERF] load_config took {time.time() - load_start:.3f}s")
     
+    pairs = set(config.get('pair') for config in configs if config.get('pair'))
+    print(f"[PERF] Found {len(pairs)} unique pairs to fetch prices for")
+    
+    # Fetch prices individually (TODO: optimize with batch fetch)
     for pair in pairs:
         try:
+            pair_start = time.time()
             price = kraken_api.get_current_price(pair)
             if price:
                 prices[pair] = price
+            print(f"[PERF] get_current_price({pair}) took {time.time() - pair_start:.3f}s")
         except Exception as e:
-            print(f"Error getting price for {pair}: {e}")
+            print(f"[PERF] Error getting price for {pair}: {e}")
     
+    elapsed = time.time() - start_time
+    print(f"[PERF] get_current_prices completed in {elapsed:.3f}s, returned {len(prices)} prices")
     return prices
 
 
@@ -91,9 +105,17 @@ def calculate_distance_to_trigger(threshold_price, current_price, threshold_type
 
 def get_pending_orders():
     """Get orders that haven't triggered yet."""
+    start_time = time.time()
+    print(f"[PERF] get_pending_orders started at {datetime.now(timezone.utc).isoformat()}")
+    
+    load_start = time.time()
     configs = config_manager.load_config()
     state = config_manager.load_state()
+    print(f"[PERF] load_config and load_state took {time.time() - load_start:.3f}s")
+    
+    price_start = time.time()
     prices = get_current_prices()
+    print(f"[PERF] get_current_prices took {time.time() - price_start:.3f}s")
     
     pending = []
     for config in configs:
@@ -133,16 +155,24 @@ def get_pending_orders():
             'distance': distance
         })
     
+    elapsed = time.time() - start_time
+    print(f"[PERF] get_pending_orders completed in {elapsed:.3f}s, returned {len(pending)} orders")
     return pending
 
 
 def get_active_orders():
     """Get orders that have triggered and are active on Kraken."""
+    start_time = time.time()
+    print(f"[PERF] get_active_orders started at {datetime.now(timezone.utc).isoformat()}")
+    
     if not kraken_api:
+        print(f"[PERF] get_active_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return []
     
+    load_start = time.time()
     state = config_manager.load_state()
     configs = config_manager.load_config()
+    print(f"[PERF] load_state and load_config took {time.time() - load_start:.3f}s")
     
     # Create a map of config IDs to their configs
     config_map = {c.get('id'): c for c in configs}
@@ -151,9 +181,15 @@ def get_active_orders():
     
     try:
         # Get all open orders from Kraken
+        api_start = time.time()
         open_orders_result = kraken_api.query_open_orders()
-        open_orders = open_orders_result.get('open', {})
+        api_elapsed = time.time() - api_start
+        print(f"[PERF] query_open_orders API call took {api_elapsed:.3f}s")
         
+        open_orders = open_orders_result.get('open', {})
+        print(f"[PERF] Kraken returned {len(open_orders)} open orders")
+        
+        filter_start = time.time()
         # Match with our state
         for config_id, config_state in state.items():
             if config_state.get('triggered') != 'true':
@@ -179,19 +215,29 @@ def get_active_orders():
                     'order_type': order_info.get('descr', {}).get('ordertype'),
                     'price': order_info.get('descr', {}).get('price'),
                 })
+        filter_elapsed = time.time() - filter_start
+        print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
     except Exception as e:
-        print(f"Error getting active orders: {e}")
+        print(f"[PERF] Error getting active orders: {e}")
     
+    elapsed = time.time() - start_time
+    print(f"[PERF] get_active_orders completed in {elapsed:.3f}s, returned {len(active)} orders")
     return active
 
 
 def get_completed_orders():
     """Get orders that have executed."""
+    start_time = time.time()
+    print(f"[PERF] get_completed_orders started at {datetime.now(timezone.utc).isoformat()}")
+    
     if not kraken_api:
+        print(f"[PERF] get_completed_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return []
     
+    load_start = time.time()
     state = config_manager.load_state()
     configs = config_manager.load_config()
+    print(f"[PERF] load_state and load_config took {time.time() - load_start:.3f}s")
     
     # Create a map of config IDs to their configs
     config_map = {c.get('id'): c for c in configs}
@@ -200,9 +246,15 @@ def get_completed_orders():
     
     try:
         # Get closed orders from Kraken
+        api_start = time.time()
         closed_orders_result = kraken_api.query_closed_orders()
-        closed_orders = closed_orders_result.get('closed', {})
+        api_elapsed = time.time() - api_start
+        print(f"[PERF] query_closed_orders API call took {api_elapsed:.3f}s")
         
+        closed_orders = closed_orders_result.get('closed', {})
+        print(f"[PERF] Kraken returned {len(closed_orders)} closed orders")
+        
+        filter_start = time.time()
         # Match with our state
         for config_id, config_state in state.items():
             if config_state.get('triggered') != 'true':
@@ -247,9 +299,13 @@ def get_completed_orders():
                     'benefit': benefit,
                     'benefit_percent': benefit_percent
                 })
+        filter_elapsed = time.time() - filter_start
+        print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
     except Exception as e:
-        print(f"Error getting completed orders: {e}")
+        print(f"[PERF] Error getting completed orders: {e}")
     
+    elapsed = time.time() - start_time
+    print(f"[PERF] get_completed_orders completed in {elapsed:.3f}s, returned {len(completed)} orders")
     return completed
 
 
@@ -262,19 +318,34 @@ def index():
 @app.route('/api/pending')
 def api_pending():
     """API endpoint for pending orders."""
-    return jsonify(get_pending_orders())
+    start_time = time.time()
+    print(f"[PERF] /api/pending endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    result = jsonify(get_pending_orders())
+    elapsed = time.time() - start_time
+    print(f"[PERF] /api/pending endpoint completed in {elapsed:.3f}s")
+    return result
 
 
 @app.route('/api/active')
 def api_active():
     """API endpoint for active orders."""
-    return jsonify(get_active_orders())
+    start_time = time.time()
+    print(f"[PERF] /api/active endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    result = jsonify(get_active_orders())
+    elapsed = time.time() - start_time
+    print(f"[PERF] /api/active endpoint completed in {elapsed:.3f}s")
+    return result
 
 
 @app.route('/api/completed')
 def api_completed():
     """API endpoint for completed orders."""
-    return jsonify(get_completed_orders())
+    start_time = time.time()
+    print(f"[PERF] /api/completed endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    result = jsonify(get_completed_orders())
+    elapsed = time.time() - start_time
+    print(f"[PERF] /api/completed endpoint completed in {elapsed:.3f}s")
+    return result
 
 
 @app.route('/api/status')
