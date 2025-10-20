@@ -217,3 +217,4 @@ logs.csv
 .env.*.local
 !.env.example
 .kraken_pairs_cache.json
+notifications.ini
