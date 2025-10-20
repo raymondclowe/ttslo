@@ -6,6 +6,7 @@ import os
 import tempfile
 import shutil
 import time
+import fcntl
 from datetime import datetime, timezone
 
 
@@ -24,6 +25,38 @@ class ConfigManager:
         self.config_file = config_file
         self.state_file = state_file
         self.log_file = log_file
+    
+    def is_file_locked(self, filepath):
+        """
+        Check if a file is locked by another process (e.g., CSV editor).
+        
+        This performs a non-blocking check for an exclusive lock.
+        If the file is locked, returns True. Otherwise returns False.
+        
+        Args:
+            filepath: Path to file to check
+            
+        Returns:
+            bool: True if file is locked, False otherwise
+        """
+        if not os.path.exists(filepath):
+            return False
+        
+        try:
+            # Try to open and acquire a shared lock (non-blocking)
+            with open(filepath, 'r') as f:
+                try:
+                    # Try to acquire shared lock
+                    fcntl.flock(f.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+                    # If we got the lock, release it immediately
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    return False  # File is not locked
+                except IOError:
+                    # Could not acquire lock - file is locked
+                    return True
+        except Exception:
+            # If we can't check, assume not locked
+            return False
     
     def _atomic_write_csv(self, filepath, fieldnames, rows, max_retries=3, retry_delay=0.1):
         """
@@ -122,6 +155,12 @@ class ConfigManager:
         """
         if not os.path.exists(self.config_file):
             return []
+        
+        # Check if file is being edited
+        if self.is_file_locked(self.config_file):
+            print(f"WARNING: {self.config_file} is locked (being edited). Skipping this check cycle.")
+            return []
+        
         configs = []
         with open(self.config_file, 'r', newline='') as f:
             reader = csv.DictReader(f)
