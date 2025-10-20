@@ -343,7 +343,7 @@ class CSVEditor(App):
         self.title = f"CSV Editor - {self.filename.name}"
         self.sub_title = f"Path: {self.filename.absolute()}"
         
-        # Try to acquire advisory lock on the file
+        # Implement coordination protocol to safely acquire lock
         try:
             # Open the file for reading/writing to acquire lock
             # Create if doesn't exist
@@ -351,12 +351,34 @@ class CSVEditor(App):
                 self.filename.parent.mkdir(parents=True, exist_ok=True)
                 self.filename.touch()
             
+            # Step 1: Signal intent to edit by creating coordination file
+            intent_file = Path(str(self.filename) + '.editor_wants_lock')
+            intent_file.touch()
+            self.notify(
+                "Requesting exclusive access from service...",
+                title="Coordination",
+                severity="information"
+            )
+            
+            # Step 2: Wait for service to signal it's idle (or timeout after 5 seconds)
+            idle_file = Path(str(self.filename) + '.service_idle')
+            max_wait = 5.0  # seconds
+            wait_interval = 0.1  # seconds
+            elapsed = 0.0
+            
+            import time
+            while elapsed < max_wait:
+                if idle_file.exists() or not self._service_is_running():
+                    break
+                time.sleep(wait_interval)
+                elapsed += wait_interval
+            
+            # Step 3: Try to acquire exclusive lock
             self.lock_file = open(self.filename, 'r+')
-            # Try to acquire exclusive lock (non-blocking)
             try:
                 fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 self.notify(
-                    "File locked for editing (prevents concurrent access)",
+                    "File locked for editing (service is paused)",
                     title="Lock Acquired",
                     severity="information"
                 )
@@ -371,6 +393,11 @@ class CSVEditor(App):
                 # Close the file as we couldn't get exclusive lock
                 self.lock_file.close()
                 self.lock_file = None
+                # Clean up coordination file
+                try:
+                    intent_file.unlink(missing_ok=True)
+                except Exception:
+                    pass
         except Exception as e:
             self.notify(
                 f"Warning: Could not acquire file lock: {e}",
@@ -378,8 +405,29 @@ class CSVEditor(App):
                 severity="warning"
             )
             self.lock_file = None
+            # Clean up coordination file
+            try:
+                intent_file = Path(str(self.filename) + '.editor_wants_lock')
+                intent_file.unlink(missing_ok=True)
+            except Exception:
+                pass
         
         self.read_csv_to_table()
+    
+    def _service_is_running(self) -> bool:
+        """Check if the TTSLO service is running."""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['systemctl', 'is-active', 'ttslo'],
+                capture_output=True,
+                text=True,
+                timeout=1
+            )
+            return result.returncode == 0
+        except Exception:
+            # If we can't check, assume service might be running
+            return True
     
     def on_unmount(self) -> None:
         """Called when the application is about to be unmounted."""
@@ -390,6 +438,19 @@ class CSVEditor(App):
                 self.lock_file.close()
             except Exception:
                 pass  # Ignore errors during cleanup
+        
+        # Clean up coordination files
+        try:
+            intent_file = Path(str(self.filename) + '.editor_wants_lock')
+            intent_file.unlink(missing_ok=True)
+        except Exception:
+            pass
+        
+        try:
+            idle_file = Path(str(self.filename) + '.service_idle')
+            idle_file.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     def read_csv_to_table(self) -> None:
         """Read the CSV file and populate the DataTable."""

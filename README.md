@@ -180,10 +180,13 @@ The editor checks (in priority order):
 
 ### Safe Concurrent Editing
 
-The CSV editor uses file locking to prevent conflicts:
-- Acquires exclusive lock when editing
-- Service pauses config reads while editor is open
-- No need to stop the service to edit config!
+The CSV editor uses a coordination protocol to prevent race conditions:
+- **Handshake Protocol**: Editor requests lock, service confirms when idle
+- **Service Pauses**: Service suspends all I/O during editing (reads, writes, logs)
+- **Zero Race Conditions**: Service finishes ongoing operations before editor locks
+- **No Downtime**: Edit config while service is running - no restart needed!
+
+The coordination ensures the service completes any in-progress write operations before the editor locks the file, eliminating all race condition risks.
 
 ### Usage Examples
 
