@@ -312,12 +312,16 @@ class KrakenAPI:
         Returns:
             API response as dictionary
         """
-    url = f"{self.base_url}/0/public/{method}"
-    print(f"[DEBUG] KrakenAPI._query_public: Calling {url} with params={params}")
-    response = requests.get(url, params=params or {})
-    print(f"[DEBUG] KrakenAPI._query_public: Response status={response.status_code}")
-    response.raise_for_status()
-    return response.json()
+            url = f"{self.base_url}/0/public/{method}"
+            print(f"[DEBUG] KrakenAPI._query_public: Calling {url} with params={params}")
+            # GitHub debug (if different):
+            # print(f"[DEBUG] KrakenAPI._query_public: Calling {url} with params={params}")
+            response = requests.get(url, params=params or {})
+            print(f"[DEBUG] KrakenAPI._query_public: Response status={response.status_code}")
+            # GitHub debug (if different):
+            # print(f"[DEBUG] KrakenAPI._query_public: Response status={response.status_code}")
+            response.raise_for_status()
+            return response.json()
     
     def _query_private(self, method, params=None):
         """
@@ -349,11 +353,15 @@ class KrakenAPI:
             'Content-Type': 'application/json'
         }
         
-    print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
-    response = requests.post(url, headers=headers, data=json_data)
-    print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
-    response.raise_for_status()
-    return response.json()
+            print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
+            # GitHub debug (if different):
+            # print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
+            response = requests.post(url, headers=headers, data=json_data)
+            print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
+            # GitHub debug (if different):
+            # print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
+            response.raise_for_status()
+            return response.json()
     
     def get_ticker(self, pair):
         """
@@ -513,7 +521,7 @@ class KrakenAPI:
         raise Exception(f"Could not extract price for {pair} from ticker response")
     
     def add_order(self, pair, order_type, direction, volume, **kwargs):
-    print(f"[DEBUG] KrakenAPI.add_order: pair={pair}, order_type={order_type}, direction={direction}, volume={volume}, kwargs={kwargs}")
+            print(f"[DEBUG] KrakenAPI.add_order: pair={pair}, order_type={order_type}, direction={direction}, volume={volume}, kwargs={kwargs}")
         """
         Add a new order.
         
@@ -543,7 +551,7 @@ class KrakenAPI:
         return result.get('result', {})
     
     def add_trailing_stop_loss(self, pair, direction, volume, trailing_offset_percent, **kwargs):
-    print(f"[DEBUG] KrakenAPI.add_trailing_stop_loss: pair={pair}, direction={direction}, volume={volume}, trailing_offset_percent={trailing_offset_percent}, kwargs={kwargs}")
+            print(f"[DEBUG] KrakenAPI.add_trailing_stop_loss: pair={pair}, direction={direction}, volume={volume}, trailing_offset_percent={trailing_offset_percent}, kwargs={kwargs}")
         """
         Add a trailing stop loss order.
         
@@ -665,7 +673,7 @@ class KrakenAPI:
         return order_result
     
     def get_balance(self):
-    print(f"[DEBUG] KrakenAPI.get_balance: calling Balance endpoint")
+            print(f"[DEBUG] KrakenAPI.get_balance: calling Balance endpoint")
         """
         Get account balance.
         
@@ -680,7 +688,7 @@ class KrakenAPI:
         return result.get('result', {})
     
     def get_trade_balance(self, asset='ZUSD'):
-    print(f"[DEBUG] KrakenAPI.get_trade_balance: asset={asset}")
+            print(f"[DEBUG] KrakenAPI.get_trade_balance: asset={asset}")
         """
         Get trade balance information including margin, equity, and available funds.
         
@@ -713,7 +721,7 @@ class KrakenAPI:
         return result.get('result', {})
     
     def query_open_orders(self, trades=False, userref=None):
-    print(f"[DEBUG] KrakenAPI.query_open_orders: trades={trades}, userref={userref}")
+            print(f"[DEBUG] KrakenAPI.query_open_orders: trades={trades}, userref={userref}")
         """
         Query information about currently open orders.
         
@@ -738,7 +746,7 @@ class KrakenAPI:
         return result.get('result', {})
     
     def query_closed_orders(self, trades=False, userref=None, start=None, end=None, ofs=None, closetime='both'):
-    print(f"[DEBUG] KrakenAPI.query_closed_orders: trades={trades}, userref={userref}, start={start}, end={end}, ofs={ofs}, closetime={closetime}")
+            print(f"[DEBUG] KrakenAPI.query_closed_orders: trades={trades}, userref={userref}, start={start}, end={end}, ofs={ofs}, closetime={closetime}")
         """
         Query information about closed orders.
         
@@ -773,7 +781,7 @@ class KrakenAPI:
         return result.get('result', {})
     
     def cancel_order(self, txid):
-    print(f"[DEBUG] KrakenAPI.cancel_order: txid={txid}")
+            print(f"[DEBUG] KrakenAPI.cancel_order: txid={txid}")
         """
         Cancel an open order.
         
