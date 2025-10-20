@@ -12,37 +12,55 @@
 # Then, configure which users get notified for each event type
 # Multiple users can be comma-separated
 
+[notify.service_started]
+# Notified when the TTSLO Monitor or Dashboard service starts up
+# Triggered by: systemctl start, manual script execution
+users = 
+
+[notify.service_stopped]
+# Notified when the TTSLO Monitor or Dashboard service stops
+# Triggered by: systemctl stop/restart, SIGTERM, SIGINT (Ctrl+C), SIGHUP, crashes
+users = 
+
 [notify.config_changed]
-# Notified when config.csv is modified
+# Notified when config.csv is modified and reloaded
+# Triggered by: File modification detected by the monitor
 users = 
 
 [notify.validation_error]
 # Notified when config.csv has validation errors
+# Triggered by: Invalid configuration detected on startup or reload
 users = 
 
 [notify.trigger_reached]
-# Notified when a trigger price is reached
+# Notified when a trigger price threshold is reached
+# Triggered by: Current price crosses the configured threshold (above/below)
 users = 
 
 [notify.tsl_created]
-# Notified when a TSL order is created on Kraken
+# Notified when a Trailing Stop Loss order is created on Kraken
+# Triggered by: Successful order placement after trigger price reached
 users = 
 
 [notify.tsl_filled]
-# Notified when a TSL order is filled
+# Notified when a Trailing Stop Loss order is filled/executed
+# Triggered by: Order execution detected by Kraken API
 users = 
 
 [notify.insufficient_balance]
 # Notified when an order cannot be created due to insufficient balance
+# Triggered by: Balance check fails before order creation
 users = 
 
 [notify.order_failed]
 # Notified when an order fails to be created on Kraken
+# Triggered by: Kraken API returns an error during order creation
 users = 
 
 [notify.app_exit]
-# Notified when the application exits or crashes
-# Note: This only works if the app exits gracefully
+# Notified when the application exits unexpectedly (crashes/exceptions)
+# Triggered by: Uncaught exceptions, fatal errors
+# Note: This only works if the app can send the notification before exiting
 users = 
 
 # To enable notifications:
@@ -51,3 +69,15 @@ users =
 # 3. Add usernames to the event types you want to be notified about
 # 4. Set environment variable: TELEGRAM_BOT_TOKEN=your_bot_token
 #    (Get a bot token from @BotFather on Telegram)
+
+# Example notification messages:
+# - service_started: "🚀 TTSLO Dashboard started successfully. URL: http://localhost:5000"
+# - service_stopped: "🛑 TTSLO Monitor stopped. Reason: Received SIGTERM signal"
+# - config_changed: "⚙️ TTSLO: Configuration file (config.csv) has been modified and reloaded."
+# - validation_error: "❌ TTSLO: Configuration validation errors found: [config_id] field: message"
+# - trigger_reached: "🎯 TTSLO: Trigger price reached! Config: xyz, Pair: BTC/USD, Current: 50000"
+# - tsl_created: "✅ TTSLO: Trailing Stop Loss order created! Order ID: ABC123"
+# - tsl_filled: "💰 TTSLO: Trailing Stop Loss order FILLED! Order ID: ABC123"
+# - insufficient_balance: "⚠️ TTSLO: Cannot create order - Insufficient balance!"
+# - order_failed: "❌ TTSLO: Order creation failed! Error: [Kraken error message]"
+# - app_exit: "🛑 TTSLO: Application has exited. Reason: Unexpected exception"

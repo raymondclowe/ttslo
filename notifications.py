@@ -1,27 +1,3 @@
-    def notify_service_started(self, service_name: str = "TTSLO Dashboard", host: str = None, port: int = None):
-        """
-        Notify that the service has started.
-        Args:
-            service_name: Name of the service
-            host: Host address (optional)
-            port: Port number (optional)
-        """
-        msg = f"🚀 {service_name} started successfully."
-        if host and port:
-            msg += f"\nURL: http://{host}:{port}"
-        self.notify_event('service_started', msg)
-
-    def notify_service_stopped(self, service_name: str = "TTSLO Dashboard", reason: str = None):
-        """
-        Notify that the service has stopped.
-        Args:
-            service_name: Name of the service
-            reason: Reason for stopping (optional)
-        """
-        msg = f"🛑 {service_name} stopped."
-        if reason:
-            msg += f"\nReason: {reason}"
-        self.notify_event('service_stopped', msg)
 """
 Telegram notification system for TTSLO.
 
@@ -92,10 +68,12 @@ class NotificationManager:
             True if message sent successfully, False otherwise
         """
         if not self.enabled:
+            print(f"Warning: Notifications not enabled. Token present: {bool(self.telegram_token)}, Recipients: {len(self.recipients)}")
             return False
         
         if username not in self.recipients:
             print(f"Warning: Unknown notification recipient: {username}")
+            print(f"Available recipients: {list(self.recipients.keys())}")
             return False
         
         chat_id = self.recipients[username]
@@ -104,14 +82,25 @@ class NotificationManager:
             url = f'https://api.telegram.org/bot{self.telegram_token}/sendMessage'
             response = requests.post(url, data={'chat_id': chat_id, 'text': message}, timeout=10)
             
+            print(f"Telegram API Response: Status={response.status_code}, Body={response.text}")
+            
+            # Check both status code and response JSON
             if response.status_code == 200:
-                return True
+                result = response.json()
+                if result.get('ok'):
+                    print(f"✓ Telegram message sent successfully to {username}")
+                    return True
+                else:
+                    print(f"✗ Telegram API returned ok=False: {result}")
+                    return False
             else:
-                print(f"Warning: Failed to send Telegram message: {response.text}")
+                print(f"✗ Failed to send Telegram message (HTTP {response.status_code}): {response.text}")
                 return False
                 
         except Exception as e:
-            print(f"Warning: Exception sending Telegram message: {e}")
+            print(f"✗ Exception sending Telegram message: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def notify_event(self, event_type: str, message: str):
@@ -123,11 +112,15 @@ class NotificationManager:
             message: Message to send
         """
         if not self.enabled:
+            print(f"Warning: Notifications not enabled for event '{event_type}'")
             return
         
         if event_type not in self.subscriptions:
+            print(f"Warning: No subscriptions found for event type '{event_type}'")
+            print(f"Available event types: {list(self.subscriptions.keys())}")
             return
         
+        print(f"Sending '{event_type}' notification to: {self.subscriptions[event_type]}")
         for username in self.subscriptions[event_type]:
             self.send_message(username, message)
     
@@ -285,6 +278,33 @@ class NotificationManager:
         """
         message = f"🛑 TTSLO: Application has exited.\n\nReason: {reason}"
         self.notify_event('app_exit', message)
+    
+    def notify_service_started(self, service_name: str = "TTSLO Dashboard", host: str = None, port: int = None):
+        """
+        Notify that the service has started.
+        
+        Args:
+            service_name: Name of the service
+            host: Host address (optional)
+            port: Port number (optional)
+        """
+        msg = f"🚀 {service_name} started successfully."
+        if host and port:
+            msg += f"\nURL: http://{host}:{port}"
+        self.notify_event('service_started', msg)
+
+    def notify_service_stopped(self, service_name: str = "TTSLO Dashboard", reason: str = None):
+        """
+        Notify that the service has stopped.
+        
+        Args:
+            service_name: Name of the service
+            reason: Reason for stopping (optional)
+        """
+        msg = f"🛑 {service_name} stopped."
+        if reason:
+            msg += f"\nReason: {reason}"
+        self.notify_event('service_stopped', msg)
 
 
 def create_sample_notifications_config(filename: str = 'notifications.ini.example'):
@@ -308,37 +328,55 @@ def create_sample_notifications_config(filename: str = 'notifications.ini.exampl
 # Then, configure which users get notified for each event type
 # Multiple users can be comma-separated
 
+[notify.service_started]
+# Notified when the TTSLO Monitor or Dashboard service starts up
+# Triggered by: systemctl start, manual script execution
+users = 
+
+[notify.service_stopped]
+# Notified when the TTSLO Monitor or Dashboard service stops
+# Triggered by: systemctl stop/restart, SIGTERM, SIGINT (Ctrl+C), SIGHUP, crashes
+users = 
+
 [notify.config_changed]
-# Notified when config.csv is modified
+# Notified when config.csv is modified and reloaded
+# Triggered by: File modification detected by the monitor
 users = 
 
 [notify.validation_error]
 # Notified when config.csv has validation errors
+# Triggered by: Invalid configuration detected on startup or reload
 users = 
 
 [notify.trigger_reached]
-# Notified when a trigger price is reached
+# Notified when a trigger price threshold is reached
+# Triggered by: Current price crosses the configured threshold (above/below)
 users = 
 
 [notify.tsl_created]
-# Notified when a TSL order is created on Kraken
+# Notified when a Trailing Stop Loss order is created on Kraken
+# Triggered by: Successful order placement after trigger price reached
 users = 
 
 [notify.tsl_filled]
-# Notified when a TSL order is filled
+# Notified when a Trailing Stop Loss order is filled/executed
+# Triggered by: Order execution detected by Kraken API
 users = 
 
 [notify.insufficient_balance]
 # Notified when an order cannot be created due to insufficient balance
+# Triggered by: Balance check fails before order creation
 users = 
 
 [notify.order_failed]
 # Notified when an order fails to be created on Kraken
+# Triggered by: Kraken API returns an error during order creation
 users = 
 
 [notify.app_exit]
-# Notified when the application exits or crashes
-# Note: This only works if the app exits gracefully
+# Notified when the application exits unexpectedly (crashes/exceptions)
+# Triggered by: Uncaught exceptions, fatal errors
+# Note: This only works if the app can send the notification before exiting
 users = 
 
 # To enable notifications:
@@ -347,6 +385,18 @@ users =
 # 3. Add usernames to the event types you want to be notified about
 # 4. Set environment variable: TELEGRAM_BOT_TOKEN=your_bot_token
 #    (Get a bot token from @BotFather on Telegram)
+
+# Example notification messages:
+# - service_started: "🚀 TTSLO Dashboard started successfully. URL: http://localhost:5000"
+# - service_stopped: "🛑 TTSLO Monitor stopped. Reason: Received SIGTERM signal"
+# - config_changed: "⚙️ TTSLO: Configuration file (config.csv) has been modified and reloaded."
+# - validation_error: "❌ TTSLO: Configuration validation errors found: [config_id] field: message"
+# - trigger_reached: "🎯 TTSLO: Trigger price reached! Config: xyz, Pair: BTC/USD, Current: 50000"
+# - tsl_created: "✅ TTSLO: Trailing Stop Loss order created! Order ID: ABC123"
+# - tsl_filled: "💰 TTSLO: Trailing Stop Loss order FILLED! Order ID: ABC123"
+# - insufficient_balance: "⚠️ TTSLO: Cannot create order - Insufficient balance!"
+# - order_failed: "❌ TTSLO: Order creation failed! Error: [Kraken error message]"
+# - app_exit: "🛑 TTSLO: Application has exited. Reason: Unexpected exception"
 """
     
     with open(filename, 'w') as f:

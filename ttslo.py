@@ -9,6 +9,7 @@ import argparse
 import os
 import sys
 import time
+import signal
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, getcontext
 
@@ -1096,6 +1097,26 @@ class TTSLO:
 
 def main():
     """Main entry point."""
+    # Global variable to hold notification_manager for signal handlers
+    global notification_manager_global
+    notification_manager_global = None
+    
+    def signal_handler(signum, frame):
+        """Handle termination signals gracefully."""
+        sig_name = signal.Signals(signum).name
+        print(f"\nReceived signal {sig_name} ({signum}). Shutting down gracefully...")
+        if notification_manager_global and notification_manager_global.enabled:
+            notification_manager_global.notify_service_stopped(
+                service_name="TTSLO Monitor",
+                reason=f"Received {sig_name} signal (systemctl stop/restart or kill)"
+            )
+        sys.exit(0)
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, signal_handler)  # systemctl stop/restart
+    signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+    signal.signal(signal.SIGHUP, signal_handler)   # Terminal closed
+    
     parser = argparse.ArgumentParser(
         description='TTSLO - Triggered Trailing Stop Loss Orders for Kraken',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1271,6 +1292,7 @@ Environment variables:
     notification_manager = None
     try:
         notification_manager = NotificationManager()
+        notification_manager_global = notification_manager  # Make available to signal handler
         if notification_manager.enabled:
             if args.verbose:
                 print(f"Telegram notifications enabled for {len(notification_manager.recipients)} recipients")
@@ -1320,6 +1342,14 @@ Environment variables:
     if args.verbose:
         print("Configuration validation passed. Starting monitoring...\n")
     
+    # Step 14.5: Send service started notification
+    if notification_manager and notification_manager.enabled:
+        notification_manager.notify_service_started(
+            service_name="TTSLO Monitor",
+            host=None,
+            port=None
+        )
+    
     # Step 15: Run the application
     try:
         if args.once:
@@ -1334,6 +1364,10 @@ Environment variables:
         import traceback
         traceback.print_exc()
         if notification_manager:
+            notification_manager.notify_service_stopped(
+                service_name="TTSLO Monitor",
+                reason=f"Unexpected exception: {str(e)}"
+            )
             notification_manager.notify_application_exit(f'Unexpected exception: {str(e)}')
         sys.exit(1)
 

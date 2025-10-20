@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/local/bin/uv run
 """
 TTSLO Dashboard - Web-based monitoring for triggered trailing stop loss orders.
 
@@ -10,11 +10,13 @@ Provides a clean, executive-style dashboard for monitoring:
 
 import os
 import sys
+import signal
 from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify
 from config import ConfigManager
 from kraken_api import KrakenAPI
 from creds import load_env
+from notifications import NotificationManager
 
 app = Flask(__name__)
 
@@ -34,6 +36,13 @@ try:
 except Exception as e:
     print(f"Warning: Could not initialize Kraken API: {e}")
     print("Dashboard will run in limited mode without live Kraken data.")
+
+# Initialize notification manager
+notification_manager = None
+try:
+    notification_manager = NotificationManager()
+except Exception as e:
+    print(f"Warning: Could not initialize notification manager: {e}")
 
 
 def get_current_prices():
@@ -288,6 +297,22 @@ def api_status():
 if __name__ == '__main__':
     import argparse
     
+    def signal_handler(signum, frame):
+        """Handle termination signals gracefully."""
+        sig_name = signal.Signals(signum).name
+        print(f"\nReceived signal {sig_name} ({signum}). Shutting down Dashboard gracefully...")
+        if notification_manager and notification_manager.enabled:
+            notification_manager.notify_service_stopped(
+                service_name="TTSLO Dashboard",
+                reason=f"Received {sig_name} signal (systemctl stop/restart or kill)"
+            )
+        sys.exit(0)
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, signal_handler)  # systemctl stop/restart
+    signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+    signal.signal(signal.SIGHUP, signal_handler)   # Terminal closed
+    
     parser = argparse.ArgumentParser(description='TTSLO Dashboard')
     parser.add_argument('--host', default='127.0.0.1', help='Host to bind to (default: 127.0.0.1)')
     parser.add_argument('--port', type=int, default=5000, help='Port to bind to (default: 5000)')
@@ -300,4 +325,21 @@ if __name__ == '__main__':
     print(f"State file: {STATE_FILE}")
     print(f"Kraken API: {'Available' if kraken_api else 'Not available'}")
     
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    # Send service started notification
+    if notification_manager and notification_manager.enabled:
+        notification_manager.notify_service_started(
+            service_name="TTSLO Dashboard",
+            host=args.host,
+            port=args.port
+        )
+    
+    try:
+        app.run(host=args.host, port=args.port, debug=args.debug)
+    except Exception as e:
+        print(f"\nERROR: Dashboard crashed: {str(e)}", file=sys.stderr)
+        if notification_manager:
+            notification_manager.notify_service_stopped(
+                service_name="TTSLO Dashboard",
+                reason=f"Crashed: {str(e)}"
+            )
+        raise
