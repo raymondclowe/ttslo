@@ -350,9 +350,36 @@ if __name__ == '__main__':
     
     # Send service started notification
     if notification_manager and notification_manager.enabled:
+        # Determine the actual accessible URL
+        import socket
+        if args.host in ('0.0.0.0', '::'):
+            # Get the actual server IP address, prioritizing 192.168.x.x
+            try:
+                hostname = socket.gethostname()
+                # Get all IP addresses for this host
+                all_ips = socket.getaddrinfo(hostname, None)
+                
+                # Filter to IPv4 addresses only
+                ipv4_addresses = [ip[4][0] for ip in all_ips if ip[0] == socket.AF_INET]
+                
+                # Prioritize 192.168.x.x addresses
+                local_ips = [ip for ip in ipv4_addresses if ip.startswith('192.168.')]
+                if local_ips:
+                    host_ip = local_ips[0]
+                elif ipv4_addresses:
+                    # Use first non-localhost IP
+                    non_localhost = [ip for ip in ipv4_addresses if ip != '127.0.0.1']
+                    host_ip = non_localhost[0] if non_localhost else ipv4_addresses[0]
+                else:
+                    host_ip = '127.0.0.1'
+            except:
+                host_ip = '127.0.0.1'
+        else:
+            host_ip = args.host
+        
         notification_manager.notify_service_started(
             service_name="TTSLO Dashboard",
-            host=args.host,
+            host=host_ip,
             port=args.port
         )
     
