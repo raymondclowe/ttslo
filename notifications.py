@@ -1,3 +1,27 @@
+    def notify_service_started(self, service_name: str = "TTSLO Dashboard", host: str = None, port: int = None):
+        """
+        Notify that the service has started.
+        Args:
+            service_name: Name of the service
+            host: Host address (optional)
+            port: Port number (optional)
+        """
+        msg = f"🚀 {service_name} started successfully."
+        if host and port:
+            msg += f"\nURL: http://{host}:{port}"
+        self.notify_event('service_started', msg)
+
+    def notify_service_stopped(self, service_name: str = "TTSLO Dashboard", reason: str = None):
+        """
+        Notify that the service has stopped.
+        Args:
+            service_name: Name of the service
+            reason: Reason for stopping (optional)
+        """
+        msg = f"🛑 {service_name} stopped."
+        if reason:
+            msg += f"\nReason: {reason}"
+        self.notify_event('service_stopped', msg)
 """
 Telegram notification system for TTSLO.
 
