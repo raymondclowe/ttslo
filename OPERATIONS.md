@@ -6,11 +6,19 @@ Services you will manage:
 - ttslo (main trading logic)
 - ttslo-dashboard (web UI on port 5080 via nginx)
 
-Key files:
+Key files (data lives in a writable data directory, not /etc):
 - Config: /var/lib/ttslo/config.csv
 - Notifications (optional): /opt/ttslo/notifications.ini
 - Env (secrets): /etc/ttslo/ttslo.env (Telegram + Kraken keys)
 - Logs: /var/lib/ttslo/logs.csv
+
+Tip: You can change the data directory (for config/state/logs) during setup by setting
+`TTSLO_DATA_DIR` before running `setup-ttslo.sh`, e.g.:
+```bash
+TTSLO_DATA_DIR=/home/youruser/ttslo-data sudo ./setup-ttslo.sh
+```
+The services also honor environment variables `TTSLO_CONFIG_FILE`, `TTSLO_STATE_FILE`, and
+`TTSLO_LOG_FILE` if you need to customize paths later.
 
 ---
 

@@ -18,9 +18,19 @@ ENV_FILE="${ENV_DIR}/ttslo.env"
 REPO_DIR="/opt/ttslo"
 DASHBOARD_PUBLIC_PORT=5080
 APP_PORT=5000
+DATA_DIR_DEFAULT="/var/lib/ttslo"    # default writable location for config/state/logs
+
+# Allow overriding data directory via environment (e.g., TTSLO_DATA_DIR=/home/<user>/ttslo-data)
+DATA_DIR="${TTSLO_DATA_DIR:-$DATA_DIR_DEFAULT}"
 UV_BIN="${UV_BIN:-/snap/bin/uv}"
 
 require_root() {
+  # Ensure data dir exists and is group-writeable by ttslo (setgid keeps group on new files)
+  install -d -m 2770 "$DATA_DIR"
+  # If ttslo group exists, set owner/group; otherwise root:root until harden script creates group
+  if getent group ttslo >/dev/null 2>&1; then
+    chown ttslo:ttslo "$DATA_DIR" || true
+  fi
   if [[ $(id -u) -ne 0 ]]; then
     echo "[ERROR] This script must be run as root (use sudo)." >&2
     exit 1
@@ -36,9 +46,9 @@ prompt_secret() {
     if [[ -n "$default_val" ]]; then
       read -r -s -p "$prompt_msg [leave blank to keep existing]: " val
       echo
-      if [[ -z "$val" ]]; then
-        printf -v "$var_name" '%s' "$default_val"
-        return 0
+TTSLO_CONFIG_FILE=${DATA_DIR}/config.csv
+TTSLO_STATE_FILE=${DATA_DIR}/state.csv
+TTSLO_LOG_FILE=${DATA_DIR}/logs.csv
       fi
     else
       read -r -s -p "$prompt_msg: " val

@@ -1124,12 +1124,12 @@ Environment variables:
         """
     )
     
-    parser.add_argument('--config', default='config.csv',
-                       help='Configuration file (default: config.csv)')
-    parser.add_argument('--state', default='state.csv',
-                       help='State file (default: state.csv)')
-    parser.add_argument('--log', default='logs.csv',
-                       help='Log file (default: logs.csv)')
+    parser.add_argument('--config', default=os.getenv('TTSLO_CONFIG_FILE', 'config.csv'),
+                       help='Configuration file (env TTSLO_CONFIG_FILE; default: config.csv)')
+    parser.add_argument('--state', default=os.getenv('TTSLO_STATE_FILE', 'state.csv'),
+                       help='State file (env TTSLO_STATE_FILE; default: state.csv)')
+    parser.add_argument('--log', default=os.getenv('TTSLO_LOG_FILE', 'logs.csv'),
+                       help='Log file (env TTSLO_LOG_FILE; default: logs.csv)')
     parser.add_argument('--dry-run', action='store_true',
                        help="Don't actually create orders")
     parser.add_argument('--verbose', action='store_true',
