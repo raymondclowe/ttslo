@@ -288,54 +288,12 @@ def get_active_orders():
                 })
         filter_elapsed = time.time() - filter_start
         print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
-        # Include Kraken-closed trailing-stop orders that are not recorded in state.csv
-        # Mark these as manual so the UI can indicate they weren't created by this service.
-        try:
-            for order_id, order_info in closed_orders.items():
-                # Skip if already included (matched via state)
-                if any(c.get('order_id') == order_id for c in completed):
-                    continue
-                descr = order_info.get('descr', {}) or {}
-                ordertype = descr.get('ordertype')
-                # Only include trailing-stop orders (TSL)
-                if ordertype != 'trailing-stop':
-                    continue
-
-                # Extract executed price safely
-                executed_price = None
-                try:
-                    if order_info.get('price') is not None:
-                        executed_price = float(order_info.get('price'))
-                except Exception:
-                    executed_price = None
-
-                close_time = None
-                try:
-                    if order_info.get('closetm'):
-                        close_time = datetime.fromtimestamp(
-                            order_info.get('closetm', 0), tz=timezone.utc
-                        ).isoformat()
-                except Exception:
-                    close_time = None
-
-                completed.append({
-                    'id': order_id,
-                    'order_id': order_id,
-                    'pair': descr.get('pair'),
-                    'trigger_price': None,
-                    'executed_price': executed_price,
-                    'trigger_time': None,
-                    'close_time': close_time,
-                    'volume': order_info.get('vol'),
-                    'status': order_info.get('status'),
-                    'direction': None,
-                    'benefit': None,
-                    'benefit_percent': None,
-                    'manual': True,
-                    'source': 'kraken'
-                })
-        except Exception as e:
-            print(f"[PERF] Error adding manual closed orders: {e}")
+        # Note: previously this function attempted to add 'manual closed orders'
+        # by iterating over a variable named `closed_orders` and appending to
+        # a `completed` list. Those variables are not defined in this
+        # function's scope and that produced NameError exceptions (seen in
+        # logs). Closed/completed orders are handled in get_completed_orders(),
+        # so the manual-closed-orders logic was removed to avoid the errors.
         # Include open Kraken trailing-stop orders that are not recorded in state.csv
         # Mark these as manual so the UI can indicate they weren't created by this service.
         try:
