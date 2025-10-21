@@ -1,0 +1,87 @@
+HTTP/11 Status: 200
+--- Response headers ---
+Date: Tue, 21 Oct 2025 02:41:14 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Content-Encoding: gzip
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+Cache-Control: no-store
+x-trace-id: 0ab0b95a019a04a4664800180b2d7918
+aza5akc-w-pad: QUDjk~3Dy|EH6JILQ494$T0QdDJO|-o-qXaCm
+x-proxy: gateway
+referrer-policy: strict-origin-when-cross-origin
+cf-cache-status: DYNAMIC
+Set-Cookie: __cf_bm=4Q41hI0pG0.iw6NLFyV_nEeaKS508ctLhb50pF5PZE4-1761014474-1.0.1.1-eCtUd0c31cVFw0QPbbe3lfQlF4pVy9Jfj0oPdUXLakYKYN523H2jSfrI7rKdM9ve5JZhUgCKhf0q3jsf2_57_uBP6VS._2JTwfa0NIswwW4; path=/; expires=Tue, 21-Oct-25 03:11:14 GMT; domain=.kraken.com; HttpOnly; Secure; SameSite=None, _cfuvid=rrvNJMSlUKYdWzDiwmsYlbJTGs.8TpTqNBH7EULQeSM-1761014474425-0.0.1.1-604800000; path=/; domain=.kraken.com; HttpOnly; Secure; SameSite=None
+X-Content-Type-Options: nosniff
+Server: cloudflare
+CF-RAY: 991d650f1cc009a0-HKG
+--- Response body (raw) ---
+{"error":[],"result":{"open":{"OFD6PI-UGEE5-YNLGRG":{"refid":null,"userref":0,"status":"open","opentm":1761014255.721498,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSDT","aclass":"forex","type":"sell","ordertype":"trailing-stop","price":"+11.0000%","price2":"0","leverage":"none","order":"sell 0.00006600 XBTUSDT @ trailing stop +11.0000%","close":""},"vol":"0.00006600","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"97584.70000","limitprice":"109645.70000","misc":"","oflags":"fcib","trigger":"index"},"OTWYBB-O4UXN-RVL2C3":{"refid":null,"userref":0,"status":"open","opentm":1761014229.095029,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSDT","aclass":"forex","type":"buy","ordertype":"trailing-stop","price":"+9.0000%","price2":"0","leverage":"none","order":"buy 0.00005500 XBTUSDT @ trailing stop +9.0000%","close":""},"vol":"0.00005500","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"119404.20000","limitprice":"109545.20000","misc":"","oflags":"fciq","trigger":"index"}}}}
+
+--- Parsed JSON (pretty) ---
+{
+  "error": [],
+  "result": {
+    "open": {
+      "OFD6PI-UGEE5-YNLGRG": {
+        "cost": "0.00000",
+        "descr": {
+          "aclass": "forex",
+          "close": "",
+          "leverage": "none",
+          "order": "sell 0.00006600 XBTUSDT @ trailing stop +11.0000%",
+          "ordertype": "trailing-stop",
+          "pair": "XBTUSDT",
+          "price": "+11.0000%",
+          "price2": "0",
+          "type": "sell"
+        },
+        "expiretm": 0,
+        "fee": "0.00000",
+        "limitprice": "109645.70000",
+        "misc": "",
+        "oflags": "fcib",
+        "opentm": 1761014255.721498,
+        "price": "0.00000",
+        "refid": null,
+        "starttm": 0,
+        "status": "open",
+        "stopprice": "97584.70000",
+        "trigger": "index",
+        "userref": 0,
+        "vol": "0.00006600",
+        "vol_exec": "0.00000000"
+      },
+      "OTWYBB-O4UXN-RVL2C3": {
+        "cost": "0.00000",
+        "descr": {
+          "aclass": "forex",
+          "close": "",
+          "leverage": "none",
+          "order": "buy 0.00005500 XBTUSDT @ trailing stop +9.0000%",
+          "ordertype": "trailing-stop",
+          "pair": "XBTUSDT",
+          "price": "+9.0000%",
+          "price2": "0",
+          "type": "buy"
+        },
+        "expiretm": 0,
+        "fee": "0.00000",
+        "limitprice": "109545.20000",
+        "misc": "",
+        "oflags": "fciq",
+        "opentm": 1761014229.095029,
+        "price": "0.00000",
+        "refid": null,
+        "starttm": 0,
+        "status": "open",
+        "stopprice": "119404.20000",
+        "trigger": "index",
+        "userref": 0,
+        "vol": "0.00005500",
+        "vol_exec": "0.00000000"
+      }
+    }
+  }
+}
