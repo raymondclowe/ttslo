@@ -438,9 +438,9 @@
                         return `
                             <div class="order-card">
                                 <div class="order-header">
-                                    <div class="order-id">${order.id}</div>
-                                    <div class="order-pair">${order.pair || 'N/A'}</div>
-                                </div>
+                                            <div class="order-id">${order.id} ${order.manual ? '<span style="font-size:12px;color:#fff;background:#e67e22;padding:2px 6px;border-radius:10px;margin-left:8px;font-weight:600;">MANUAL</span>' : ''}</div>
+                                            <div class="order-pair">${order.pair || 'N/A'}</div>
+                                        </div>
                                 <div class="order-details">
                                     <div class="detail-row">
                                         <span class="detail-label">Threshold:</span>

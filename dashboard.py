@@ -287,6 +287,35 @@ def get_active_orders():
                 })
         filter_elapsed = time.time() - filter_start
         print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
+        # Include open Kraken trailing-stop orders that are not recorded in state.csv
+        # Mark these as manual so the UI can indicate they weren't created by this service.
+        try:
+            for order_id, order_info in open_orders.items():
+                # Skip if already included (matched via state)
+                if any(a.get('order_id') == order_id for a in active):
+                    continue
+                descr = order_info.get('descr', {}) or {}
+                ordertype = descr.get('ordertype')
+                # Only include trailing-stop orders (TSL)
+                if ordertype != 'trailing-stop':
+                    continue
+                # Add as manual/open order
+                active.append({
+                    'id': order_id,
+                    'order_id': order_id,
+                    'pair': descr.get('pair'),
+                    'trigger_price': None,
+                    'trigger_time': None,
+                    'volume': order_info.get('vol'),
+                    'executed_volume': order_info.get('vol_exec', '0'),
+                    'status': order_info.get('status'),
+                    'order_type': ordertype,
+                    'price': descr.get('price'),
+                    'manual': True,
+                    'source': 'kraken'
+                })
+        except Exception as e:
+            print(f"[PERF] Error adding manual open orders: {e}")
     except Exception as e:
         print(f"[PERF] Error getting active orders: {e}")
     
