@@ -281,6 +281,20 @@ The dashboard exposes REST API endpoints for integration:
 
 The dashboard runs in read-only mode by default and only requires read-only Kraken API credentials. It's designed for local use and should not be exposed to the internet without additional security measures.
 
+When running with `--host 0.0.0.0`, the dashboard binds to all network interfaces, making it accessible from your local network. To restrict access to your local subnet only, use firewall rules:
+
+```bash
+# Example: Allow access only from local subnet (192.168.1.0/24)
+sudo ufw allow from 192.168.1.0/24 to any port 5000
+sudo ufw deny 5000
+
+# Or using iptables
+sudo iptables -A INPUT -p tcp --dport 5000 -s 192.168.1.0/24 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 5000 -j DROP
+```
+
+The systemd service uses `--host 0.0.0.0` for network access while remaining protected by the system firewall.
+
 ## Safety and Security
 
 ### Fail-Safe Guarantees
