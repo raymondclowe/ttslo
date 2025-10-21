@@ -364,16 +364,9 @@ class ConfigValidator:
         except (InvalidOperation, ValueError, TypeError):
             return  # Skip logic validation if values are invalid
         
-        # Check for nonsensical combinations
-        if threshold_type == 'above' and direction == 'buy':
-            result.add_warning(config_id, 'logic', 
-                             'Threshold "above" with direction "buy" is unusual. '
-                             'This will buy when price goes up. Verify this is intended.')
+        # Validate financially responsible order direction
+        self._validate_financially_responsible_order(config_id, pair, threshold_type, direction, result)
         
-        if threshold_type == 'below' and direction == 'sell':
-            result.add_warning(config_id, 'logic', 
-                             'Threshold "below" with direction "sell" is unusual. '
-                             'This will sell when price goes down. Verify this is intended.')
         
         # Check if trailing offset could trigger immediately
         if trailing_offset > 30:
@@ -636,6 +629,130 @@ class ConfigValidator:
             # Don't fail validation if order check fails
             # This is just a helpful warning
             pass
+    
+    def _is_stablecoin_pair(self, pair: str) -> bool:
+        """
+        Determine if a trading pair involves a stablecoin as the quote currency.
+        
+        This includes:
+        - USD, USDT, USDC (traditional stablecoins)
+        - EUR, GBP, JPY (fiat currencies, treated as stable)
+        
+        Args:
+            pair: Trading pair (e.g., 'XXBTZUSD', 'ETHUSDT', 'XETHZEUR')
+            
+        Returns:
+            True if the pair quotes against a stablecoin/fiat, False otherwise
+        """
+        if not pair:
+            return False
+        
+        pair_upper = pair.upper()
+        
+        # List of stablecoin and fiat quote currencies
+        stablecoin_quotes = [
+            'USDT',   # Tether
+            'USDC',   # USD Coin
+            'ZUSD',   # Kraken's USD notation
+            'USD',    # Direct USD
+            'ZEUR',   # Kraken's EUR notation
+            'EUR',    # Direct EUR
+            'ZGBP',   # Kraken's GBP notation
+            'GBP',    # Direct GBP
+            'ZJPY',   # Kraken's JPY notation
+            'JPY',    # Direct JPY
+            'DAI',    # DAI stablecoin
+            'BUSD',   # Binance USD
+        ]
+        
+        # Check if pair ends with any stablecoin quote currency
+        for quote in stablecoin_quotes:
+            if pair_upper.endswith(quote):
+                return True
+        
+        return False
+    
+    def _is_btc_pair(self, pair: str) -> bool:
+        """
+        Determine if a trading pair involves Bitcoin (treating it as a stablecoin for other cryptos).
+        
+        Args:
+            pair: Trading pair (e.g., 'ETHXBT', 'SOLXBT')
+            
+        Returns:
+            True if the pair quotes against BTC, False otherwise
+        """
+        if not pair:
+            return False
+        
+        pair_upper = pair.upper()
+        
+        # List of BTC quote notations
+        btc_quotes = [
+            'XBT',    # Kraken's BTC notation
+            'XXBT',   # Kraken's extended BTC notation
+            'BTC',    # Direct BTC
+        ]
+        
+        # Check if pair ends with any BTC quote currency
+        for quote in btc_quotes:
+            if pair_upper.endswith(quote):
+                return True
+        
+        return False
+    
+    def _validate_financially_responsible_order(self, config_id: str, pair: str, 
+                                                threshold_type: str, direction: str,
+                                                result: ValidationResult):
+        """
+        Validate that the order is financially responsible to prevent buying high and selling low.
+        
+        Rules:
+        - For stablecoin pairs (BTC/USD, ETH/USDT, etc.):
+          - Buy orders should follow price down: threshold_type="below", direction="buy"
+          - Sell orders should follow price up: threshold_type="above", direction="sell"
+        - For BTC pairs (treating BTC as stable for other cryptos like ETH/BTC):
+          - Same rules apply
+        
+        Invalid (financially irresponsible) combinations:
+        - Buying high: threshold_type="above" + direction="buy"
+        - Selling low: threshold_type="below" + direction="sell"
+        
+        Args:
+            config_id: Configuration ID
+            pair: Trading pair
+            threshold_type: 'above' or 'below'
+            direction: 'buy' or 'sell'
+            result: ValidationResult to add errors to
+        """
+        # Check if this is a stablecoin or BTC pair
+        is_stable_pair = self._is_stablecoin_pair(pair) or self._is_btc_pair(pair)
+        
+        if not is_stable_pair:
+            # For non-stablecoin pairs, we don't enforce this validation
+            # (user might have specific strategies for exotic pairs)
+            return
+        
+        # Check for financially irresponsible combinations
+        if threshold_type == 'above' and direction == 'buy':
+            # Buying when price goes up = buying high
+            result.add_error(
+                config_id, 'logic',
+                f'Financially irresponsible order: Buying HIGH is not allowed. '
+                f'For pair "{pair}", buy orders should use threshold_type="below" to buy when '
+                f'price goes down (buying low). Current config would buy when price rises above '
+                f'threshold, which means buying at a higher price. This could lead to financial loss.'
+            )
+        
+        if threshold_type == 'below' and direction == 'sell':
+            # Selling when price goes down = selling low
+            result.add_error(
+                config_id, 'logic',
+                f'Financially irresponsible order: Selling LOW is not allowed. '
+                f'For pair "{pair}", sell orders should use threshold_type="above" to sell when '
+                f'price goes up (selling high). Current config would sell when price falls below '
+                f'threshold, which means selling at a lower price. This could lead to financial loss.'
+            )
     
     def _normalize_asset(self, asset: str) -> str:
         """Normalize asset key by removing X prefix and .F suffix.

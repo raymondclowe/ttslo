@@ -164,12 +164,22 @@ class EditCellScreen(ModalScreen[str]):
             valid_types = ["above", "below"]
             if value.lower() not in valid_types:
                 return (False, f"Must be 'above' or 'below'")
+            # Check for financially responsible order when threshold_type changes
+            if self.row_data:
+                result = self._validate_financial_responsibility(value)
+                if result:
+                    return result
         
         # Validate direction
         elif column_lower == "direction":
             valid_directions = ["buy", "sell"]
             if value.lower() not in valid_directions:
                 return (False, f"Must be 'buy' or 'sell'")
+            # Check for financially responsible order when direction changes
+            if self.row_data:
+                result = self._validate_financial_responsibility(None, value)
+                if result:
+                    return result
         
         # Validate enabled
         elif column_lower == "enabled":
@@ -222,6 +232,48 @@ class EditCellScreen(ModalScreen[str]):
                 return (False, "Volume must be a valid number")
         
         return (True, "")
+    
+    def _validate_financial_responsibility(self, new_threshold_type: str = None, 
+                                          new_direction: str = None) -> Tuple[bool, str]:
+        """
+        Validate that the order configuration is financially responsible.
+        
+        Returns None if valid, or (False, error_message) if invalid.
+        """
+        # Get current values from row_data
+        pair = self.row_data.get('pair', '').strip().upper()
+        threshold_type = (new_threshold_type or self.row_data.get('threshold_type', '')).strip().lower()
+        direction = (new_direction or self.row_data.get('direction', '')).strip().lower()
+        
+        # Need all three values to validate
+        if not all([pair, threshold_type, direction]):
+            return None  # Can't validate without complete data
+        
+        # Import validator to check if this is a stablecoin pair
+        from validator import ConfigValidator
+        validator = ConfigValidator()
+        
+        # Check if this is a stablecoin or BTC pair
+        is_stable_pair = validator._is_stablecoin_pair(pair) or validator._is_btc_pair(pair)
+        
+        if not is_stable_pair:
+            # For non-stablecoin pairs, we don't enforce this validation
+            return None
+        
+        # Check for financially irresponsible combinations
+        if threshold_type == 'above' and direction == 'buy':
+            # Buying when price goes up = buying high
+            return (False, 
+                   f"❌ Financially irresponsible: Buying HIGH is not allowed. "
+                   f"Buy orders should use threshold_type='below' to buy when price goes DOWN (buy low).")
+        
+        if threshold_type == 'below' and direction == 'sell':
+            # Selling when price goes down = selling low
+            return (False,
+                   f"❌ Financially irresponsible: Selling LOW is not allowed. "
+                   f"Sell orders should use threshold_type='above' to sell when price goes UP (sell high).")
+        
+        return None  # Valid combination
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
