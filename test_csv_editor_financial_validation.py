@@ -130,7 +130,7 @@ class TestCSVEditorFinancialValidation:
     def test_btc_pair_validated(self):
         """Test that BTC pairs are validated (BTC treated as stablecoin)."""
         row_data = {
-            'pair': 'ETHXBT',
+            'pair': 'XETHXXBT',
             'threshold_type': 'above',
             'direction': 'buy'
         }

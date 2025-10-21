@@ -307,23 +307,26 @@ def test_config_validator():
     result = validator.validate_config_file(missing_field_configs)
     assert not result.is_valid(), "Config with missing field should fail"
     
-    # Test warnings (unusual logic)
-    warning_configs = [
+    # Test financially irresponsible order (now an ERROR, not a warning)
+    irresponsible_configs = [
         {
             'id': 'test4',
             'pair': 'XXBTZUSD',
             'threshold_price': '50000',
             'threshold_type': 'above',
-            'direction': 'buy',  # Unusual: buy when price goes up
+            'direction': 'buy',  # Financially irresponsible: buy when price goes up (buy high)
             'volume': '0.1',
             'trailing_offset_percent': '5.0',
             'enabled': 'true'
         }
     ]
     
-    result = validator.validate_config_file(warning_configs)
-    assert result.is_valid(), "Config with warnings should still be valid"
-    assert result.has_warnings(), "Should have warnings for unusual logic"
+    result = validator.validate_config_file(irresponsible_configs)
+    assert not result.is_valid(), "Financially irresponsible config should fail validation"
+    assert len(result.errors) > 0, "Should have errors for financially irresponsible logic"
+    logic_errors = [e for e in result.errors if e['field'] == 'logic']
+    assert len(logic_errors) > 0, "Should have logic error"
+    assert 'Buying HIGH' in logic_errors[0]['message'], "Error should mention buying high"
     
     # Test market price validation with mock API
     mock_api = Mock(spec=KrakenAPI)

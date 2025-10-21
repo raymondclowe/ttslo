@@ -281,7 +281,7 @@ class TestBTCAsStablecoin:
         configs = [
             {
                 'id': 'eth_btc_buy',
-                'pair': 'ETHXBT',
+                'pair': 'XETHXXBT',
                 'threshold_price': '0.05',
                 'threshold_type': 'below',
                 'direction': 'buy',
@@ -302,7 +302,7 @@ class TestBTCAsStablecoin:
         configs = [
             {
                 'id': 'eth_btc_sell',
-                'pair': 'ETHXBT',
+                'pair': 'XETHXXBT',
                 'threshold_price': '0.08',
                 'threshold_type': 'above',
                 'direction': 'sell',
@@ -323,7 +323,7 @@ class TestBTCAsStablecoin:
         configs = [
             {
                 'id': 'eth_btc_buy_high',
-                'pair': 'ETHXBT',
+                'pair': 'XETHXXBT',
                 'threshold_price': '0.08',
                 'threshold_type': 'above',
                 'direction': 'buy',
@@ -345,7 +345,7 @@ class TestBTCAsStablecoin:
         configs = [
             {
                 'id': 'sol_btc_sell_low',
-                'pair': 'SOLXBT',
+                'pair': 'SOLXXBT',
                 'threshold_price': '0.002',
                 'threshold_type': 'below',
                 'direction': 'sell',
