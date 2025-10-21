@@ -46,7 +46,7 @@ def sample_state_file(tmp_path):
     with open(state_file, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=[
             'id', 'triggered', 'trigger_price', 'trigger_time', 
-            'order_id', 'activated_on', 'last_checked'
+            'order_id', 'activated_on', 'last_checked', 'offset'
         ])
         writer.writeheader()
         writer.writerow({
@@ -56,7 +56,8 @@ def sample_state_file(tmp_path):
             'trigger_time': '',
             'order_id': '',
             'activated_on': '',
-            'last_checked': ''
+            'last_checked': '',
+            'offset': ''
         })
     return state_file
 

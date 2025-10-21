@@ -61,7 +61,7 @@ def test_config_manager():
         
         # Test state management
         state = {'test1': {'id': 'test1', 'triggered': 'false', 'trigger_price': '', 
-                          'trigger_time': '', 'order_id': '', 'last_checked': ''}}
+                          'trigger_time': '', 'order_id': '', 'last_checked': '', 'offset': ''}}
         cm.save_state(state)
         assert os.path.exists(state_file), "State file should be created"
         

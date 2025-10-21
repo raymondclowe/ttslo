@@ -52,10 +52,10 @@ class TestEditorIntegration:
             writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true'])
             writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true'])
         
-        # Create empty state file
+        # Create empty state file (include 'offset' column for trailing offset used when order created)
         with open(state_file, 'w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked'])
+            writer.writerow(['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset'])
         
         yield {
             'temp_dir': temp_dir,

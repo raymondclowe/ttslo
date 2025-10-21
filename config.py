@@ -338,12 +338,18 @@ class ConfigManager:
             # Editor is requesting/has lock - skip this write
             return
             
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked']
-        
+        # Added 'offset' to capture the trailing offset specified when order was created
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset']
+
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             for config_id, config_state in state.items():
+                # Ensure offset key exists so CSV stays consistent even if older state lacks it
+                if 'offset' not in config_state:
+                    # Try common backup keys that might contain offset info
+                    # Keep empty string if not present
+                    config_state['offset'] = config_state.get('trailing_offset_percent', '')
                 writer.writerow(config_state)
     
     def log(self, level, message, **kwargs):
@@ -410,7 +416,8 @@ class ConfigManager:
     
     def initialize_state_file(self):
         """Initialize an empty state file with headers."""
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked']
+        # Include 'offset' column to record trailing offset specified when order created
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset']
         
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
