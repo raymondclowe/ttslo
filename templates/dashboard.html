@@ -649,23 +649,29 @@
 
                 if (content) {
                     content.innerHTML = orders.map(order => {
-                        const benefitClass = order.benefit >= 0 ? 'benefit-positive' : 'benefit-negative';
-                        const benefitSign = order.benefit >= 0 ? '+' : '';
+                        // Determine benefit display; may be null for manual orders
+                        let benefitHTML = 'N/A';
+                        let benefitClass = '';
+                        if (order.benefit !== null && order.benefit !== undefined) {
+                            benefitClass = order.benefit >= 0 ? 'benefit-positive' : 'benefit-negative';
+                            const benefitSign = order.benefit >= 0 ? '+' : '';
+                            benefitHTML = `${benefitSign}$${Math.abs(order.benefit).toFixed(2)} (${benefitSign}${order.benefit_percent.toFixed(2)}%)`;
+                        }
 
                         return `
                             <div class="order-card">
                                 <div class="order-header">
-                                    <div class="order-id">${order.id}</div>
+                                    <div class="order-id">${order.id} ${order.manual ? '<span style="font-size:12px;color:#fff;background:#e67e22;padding:2px 6px;border-radius:10px;margin-left:8px;font-weight:600;">MANUAL</span>' : ''}</div>
                                     <div class="order-pair">${order.pair || 'N/A'}</div>
                                 </div>
                                 <div class="order-details">
                                     <div class="detail-row">
                                         <span class="detail-label">Trigger Price:</span>
-                                        <span class="detail-value">$${order.trigger_price.toFixed(2)}</span>
+                                        <span class="detail-value">${order.trigger_price !== null && order.trigger_price !== undefined ? '$' + parseFloat(order.trigger_price).toFixed(2) : 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Executed Price:</span>
-                                        <span class="detail-value">$${order.executed_price.toFixed(2)}</span>
+                                        <span class="detail-value">${order.executed_price !== null && order.executed_price !== undefined ? '$' + parseFloat(order.executed_price).toFixed(2) : 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Volume:</span>
@@ -677,9 +683,7 @@
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Benefit:</span>
-                                        <span class="detail-value ${benefitClass}">
-                                            ${benefitSign}$${Math.abs(order.benefit).toFixed(2)} (${benefitSign}${order.benefit_percent.toFixed(2)}%)
-                                        </span>
+                                        <span class="detail-value ${benefitClass}">${benefitHTML}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Closed:</span>
