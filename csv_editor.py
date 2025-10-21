@@ -374,6 +374,7 @@ class CSVEditor(App):
         self.data: List[List[str]] = []
         self.modified = False
         self.lock_file = None  # File object for advisory lock
+        self.intent_file_path: Optional[Path] = None
 
     def compose(self) -> ComposeResult:
         """Compose the UI."""
@@ -395,9 +396,31 @@ class CSVEditor(App):
                 self.filename.parent.mkdir(parents=True, exist_ok=True)
                 self.filename.touch()
             
-            # Step 1: Signal intent to edit by creating coordination file
+            # Step 1: Signal intent to edit by creating coordination file.
+            # The preferred location is next to the config file (service-owned dir).
+            # If we can't write there (PermissionError), fall back to a per-user
+            # intent file in the system temp directory that the service will also
+            # check for.
             intent_file = Path(str(self.filename) + '.editor_wants_lock')
-            intent_file.touch()
+            try:
+                intent_file.touch()
+                self.intent_file_path = intent_file
+            except PermissionError:
+                # Fall back to /tmp with a predictable name including uid and
+                # basename so multiple users don't collide.
+                import tempfile, getpass
+                uid = os.getuid()
+                uname = getpass.getuser()
+                tmpname = f"ttslo_editor_wants_lock.{uid}.{uname}.{self.filename.name}"
+                fallback = Path(tempfile.gettempdir()) / tmpname
+                try:
+                    # Write the canonical config path into the fallback file so
+                    # the service can verify which config is being requested.
+                    fallback.write_text(str(self.filename), encoding='utf-8')
+                    self.intent_file_path = fallback
+                except Exception:
+                    # If even fallback fails, re-raise so outer except block handles it
+                    raise
             self.notify(
                 "Requesting exclusive access from service...",
                 title="Coordination",
@@ -439,7 +462,8 @@ class CSVEditor(App):
                 self.lock_file = None
                 # Clean up coordination file
                 try:
-                    intent_file.unlink(missing_ok=True)
+                    if self.intent_file_path:
+                        self.intent_file_path.unlink(missing_ok=True)
                 except Exception:
                     pass
         except Exception as e:
@@ -451,8 +475,8 @@ class CSVEditor(App):
             self.lock_file = None
             # Clean up coordination file
             try:
-                intent_file = Path(str(self.filename) + '.editor_wants_lock')
-                intent_file.unlink(missing_ok=True)
+                if self.intent_file_path:
+                    self.intent_file_path.unlink(missing_ok=True)
             except Exception:
                 pass
         
@@ -485,8 +509,8 @@ class CSVEditor(App):
         
         # Clean up coordination files
         try:
-            intent_file = Path(str(self.filename) + '.editor_wants_lock')
-            intent_file.unlink(missing_ok=True)
+            if self.intent_file_path:
+                self.intent_file_path.unlink(missing_ok=True)
         except Exception:
             pass
         

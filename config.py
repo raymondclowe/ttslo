@@ -26,6 +26,10 @@ class ConfigManager:
         self.state_file = state_file
         self.log_file = log_file
         self.editor_coordination_active = False  # Flag to pause operations when editor requests lock
+        # TTL (seconds) after which an editor intent file is considered stale.
+        # If an intent file is older than this, the service will remove it and
+        # ignore the coordination request. Default: 5 minutes (300s).
+        self.editor_intent_ttl = 300
     
     def is_file_locked(self, filepath):
         """
@@ -75,6 +79,26 @@ class ConfigManager:
         idle_file = self.config_file + '.service_idle'
         
         # Check if editor wants to edit
+        # Primary check: intent file next to the config file (created by editor)
+        now = time.time()
+        if os.path.exists(intent_file):
+            try:
+                mtime = os.path.getmtime(intent_file)
+                age = now - mtime
+                if self.editor_intent_ttl and age > self.editor_intent_ttl:
+                    # Stale intent file: remove and ignore
+                    try:
+                        os.unlink(intent_file)
+                        print(f"WARNING: Removed stale editor intent file: {intent_file} (age={age:.0f}s)")
+                    except Exception:
+                        pass
+                    # Ensure coordination flag cleared
+                    if self.editor_coordination_active:
+                        self.editor_coordination_active = False
+                    return False
+            except Exception:
+                # If we can't stat the file, proceed to treat it as present
+                pass
         if os.path.exists(intent_file):
             if not self.editor_coordination_active:
                 # First time seeing the request - signal we're idle
@@ -87,6 +111,54 @@ class ConfigManager:
                 except Exception as e:
                     print(f"WARNING: Could not create idle file: {e}")
             return True
+        # Secondary check: per-user fallback intent files in the system temp dir.
+        # Editors running as non-service users may not be able to write into
+        # the service-owned directory. They can instead create a file in
+        # /tmp named like `ttslo_editor_wants_lock.<uid>.<user>.<basename>`
+        # containing the canonical path to the config file they intend to edit.
+        try:
+            import glob, tempfile
+            tmpdir = tempfile.gettempdir()
+            pattern = os.path.join(tmpdir, 'ttslo_editor_wants_lock.*')
+            for path in glob.glob(pattern):
+                try:
+                    # Stale detection for fallback files
+                    try:
+                        mtime = os.path.getmtime(path)
+                        age = now - mtime
+                        if self.editor_intent_ttl and age > self.editor_intent_ttl:
+                            try:
+                                os.unlink(path)
+                                print(f"WARNING: Removed stale fallback intent file: {path} (age={age:.0f}s)")
+                            except Exception:
+                                pass
+                            continue
+                    except Exception:
+                        # If we can't stat the file, proceed to reading it
+                        pass
+
+                    with open(path, 'r') as f:
+                        content = f.read().strip()
+                    if not content:
+                        continue
+                    # If the fallback file references this config file, treat it
+                    # as an intent signal for coordination.
+                    if os.path.abspath(content) == os.path.abspath(self.config_file):
+                        if not self.editor_coordination_active:
+                            self.editor_coordination_active = True
+                            try:
+                                with open(idle_file, 'w') as f:
+                                    f.write(str(os.getpid()))
+                                print(f"INFO: CSV editor requesting lock via fallback file {path}. Service pausing config operations.")
+                            except Exception as e:
+                                print(f"WARNING: Could not create idle file: {e}")
+                        return True
+                except Exception:
+                    # Ignore unreadable fallback files
+                    continue
+        except Exception:
+            # If glob/tempdir not available or other issue, ignore secondary check
+            pass
         else:
             # Editor is done, clean up
             if self.editor_coordination_active:
