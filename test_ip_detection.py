@@ -23,7 +23,6 @@ def test_get_lan_ip():
             assert 0 <= int(part) <= 255, f"Invalid IP octet: {part}"
         
         print(f"✓ Got LAN IP: {host_ip}")
-        return True
     except Exception as e:
         print(f"Primary method failed: {e}")
         # Fallback should still work
@@ -36,11 +35,9 @@ def test_get_lan_ip():
         
         if non_localhost:
             print(f"✓ Got IP from fallback: {non_localhost[0]}")
-            return True
         else:
             print(f"⚠ Only localhost IPs available: {ipv4_addresses}")
             # This is acceptable in some environments
-            return True
 
 
 def test_ip_priority():
