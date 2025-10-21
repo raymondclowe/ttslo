@@ -134,3 +134,39 @@ def test_calculate_distance_below():
     result = calculate_distance_to_trigger('50000', '48000', 'below')
     assert result['absolute'] < 0
     assert result['triggered'] is True
+
+
+def test_pending_orders_include_offset(client):
+    """Test that pending orders include trailing_offset_percent."""
+    response = client.get('/api/pending')
+    assert response.status_code == 200
+    data = response.get_json()
+    
+    # If there are pending orders, verify they include offset
+    if len(data) > 0:
+        order = data[0]
+        assert 'trailing_offset_percent' in order
+
+
+def test_active_orders_include_offset(client):
+    """Test that active orders include trailing_offset_percent."""
+    response = client.get('/api/active')
+    assert response.status_code == 200
+    data = response.get_json()
+    
+    # If there are active orders, verify they include offset
+    if len(data) > 0:
+        order = data[0]
+        assert 'trailing_offset_percent' in order
+
+
+def test_completed_orders_include_offset(client):
+    """Test that completed orders include trailing_offset_percent."""
+    response = client.get('/api/completed')
+    assert response.status_code == 200
+    data = response.get_json()
+    
+    # If there are completed orders, verify they include offset
+    if len(data) > 0:
+        order = data[0]
+        assert 'trailing_offset_percent' in order

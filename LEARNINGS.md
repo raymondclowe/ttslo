@@ -50,4 +50,52 @@ When binding services to `0.0.0.0`:
 
 ---
 
+## Dashboard Data Persistence
+
+**Problem**: Dashboard panes would intermittently go blank when API calls returned empty arrays or failed, even after previously showing data.
+
+**Root Cause**: The JavaScript was updating the `currentData` variable BEFORE checking if the response was empty, causing the condition `currentData.length === 0` to always be true on subsequent empty responses.
+
+**Solution**: Update the `currentData` variable AFTER processing the response:
+
+```javascript
+// WRONG - updates current data too early
+const orders = await response.json();
+currentData = orders;  // ❌ Sets before checking
+
+if (!orders.length) {
+    if (!currentData || currentData.length === 0) {  // Always true!
+        showEmptyState();
+    }
+    return;
+}
+
+// CORRECT - updates current data after checks
+const orders = await response.json();
+
+if (!orders.length) {
+    if (!currentData || currentData.length === 0) {  // Checks old data
+        showEmptyState();
+    }
+    currentData = orders;  // ✅ Updates after decision
+    return;
+}
+
+currentData = orders;  // ✅ Updates after successful render
+renderData(orders);
+```
+
+**Key Points**:
+1. Store current data in variables: `currentPendingData`, `currentActiveData`, `currentCompletedData`
+2. Only show empty state if `currentData` was never populated (initial load)
+3. On error or empty response, keep showing last known data
+4. Update `currentData` AFTER deciding whether to show empty state
+5. Use `console.warn()` for errors to preserve last known data
+
+**Related files**:
+- `templates/dashboard.html`: Lines 366-530 (pending), 533-627 (active), 630-734 (completed)
+- `test_dashboard_data_persistence.py`: Tests for data persistence behavior
+
+---
+
 *Add new learnings here as we discover them*

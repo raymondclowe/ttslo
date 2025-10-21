@@ -384,8 +384,6 @@
                     return;
                 }
                 
-                currentPendingData = orders;
-
                 if (count) {
                     count.textContent = orders.length;
                 }
@@ -403,8 +401,11 @@
                         }
                         // Otherwise, keep showing last known data
                     }
+                    currentPendingData = orders;
                     return;
                 }
+                
+                currentPendingData = orders;
 
                 if (content) {
                     content.innerHTML = orders.map(order => {
@@ -457,6 +458,10 @@
                                     <div class="detail-row">
                                         <span class="detail-label">Volume:</span>
                                         <span class="detail-value">${order.volume || 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Trailing Offset:</span>
+                                        <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
                                     </div>
                                 </div>
                                 ${progressHTML}
@@ -517,6 +522,10 @@
                                         <span class="detail-label">Volume:</span>
                                         <span class="detail-value">${order.volume || 'N/A'}</span>
                                     </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Trailing Offset:</span>
+                                        <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
+                                    </div>
                                 </div>
                                 ${progressHTML}
                             </div>
@@ -550,23 +559,28 @@
                     return;
                 }
                 
-                currentActiveData = orders;
-
                 if (count) {
                     count.textContent = orders.length;
                 }
 
                 if (!orders.length) {
                     if (content) {
-                        content.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">○</div>
-                                <div>No active orders</div>
-                            </div>
-                        `;
+                        // Only show empty state if there was never any data
+                        if (!currentActiveData || currentActiveData.length === 0) {
+                            content.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">○</div>
+                                    <div>No active orders</div>
+                                </div>
+                            `;
+                        }
+                        // Otherwise, keep showing last known data
                     }
+                    currentActiveData = orders;
                     return;
                 }
+                
+                currentActiveData = orders;
 
                 if (content) {
                     content.innerHTML = orders.map(order => `
@@ -593,6 +607,10 @@
                                     <span class="detail-value">${order.status || 'N/A'}</span>
                                 </div>
                                 <div class="detail-row">
+                                    <span class="detail-label">Trailing Offset:</span>
+                                    <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
+                                </div>
+                                <div class="detail-row">
                                     <span class="detail-label">Triggered:</span>
                                     <span class="detail-value">${order.trigger_time ? new Date(order.trigger_time).toLocaleString() : 'N/A'}</span>
                                 </div>
@@ -601,10 +619,14 @@
                     `).join('');
                 }
             } catch (error) {
-                if (content) {
+                console.warn(`[DASHBOARD] Error loading active orders:`, error);
+                // On error, keep showing last known data
+                if (content && (!currentActiveData || currentActiveData.length === 0)) {
+                    // Only show error if there was never any data
                     content.innerHTML =
                         `<div class="error">Error loading active orders: ${error.message}</div>`;
                 }
+                // Otherwise, keep showing last known data (do nothing)
             }
         }
 
@@ -629,23 +651,28 @@
                     return;
                 }
                 
-                currentCompletedData = orders;
-
                 if (count) {
                     count.textContent = orders.length;
                 }
 
                 if (!orders.length) {
                     if (content) {
-                        content.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">◎</div>
-                                <div>No completed orders</div>
-                            </div>
-                        `;
+                        // Only show empty state if there was never any data
+                        if (!currentCompletedData || currentCompletedData.length === 0) {
+                            content.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">◎</div>
+                                    <div>No completed orders</div>
+                                </div>
+                            `;
+                        }
+                        // Otherwise, keep showing last known data
                     }
+                    currentCompletedData = orders;
                     return;
                 }
+                
+                currentCompletedData = orders;
 
                 if (content) {
                     content.innerHTML = orders.map(order => {
@@ -682,6 +709,10 @@
                                         <span class="detail-value">${order.direction || 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
+                                        <span class="detail-label">Trailing Offset:</span>
+                                        <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
                                         <span class="detail-label">Benefit:</span>
                                         <span class="detail-value ${benefitClass}">${benefitHTML}</span>
                                     </div>
@@ -695,10 +726,14 @@
                     }).join('');
                 }
             } catch (error) {
-                if (content) {
+                console.warn(`[DASHBOARD] Error loading completed orders:`, error);
+                // On error, keep showing last known data
+                if (content && (!currentCompletedData || currentCompletedData.length === 0)) {
+                    // Only show error if there was never any data
                     content.innerHTML =
                         `<div class="error">Error loading completed orders: ${error.message}</div>`;
                 }
+                // Otherwise, keep showing last known data (do nothing)
             }
         }
 

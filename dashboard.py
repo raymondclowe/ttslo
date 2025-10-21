@@ -284,6 +284,7 @@ def get_active_orders():
                     'status': order_info.get('status'),
                     'order_type': order_info.get('descr', {}).get('ordertype'),
                     'price': order_info.get('descr', {}).get('price'),
+                    'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
         filter_elapsed = time.time() - filter_start
         print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
@@ -430,7 +431,8 @@ def get_completed_orders():
                     'status': order_info.get('status'),
                     'direction': config.get('direction'),
                     'benefit': benefit,
-                    'benefit_percent': benefit_percent
+                    'benefit_percent': benefit_percent,
+                    'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
         filter_elapsed = time.time() - filter_start
         print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
