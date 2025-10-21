@@ -234,7 +234,7 @@ class EditCellScreen(ModalScreen[str]):
         return (True, "")
     
     def _validate_financial_responsibility(self, new_threshold_type: str = None, 
-                                          new_direction: str = None) -> Tuple[bool, str]:
+                                          new_direction: str = None) -> Optional[Tuple[bool, str]]:
         """
         Validate that the order configuration is financially responsible.
         
@@ -249,12 +249,13 @@ class EditCellScreen(ModalScreen[str]):
         if not all([pair, threshold_type, direction]):
             return None  # Can't validate without complete data
         
-        # Import validator to check if this is a stablecoin pair
-        from validator import ConfigValidator
-        validator = ConfigValidator()
+        # Lazily initialize validator on the screen instance to avoid re-creation
+        if not hasattr(self, '_validator'):
+            from validator import ConfigValidator
+            self._validator = ConfigValidator()
         
         # Check if this is a stablecoin or BTC pair
-        is_stable_pair = validator._is_stablecoin_pair(pair) or validator._is_btc_pair(pair)
+        is_stable_pair = self._validator._is_stablecoin_pair(pair) or self._validator._is_btc_pair(pair)
         
         if not is_stable_pair:
             # For non-stablecoin pairs, we don't enforce this validation
