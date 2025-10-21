@@ -80,6 +80,24 @@ except Exception as e:
 # Notification manager will be initialized in main() after environment is confirmed
 notification_manager = None
 
+# Short TTL cache for open orders (5s)
+@ttl_cache(seconds=5)
+def get_cached_open_orders():
+    """Get open orders from Kraken with short TTL caching."""
+    if not kraken_api:
+        return {}
+    result = kraken_api.query_open_orders()
+    return result.get('open', {})
+
+# Longer TTL cache for closed orders (30s)
+@ttl_cache(seconds=30)
+def get_cached_closed_orders():
+    """Get closed orders from Kraken with longer TTL caching."""
+    if not kraken_api:
+        return {}
+    result = kraken_api.query_closed_orders()
+    return result.get('closed', {})
+
 
 @ttl_cache(seconds=5)
 def get_cached_config():
@@ -242,26 +260,16 @@ def get_active_orders():
     active = []
     
     try:
-        # Get all open orders from Kraken
-        api_start = time.time()
-        open_orders_result = kraken_api.query_open_orders()
-        api_elapsed = time.time() - api_start
-        print(f"[PERF] query_open_orders API call took {api_elapsed:.3f}s")
-        
-        open_orders = open_orders_result.get('open', {})
-        print(f"[PERF] Kraken returned {len(open_orders)} open orders")
-        
+        # Use cached open orders (5s TTL)
+        open_orders = get_cached_open_orders()
+        print(f"[PERF] Cached open orders: {len(open_orders)}")
         filter_start = time.time()
-        # Match with our state
         for config_id, config_state in state.items():
             if config_state.get('triggered') != 'true':
                 continue
-            
             order_id = config_state.get('order_id')
             if not order_id:
                 continue
-            
-            # Check if this order is still open
             order_info = open_orders.get(order_id)
             if order_info:
                 config = config_map.get(config_id, {})
@@ -306,33 +314,21 @@ def get_completed_orders():
     completed = []
     
     try:
-        # Get closed orders from Kraken
-        api_start = time.time()
-        closed_orders_result = kraken_api.query_closed_orders()
-        api_elapsed = time.time() - api_start
-        print(f"[PERF] query_closed_orders API call took {api_elapsed:.3f}s")
-        
-        closed_orders = closed_orders_result.get('closed', {})
-        print(f"[PERF] Kraken returned {len(closed_orders)} closed orders")
-        
+        # Use cached closed orders (30s TTL)
+        closed_orders = get_cached_closed_orders()
+        print(f"[PERF] Cached closed orders: {len(closed_orders)}")
         filter_start = time.time()
-        # Match with our state
         for config_id, config_state in state.items():
             if config_state.get('triggered') != 'true':
                 continue
-            
             order_id = config_state.get('order_id')
             if not order_id:
                 continue
-            
-            # Check if this order is closed
             order_info = closed_orders.get(order_id)
             if order_info and order_info.get('status') in ['closed', 'canceled']:
                 config = config_map.get(config_id, {})
                 trigger_price = float(config_state.get('trigger_price', 0))
                 executed_price = float(order_info.get('price', 0))
-                
-                # Calculate benefit (for sell orders, higher is better; for buy, lower is better)
                 benefit = 0
                 benefit_percent = 0
                 if trigger_price > 0:
@@ -343,7 +339,6 @@ def get_completed_orders():
                     else:  # buy
                         benefit = trigger_price - executed_price
                         benefit_percent = (benefit / trigger_price) * 100
-                
                 completed.append({
                     'id': config_id,
                     'order_id': order_id,
@@ -412,6 +407,15 @@ def api_completed():
 @app.route('/api/status')
 def api_status():
     """API endpoint for overall system status."""
+
+# Summary of logical flow for dashboard endpoints
+#
+# 1. Config and state are loaded with 5s TTL cache (fast repeated access)
+# 2. Prices are fetched in batch and cached for 5s (minimize API calls)
+# 3. Open orders are fetched in one call and cached for 5s (minimize API calls)
+# 4. Closed orders are fetched in one call and cached for 30s (since they rarely change)
+# 5. All matching/filtering is done in memory (fast)
+# 6. Dashboard JS preserves last known data if fetch fails or is slow
     return jsonify({
         'config_file': CONFIG_FILE,
         'state_file': STATE_FILE,
