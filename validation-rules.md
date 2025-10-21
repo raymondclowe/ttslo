@@ -175,16 +175,43 @@ None
 
 ## Cross-Field Logic Validation
 
-These warnings check for unusual or potentially unintended combinations of field values.
+These validations check for unusual or potentially unintended combinations of field values.
 
-### Unusual Threshold/Direction Combinations
+### Financially Responsible Order Validation
 
-#### WARNINGS:
-- **"Above" + "Buy"**: Buying when price goes up is unusual (typically you'd want to buy when price goes down)
-  - Example: `Threshold "above" with direction "buy" is unusual. This will buy when price goes up. Verify this is intended.`
+To protect against accidental financial loss, the validator enforces financially responsible order configurations for stablecoin and BTC pairs.
 
-- **"Below" + "Sell"**: Selling when price goes down is unusual (typically you'd want to sell when price goes up)
-  - Example: `Threshold "below" with direction "sell" is unusual. This will sell when price goes down. Verify this is intended.`
+#### ERRORS:
+- **"Above" + "Buy" (Buying High)**: For stablecoin pairs (USD, USDT, USDC, EUR, GBP, JPY) and BTC pairs, buying when price goes up is financially irresponsible
+  - Example: `Financially irresponsible order: Buying HIGH is not allowed. For pair "XXBTZUSD", buy orders should use threshold_type="below" to buy when price goes down (buying low). Current config would buy when price rises above threshold, which means buying at a higher price. This could lead to financial loss.`
+  - **Rationale**: Buy orders should follow the price down (threshold_type="below") to buy at lower prices
+  - **Valid alternative**: Use threshold_type="below" with direction="buy" to buy low
+
+- **"Below" + "Sell" (Selling Low)**: For stablecoin pairs and BTC pairs, selling when price goes down is financially irresponsible
+  - Example: `Financially irresponsible order: Selling LOW is not allowed. For pair "ETHUSDT", sell orders should use threshold_type="above" to sell when price goes up (selling high). Current config would sell when price falls below threshold, which means selling at a lower price. This could lead to financial loss.`
+  - **Rationale**: Sell orders should follow the price up (threshold_type="above") to sell at higher prices
+  - **Valid alternative**: Use threshold_type="above" with direction="sell" to sell high
+
+#### What are Stablecoin Pairs?
+Stablecoin pairs are trading pairs where the quote currency is a stablecoin or fiat currency:
+- **USD variants**: USD, ZUSD, USDT (Tether), USDC (USD Coin)
+- **Fiat currencies**: EUR, ZEUR, GBP, ZGBP, JPY, ZJPY
+- **BTC as stablecoin**: For other cryptocurrencies trading against BTC (e.g., ETH/BTC, SOL/BTC), BTC is treated as a stable reference
+
+Examples of stablecoin pairs:
+- `XXBTZUSD` - Bitcoin to USD
+- `ETHUSDT` - Ethereum to Tether
+- `SOLEUR` - Solana to Euro
+- `ETHXBT` - Ethereum to Bitcoin (BTC treated as stable)
+
+#### Exempt Pairs
+Exotic cryptocurrency pairs (e.g., SOL/ETH, ADA/DOT) are **NOT** subject to this validation, as users may have specific trading strategies for these pairs.
+
+#### Valid Configurations for Stablecoin/BTC Pairs:
+- ✅ **Buy Low**: threshold_type="below" + direction="buy" (buy when price drops)
+- ✅ **Sell High**: threshold_type="above" + direction="sell" (sell when price rises)
+- ❌ **Buy High**: threshold_type="above" + direction="buy" (ERROR - buying at higher price)
+- ❌ **Sell Low**: threshold_type="below" + direction="sell" (ERROR - selling at lower price)
 
 ### Large Trailing Offset with Threshold Direction
 
