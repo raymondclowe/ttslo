@@ -120,7 +120,9 @@ class ConfigManager:
         Returns:
             List of configuration dictionaries
         """
+        start_time = time.time()
         if not os.path.exists(self.config_file):
+            print(f"[PERF] load_config: file not found, elapsed {time.time() - start_time:.3f}s")
             return []
         configs = []
         with open(self.config_file, 'r', newline='') as f:
@@ -138,6 +140,8 @@ class ConfigManager:
                 if all(str(v).strip().startswith('#') for v in row.values() if v is not None and str(v).strip() != ''):
                     continue
                 configs.append(row)
+        elapsed = time.time() - start_time
+        print(f"[PERF] load_config: loaded {len(configs)} configs in {elapsed:.3f}s")
         return configs
     
     def load_state(self):
@@ -147,7 +151,9 @@ class ConfigManager:
         Returns:
             Dictionary mapping config IDs to their state
         """
+        start_time = time.time()
         if not os.path.exists(self.state_file):
+            print(f"[PERF] load_state: file not found, elapsed {time.time() - start_time:.3f}s")
             return {}
             
         state = {}
@@ -156,6 +162,8 @@ class ConfigManager:
             for row in reader:
                 if row.get('id'):
                     state[row['id']] = row
+        elapsed = time.time() - start_time
+        print(f"[PERF] load_state: loaded {len(state)} state entries in {elapsed:.3f}s")
         return state
     
     def save_state(self, state):
