@@ -1271,6 +1271,39 @@ Environment variables:
         print(f"ERROR: Configuration file not found: {args.config}", file=sys.stderr)
         print("Use --create-sample-config to create a sample configuration file.", file=sys.stderr)
         sys.exit(1)
+
+    # Write a small, world-readable 'clue' file so interactive helpers (like
+    # csv_editor.py) running under different users can discover the active
+    # configuration path. This is optional and best-effort; failures are
+    # non-fatal.
+    try:
+        clue_paths = [
+            '/var/lib/ttslo/config_path',
+            '/run/ttslo/config_path',
+        ]
+
+        for clue in clue_paths:
+            try:
+                clue_dir = os.path.dirname(clue)
+                if not os.path.exists(clue_dir):
+                    os.makedirs(clue_dir, exist_ok=True)
+
+                # Write the config path (single line) and set permissive read
+                # permissions so non-service users can read it.
+                with open(clue, 'w', encoding='utf-8') as f:
+                    f.write(args.config.rstrip() + '\n')
+                try:
+                    os.chmod(clue, 0o644)
+                except Exception:
+                    # Ignore chmod failures (maybe running on a platform
+                    # without POSIX permissions), this is best-effort.
+                    pass
+            except Exception:
+                # Ignore failures for individual clue files and continue
+                pass
+    except Exception:
+        # Don't allow clue-writing to break service startup
+        pass
     
     # Step 7: Initialize configuration manager
     try:

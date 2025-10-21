@@ -35,13 +35,31 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 from datetime import datetime
 
-from textual.app import App, ComposeResult
-from textual.widgets import DataTable, Footer, Header
-from textual.containers import Container, Vertical
-from textual.binding import Binding
-from textual.screen import ModalScreen
-from textual.widgets import Input, Label, Button
-from textual import events, log, work
+try:
+    from textual.app import App, ComposeResult
+    from textual.widgets import DataTable, Footer, Header
+    from textual.containers import Container, Vertical
+    from textual.binding import Binding
+    from textual.screen import ModalScreen
+    from textual.widgets import Input, Label, Button
+    from textual import events, log, work
+except ModuleNotFoundError as exc:
+    # Friendly error when `textual` isn't installed. Many users run the
+    # script outside the project's virtual environment; recommend using
+    # the project's `uv` venv and provide steps to fix the issue.
+    sys.stderr.write("\n")
+    sys.stderr.write("Error: required dependency 'textual' not found.\n")
+    sys.stderr.write("This application requires the 'textual' package to run a TUI.\n\n")
+    sys.stderr.write("How to fix:\n")
+    sys.stderr.write("  - Preferred (uses project venv managed by 'uv'):\n")
+    sys.stderr.write("      uv add textual\n")
+    sys.stderr.write("      uv sync\n")
+    sys.stderr.write("      uv run csv_editor.py [path/to/config.csv]\n\n")
+    sys.stderr.write("  - Or install into your current Python environment:\n")
+    sys.stderr.write("      /path/to/.venv/bin/python -m pip install textual\n\n")
+    sys.stderr.write("If you're running the system service, note that the service may set a different\n")
+    sys.stderr.write("TTSLO_CONFIG_FILE environment variable than your shell.\n")
+    sys.exit(1)
 from pair_matcher import find_pair_match, validate_pair_exists
 
 
@@ -61,6 +79,32 @@ def get_default_config_path() -> str:
     env_config = os.getenv('TTSLO_CONFIG_FILE')
     if env_config:
         return env_config
+
+    # Next, check for a service-provided "clue" file. The system service
+    # may run as a different user and set TTSLO_CONFIG_FILE in its unit file,
+    # which isn't visible to non-root shells. As a convenience the service
+    # can write a small, world-readable file containing the config path so
+    # interactive users (or helpers) can discover it. Candidate locations:
+    #  - /var/lib/ttslo/config_path
+    #  - /run/ttslo/config_path
+    #  - /etc/ttslo/config_path
+    CLUE_FILES = [
+        '/var/lib/ttslo/config_path',
+        '/run/ttslo/config_path',
+        '/etc/ttslo/config_path',
+    ]
+
+    for clue in CLUE_FILES:
+        try:
+            p = Path(clue)
+            if p.exists():
+                # Read the file and use the first non-empty line
+                content = p.read_text(encoding='utf-8', errors='ignore').strip()
+                if content:
+                    return content
+        except Exception:
+            # Ignore unreadable clue files and continue
+            pass
     
     # Check if we're running as the ttslo service user
     try:
@@ -689,37 +733,103 @@ class CSVEditor(App):
 
 def main():
     """Main entry point for the CSV editor."""
-    # Get filename from command line arguments or use smart default
-    if len(sys.argv) > 1:
-        filename = sys.argv[1]
+    import argparse
+
+    parser = argparse.ArgumentParser(description="TTSLO CSV editor (textual TUI)")
+    parser.add_argument('filename', nargs='?', help='Path to CSV file (default: smart lookup)')
+    parser.add_argument('-c', '--create-sample', action='store_true', help='Create a sample config if the file is missing')
+    parser.add_argument('-y', '--yes', action='store_true', help='Assume yes for prompts (non-interactive)')
+    args = parser.parse_args()
+
+    # Determine filename
+    if args.filename:
+        filename = args.filename
     else:
-        # Use smart default that respects environment and service location
         filename = get_default_config_path()
         print(f"No file specified. Using default: {filename}")
         print(f"  (Set TTSLO_CONFIG_FILE environment variable to override)")
         print()
-    
-    # Check if file exists, if not, offer to create sample
+
+    # Show diagnostic information to help users debug why a file wasn't found
+    cfg_env = os.getenv('TTSLO_CONFIG_FILE')
+    candidate_paths = [
+        filename,
+        os.path.join(os.getcwd(), 'config.csv'),
+        '/var/lib/ttslo/config.csv'
+    ]
+    clue_files = [
+        '/var/lib/ttslo/config_path',
+        '/run/ttslo/config_path',
+        '/etc/ttslo/config_path',
+    ]
+    print("Config lookup info:")
+    print(f"  TTSLO_CONFIG_FILE={cfg_env}")
+    print("  Candidate paths checked:")
+    for p in candidate_paths:
+        exists_str = 'exists' if Path(p).exists() else 'missing'
+        print(f"    - {p} ({exists_str})")
+    print("  Service clue files checked:")
+    for c in clue_files:
+        try:
+            p = Path(c)
+            if p.exists():
+                content = p.read_text(encoding='utf-8', errors='ignore').strip()
+                print(f"    - {c} (exists) -> '{content}'")
+            else:
+                print(f"    - {c} (missing)")
+        except Exception as e:
+            print(f"    - {c} (error reading: {e})")
+    print()
+
     filepath = Path(filename)
+
+    # If missing and not allowed to create, print helpful instructions.
     if not filepath.exists():
-        print(f"File '{filename}' not found.")
-        response = input("Would you like to create a sample config file? (y/n): ")
-        if response.lower() == 'y':
-            # Create parent directories if needed
+        msg = f"File '{filename}' not found."
+        # If user specifically asked to create sample, do it without prompting
+        if args.create_sample or args.yes:
+            make_sample = True
+        else:
+            # If running in a non-TTY (e.g., systemd service), avoid prompting
+            make_sample = False
+
+        if make_sample:
             filepath.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Create a sample config file
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                               'direction', 'volume', 'trailing_offset_percent', 'enabled'])
+                                'direction', 'volume', 'trailing_offset_percent', 'enabled'])
                 writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'])
                 writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'])
             print(f"Sample file created: {filepath}")
         else:
-            print("Exiting without creating file.")
-            sys.exit(0)
-    
+            # Provide clear instructions and exit non-interactively
+            sys.stderr.write(msg + "\n")
+            sys.stderr.write("Run with `-c/--create-sample` to create a starter config, or specify the file path.\n")
+            sys.stderr.write("Example: uv run csv_editor.py /path/to/config.csv\n")
+            # If it's an interactive terminal, offer to create the sample
+            try:
+                if sys.stdin.isatty():
+                    resp = input("Would you like to create a sample config file? (y/N): ")
+                    if resp.lower().startswith('y'):
+                        filepath.parent.mkdir(parents=True, exist_ok=True)
+                        with open(filepath, 'w', newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
+                                            'direction', 'volume', 'trailing_offset_percent', 'enabled'])
+                            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'])
+                            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'])
+                        print(f"Sample file created: {filepath}")
+                    else:
+                        print("Exiting without creating file.")
+                        sys.exit(0)
+                else:
+                    # Non-interactive session; exit with helpful guidance
+                    sys.exit(1)
+            except Exception:
+                # On any error while prompting, exit with code
+                sys.exit(1)
+
     # Run the app
     app = CSVEditor(filename=str(filepath))
     app.run()
