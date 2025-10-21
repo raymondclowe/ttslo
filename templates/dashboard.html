@@ -392,12 +392,16 @@
 
                 if (!orders.length) {
                     if (content) {
-                        content.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">✓</div>
-                                <div>No pending orders</div>
-                            </div>
-                        `;
+                        // Only show empty state if there was never any data
+                        if (!currentPendingData || currentPendingData.length === 0) {
+                            content.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">✓</div>
+                                    <div>No pending orders</div>
+                                </div>
+                            `;
+                        }
+                        // Otherwise, keep showing last known data
                     }
                     return;
                 }
@@ -461,9 +465,66 @@
                     }).join('');
                 }
             } catch (error) {
-                if (content) {
-                    content.innerHTML =
-                        `<div class="error">Error loading pending orders: ${error.message}</div>`;
+                console.warn(`[DASHBOARD] Error loading pending orders:`, error);
+                // On error, keep showing last known data
+                if (content && currentPendingData && currentPendingData.length > 0) {
+                    // Re-render last known data
+                    content.innerHTML = currentPendingData.map(order => {
+                        const distance = order.distance;
+                        let progressHTML = '';
+                        if (distance && order.current_price) {
+                            const percentText = Math.abs(distance.percent).toFixed(2) + '%';
+                            const triggered = distance.triggered;
+                            const progressPercent = Math.min(Math.abs(distance.percent) * 10, 100);
+                            progressHTML = `
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${progressPercent}%">
+                                        ${progressPercent > 20 ? percentText : ''}
+                                    </div>
+                                </div>
+                                <div class="progress-text">
+                                    ${triggered ? 'READY TO TRIGGER' : 
+                                      order.threshold_type === 'above' ? 
+                                        `$${Math.abs(distance.absolute).toFixed(2)} below threshold` :
+                                        `$${Math.abs(distance.absolute).toFixed(2)} above threshold`}
+                                </div>
+                            `;
+                        } else {
+                            progressHTML = `
+                                <div class="progress-text">Price data unavailable</div>
+                            `;
+                        }
+                        return `
+                            <div class="order-card">
+                                <div class="order-header">
+                                    <div class="order-id">${order.id}</div>
+                                    <div class="order-pair">${order.pair || 'N/A'}</div>
+                                </div>
+                                <div class="order-details">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Threshold:</span>
+                                        <span class="detail-value">$${parseFloat(order.threshold_price || 0).toFixed(2)} (${order.threshold_type || 'N/A'})</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Current:</span>
+                                        <span class="detail-value">${order.current_price ? '$' + parseFloat(order.current_price).toFixed(2) : 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Direction:</span>
+                                        <span class="detail-value">${order.direction || 'N/A'}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Volume:</span>
+                                        <span class="detail-value">${order.volume || 'N/A'}</span>
+                                    </div>
+                                </div>
+                                ${progressHTML}
+                            </div>
+                        `;
+                    }).join('');
+                } else if (content) {
+                    // Only show error if there was never any data
+                    content.innerHTML = `<div class="error">Error loading pending orders: ${error.message}</div>`;
                 }
             }
         }
