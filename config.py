@@ -6,6 +6,7 @@ import os
 import tempfile
 import shutil
 import time
+import fcntl
 from datetime import datetime, timezone
 
 
@@ -24,6 +25,79 @@ class ConfigManager:
         self.config_file = config_file
         self.state_file = state_file
         self.log_file = log_file
+        self.editor_coordination_active = False  # Flag to pause operations when editor requests lock
+    
+    def is_file_locked(self, filepath):
+        """
+        Check if a file is locked by another process (e.g., CSV editor).
+        
+        This performs a non-blocking check for an exclusive lock.
+        If the file is locked, returns True. Otherwise returns False.
+        
+        Args:
+            filepath: Path to file to check
+            
+        Returns:
+            bool: True if file is locked, False otherwise
+        """
+        if not os.path.exists(filepath):
+            return False
+        
+        try:
+            # Try to open and acquire a shared lock (non-blocking)
+            with open(filepath, 'r') as f:
+                try:
+                    # Try to acquire shared lock
+                    fcntl.flock(f.fileno(), fcntl.LOCK_SH | fcntl.LOCK_NB)
+                    # If we got the lock, release it immediately
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    return False  # File is not locked
+                except IOError:
+                    # Could not acquire lock - file is locked
+                    return True
+        except Exception:
+            # If we can't check, assume not locked
+            return False
+    
+    def check_editor_coordination(self):
+        """
+        Check if CSV editor is requesting lock and respond appropriately.
+        
+        This implements the service side of the coordination protocol:
+        1. Check for .editor_wants_lock file
+        2. If found, set coordination flag and create .service_idle file
+        3. Service will pause operations until editor releases lock
+        
+        Returns:
+            bool: True if editor coordination is active, False otherwise
+        """
+        intent_file = self.config_file + '.editor_wants_lock'
+        idle_file = self.config_file + '.service_idle'
+        
+        # Check if editor wants to edit
+        if os.path.exists(intent_file):
+            if not self.editor_coordination_active:
+                # First time seeing the request - signal we're idle
+                self.editor_coordination_active = True
+                try:
+                    # Create idle signal file
+                    with open(idle_file, 'w') as f:
+                        f.write(str(os.getpid()))
+                    print(f"INFO: CSV editor requesting lock. Service pausing config operations.")
+                except Exception as e:
+                    print(f"WARNING: Could not create idle file: {e}")
+            return True
+        else:
+            # Editor is done, clean up
+            if self.editor_coordination_active:
+                self.editor_coordination_active = False
+                try:
+                    if os.path.exists(idle_file):
+                        os.unlink(idle_file)
+                    print(f"INFO: CSV editor released lock. Service resuming normal operations.")
+                except Exception:
+                    pass
+            return False
     
     def _atomic_write_csv(self, filepath, fieldnames, rows, max_retries=3, retry_delay=0.1):
         """
@@ -124,6 +198,17 @@ class ConfigManager:
         if not os.path.exists(self.config_file):
             print(f"[PERF] load_config: file not found, elapsed {time.time() - start_time:.3f}s")
             return []
+        
+        # Check for editor coordination request
+        if self.check_editor_coordination():
+            # Editor is requesting lock - skip this cycle
+            return []
+        
+        # Check if file is being edited (backup check)
+        if self.is_file_locked(self.config_file):
+            print(f"WARNING: {self.config_file} is locked (being edited). Skipping this check cycle.")
+            return []
+        
         configs = []
         with open(self.config_file, 'r', newline='') as f:
             reader = csv.DictReader(f)
@@ -175,6 +260,11 @@ class ConfigManager:
         """
         if not state:
             return
+        
+        # Check for editor coordination - skip write if editor has lock
+        if self.check_editor_coordination():
+            # Editor is requesting/has lock - skip this write
+            return
             
         fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked']
         
@@ -193,6 +283,11 @@ class ConfigManager:
             message: Log message
             **kwargs: Additional fields to include in log
         """
+        # Check for editor coordination - skip log if editor has lock
+        # (logs are in a separate file, but we pause all I/O during coordination)
+        if self.editor_coordination_active:
+            return
+            
         timestamp = datetime.now(timezone.utc).isoformat()
         
         log_entry = {

@@ -9,7 +9,13 @@ for editing the TTSLO configuration files.
 Usage:
     python csv_editor.py [filename]
     
-If no filename is provided, it defaults to 'config.csv'.
+If no filename is provided, it automatically detects the config file location:
+1. Checks TTSLO_CONFIG_FILE environment variable
+2. If running as 'ttslo' user, uses /var/lib/ttslo/config.csv
+3. Otherwise defaults to 'config.csv' in current directory
+
+The editor uses file locking to prevent concurrent edits and conflicts
+with the running TTSLO service.
 
 Key Bindings:
     Ctrl+S: Save the CSV file
@@ -23,6 +29,8 @@ Key Bindings:
 
 import csv
 import sys
+import os
+import fcntl
 from pathlib import Path
 from typing import List, Optional, Tuple
 from datetime import datetime
@@ -35,6 +43,38 @@ from textual.screen import ModalScreen
 from textual.widgets import Input, Label, Button
 from textual import events, log, work
 from pair_matcher import find_pair_match, validate_pair_exists
+
+
+def get_default_config_path() -> str:
+    """
+    Determine the default config file path.
+    
+    Priority order:
+    1. TTSLO_CONFIG_FILE environment variable (same as ttslo.py)
+    2. If running as 'ttslo' user, use /var/lib/ttslo/config.csv
+    3. Otherwise, use config.csv in current directory
+    
+    Returns:
+        str: Path to the default config file
+    """
+    # First, check environment variable (same as ttslo.py does)
+    env_config = os.getenv('TTSLO_CONFIG_FILE')
+    if env_config:
+        return env_config
+    
+    # Check if we're running as the ttslo service user
+    try:
+        import pwd
+        current_user = pwd.getpwuid(os.getuid()).pw_name
+        if current_user == 'ttslo':
+            # Running as service user, use service directory
+            return '/var/lib/ttslo/config.csv'
+    except (ImportError, KeyError):
+        # pwd module not available (Windows) or user not found
+        pass
+    
+    # Default to config.csv in current directory (backwards compatible)
+    return 'config.csv'
 
 
 class EditCellScreen(ModalScreen[str]):
@@ -289,6 +329,7 @@ class CSVEditor(App):
         self.filename = Path(filename)
         self.data: List[List[str]] = []
         self.modified = False
+        self.lock_file = None  # File object for advisory lock
 
     def compose(self) -> ComposeResult:
         """Compose the UI."""
@@ -301,7 +342,115 @@ class CSVEditor(App):
         """Called after the application is mounted."""
         self.title = f"CSV Editor - {self.filename.name}"
         self.sub_title = f"Path: {self.filename.absolute()}"
+        
+        # Implement coordination protocol to safely acquire lock
+        try:
+            # Open the file for reading/writing to acquire lock
+            # Create if doesn't exist
+            if not self.filename.exists():
+                self.filename.parent.mkdir(parents=True, exist_ok=True)
+                self.filename.touch()
+            
+            # Step 1: Signal intent to edit by creating coordination file
+            intent_file = Path(str(self.filename) + '.editor_wants_lock')
+            intent_file.touch()
+            self.notify(
+                "Requesting exclusive access from service...",
+                title="Coordination",
+                severity="information"
+            )
+            
+            # Step 2: Wait for service to signal it's idle (or timeout after 5 seconds)
+            idle_file = Path(str(self.filename) + '.service_idle')
+            max_wait = 5.0  # seconds
+            wait_interval = 0.1  # seconds
+            elapsed = 0.0
+            
+            import time
+            while elapsed < max_wait:
+                if idle_file.exists() or not self._service_is_running():
+                    break
+                time.sleep(wait_interval)
+                elapsed += wait_interval
+            
+            # Step 3: Try to acquire exclusive lock
+            self.lock_file = open(self.filename, 'r+')
+            try:
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.notify(
+                    "File locked for editing (service is paused)",
+                    title="Lock Acquired",
+                    severity="information"
+                )
+            except IOError:
+                # File is already locked by another process
+                self.notify(
+                    "Warning: Another process may be using this file. Proceeding with caution.",
+                    title="Lock Warning",
+                    severity="warning",
+                    timeout=10
+                )
+                # Close the file as we couldn't get exclusive lock
+                self.lock_file.close()
+                self.lock_file = None
+                # Clean up coordination file
+                try:
+                    intent_file.unlink(missing_ok=True)
+                except Exception:
+                    pass
+        except Exception as e:
+            self.notify(
+                f"Warning: Could not acquire file lock: {e}",
+                title="Lock Error",
+                severity="warning"
+            )
+            self.lock_file = None
+            # Clean up coordination file
+            try:
+                intent_file = Path(str(self.filename) + '.editor_wants_lock')
+                intent_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+        
         self.read_csv_to_table()
+    
+    def _service_is_running(self) -> bool:
+        """Check if the TTSLO service is running."""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['systemctl', 'is-active', 'ttslo'],
+                capture_output=True,
+                text=True,
+                timeout=1
+            )
+            return result.returncode == 0
+        except Exception:
+            # If we can't check, assume service might be running
+            return True
+    
+    def on_unmount(self) -> None:
+        """Called when the application is about to be unmounted."""
+        # Release file lock if we have it
+        if self.lock_file:
+            try:
+                fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                self.lock_file.close()
+            except Exception:
+                pass  # Ignore errors during cleanup
+        
+        # Clean up coordination files
+        try:
+            intent_file = Path(str(self.filename) + '.editor_wants_lock')
+            intent_file.unlink(missing_ok=True)
+        except Exception:
+            pass
+        
+        try:
+            idle_file = Path(str(self.filename) + '.service_idle')
+            idle_file.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     def read_csv_to_table(self) -> None:
         """Read the CSV file and populate the DataTable."""
@@ -540,11 +689,15 @@ class CSVEditor(App):
 
 def main():
     """Main entry point for the CSV editor."""
-    # Get filename from command line arguments
+    # Get filename from command line arguments or use smart default
     if len(sys.argv) > 1:
         filename = sys.argv[1]
     else:
-        filename = "config.csv"
+        # Use smart default that respects environment and service location
+        filename = get_default_config_path()
+        print(f"No file specified. Using default: {filename}")
+        print(f"  (Set TTSLO_CONFIG_FILE environment variable to override)")
+        print()
     
     # Check if file exists, if not, offer to create sample
     filepath = Path(filename)
@@ -552,6 +705,9 @@ def main():
         print(f"File '{filename}' not found.")
         response = input("Would you like to create a sample config file? (y/n): ")
         if response.lower() == 'y':
+            # Create parent directories if needed
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            
             # Create a sample config file
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)

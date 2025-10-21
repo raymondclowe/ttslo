@@ -161,11 +161,44 @@ api = KrakenAPI(use_websocket=False)
 
 TTSLO includes an interactive TUI (Text User Interface) for editing configuration files. The CSV editor provides a user-friendly way to view and modify your configuration without manually editing CSV files.
 
-### Usage
+### Smart Config File Detection
+
+When you run the CSV editor without specifying a file, it automatically detects the correct config:
 
 ```bash
-# Edit the main config file
+# Automatically uses the service's config file
+uv run python csv_editor.py
+
+# Explicitly specify a file
+uv run python csv_editor.py /var/lib/ttslo/config.csv
+```
+
+The editor checks (in priority order):
+1. `TTSLO_CONFIG_FILE` environment variable (same as the service uses)
+2. If running as `ttslo` user → `/var/lib/ttslo/config.csv`
+3. Otherwise → `config.csv` in current directory
+
+### Safe Concurrent Editing
+
+The CSV editor uses a coordination protocol to prevent race conditions:
+- **Handshake Protocol**: Editor requests lock, service confirms when idle
+- **Service Pauses**: Service suspends all I/O during editing (reads, writes, logs)
+- **Zero Race Conditions**: Service finishes ongoing operations before editor locks
+- **No Downtime**: Edit config while service is running - no restart needed!
+
+The coordination ensures the service completes any in-progress write operations before the editor locks the file, eliminating all race condition risks.
+
+### Usage Examples
+
+```bash
+# Edit the service's active config (auto-detected)
+uv run python csv_editor.py
+
+# Edit a specific file
 uv run python csv_editor.py config.csv
+
+# Edit with environment override
+TTSLO_CONFIG_FILE=/var/lib/ttslo/config.csv uv run python csv_editor.py
 
 # Edit the sample config
 uv run python csv_editor.py config_sample.csv
@@ -186,6 +219,8 @@ uv run python csv_editor.py yourfile.csv
 
 ### Features
 
+- **Smart file detection**: Automatically finds the service's config
+- **File locking**: Prevents conflicts with the running service
 - Interactive table view with color-coded rows
 - Modal dialog for editing cell values with validation
 - Cell-level validation for configuration fields:

@@ -39,21 +39,39 @@ To edit a CSV file, run:
 python csv_editor.py [filename]
 ```
 
-If no filename is provided, it defaults to `config.csv`.
+If no filename is provided, the editor automatically detects the correct config file:
+
+1. **First Priority**: Checks the `TTSLO_CONFIG_FILE` environment variable (same as the service)
+2. **Second Priority**: If running as the `ttslo` user, uses `/var/lib/ttslo/config.csv`
+3. **Default**: Otherwise, uses `config.csv` in the current directory
+
+This means when you run the editor as the same user as the service, it will automatically edit the same config file the service is using!
 
 ### Examples
 
-Edit the TTSLO configuration file:
+**Edit the service's active config** (when running as ttslo user or with TTSLO_CONFIG_FILE set):
+```bash
+python csv_editor.py
+# Automatically uses the same config as the service
+```
+
+**Edit a specific config file**:
 ```bash
 python csv_editor.py config.csv
 ```
 
-Edit the sample configuration:
+**Edit with environment override**:
+```bash
+TTSLO_CONFIG_FILE=/var/lib/ttslo/config.csv python csv_editor.py
+# Edits the service's config file
+```
+
+**Edit the sample configuration**:
 ```bash
 python csv_editor.py config_sample.csv
 ```
 
-Edit any other CSV file:
+**Edit any other CSV file**:
 ```bash
 python csv_editor.py my_data.csv
 ```
@@ -66,9 +84,40 @@ If you're using uv for the project:
 # Activate the virtual environment first
 source .venv/bin/activate
 
-# Then run the editor
+# Edit the service's config (auto-detected)
+python csv_editor.py
+
+# Or specify a file
 python csv_editor.py config.csv
 ```
+
+## File Locking and Conflict Prevention
+
+The CSV editor implements a sophisticated coordination protocol to prevent conflicts:
+
+### Coordination Handshake Protocol
+
+When you open the CSV editor, it doesn't immediately lock the file. Instead, it follows a handshake protocol with the service:
+
+1. **Editor Signals Intent**: Creates `.editor_wants_lock` file to request exclusive access
+2. **Service Detects Request**: On next check cycle, service sees the intent file
+3. **Service Pauses**: Service pauses all I/O operations (config reads, state writes, logging)
+4. **Service Confirms**: Service creates `.service_idle` file to signal it's safe
+5. **Editor Locks**: Editor waits for confirmation, then acquires exclusive lock
+6. **User Edits**: You can now safely edit with no risk of conflicts
+7. **Editor Releases**: When you save and exit, editor releases lock and removes coordination files
+8. **Service Resumes**: Service detects release and automatically resumes normal operations
+
+This handshake eliminates race conditions where the service might be in the middle of writing when the editor tries to lock the file.
+
+### What This Means for You
+
+- **Exclusive Lock**: When you open a file for editing, the editor acquires an exclusive lock
+- **Service Coordination**: Service automatically pauses operations and confirms when it's safe
+- **Conflict Prevention**: No data corruption or race conditions possible
+- **Visual Feedback**: The editor shows notifications for each step of the coordination
+
+**Best Practice**: Always use the CSV editor rather than manually editing files with other tools to ensure proper coordination is used.
 
 ## Key Bindings
 
