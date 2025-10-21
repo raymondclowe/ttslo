@@ -538,10 +538,16 @@ if __name__ == '__main__':
         sig_name = signal.Signals(signum).name
         print(f"\nReceived signal {sig_name} ({signum}). Shutting down Dashboard gracefully...")
         if notification_manager and notification_manager.enabled:
-            notification_manager.notify_service_stopped(
-                service_name="TTSLO Dashboard",
-                reason=f"Received {sig_name} signal (systemctl stop/restart or kill)"
-            )
+            try:
+                notification_manager.notify_service_stopped_async(
+                    service_name="TTSLO Dashboard",
+                    reason=f"Received {sig_name} signal (systemctl stop/restart or kill)"
+                )
+            except Exception:
+                notification_manager.notify_service_stopped(
+                    service_name="TTSLO Dashboard",
+                    reason=f"Received {sig_name} signal (systemctl stop/restart or kill)"
+                )
         sys.exit(0)
     
     # Register signal handlers for graceful shutdown
@@ -600,11 +606,18 @@ if __name__ == '__main__':
         else:
             host_ip = args.host
         
-        notification_manager.notify_service_started(
-            service_name="TTSLO Dashboard",
-            host=host_ip,
-            port=args.port
-        )
+        try:
+            notification_manager.notify_service_started_async(
+                service_name="TTSLO Dashboard",
+                host=host_ip,
+                port=args.port
+            )
+        except Exception:
+            notification_manager.notify_service_started(
+                service_name="TTSLO Dashboard",
+                host=host_ip,
+                port=args.port
+            )
     
     try:
         app.run(host=args.host, port=args.port, debug=args.debug)

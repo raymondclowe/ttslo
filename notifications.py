@@ -7,6 +7,7 @@ Simple notification implementation following the pattern from
 import os
 import configparser
 import requests
+import threading
 from typing import Dict, List, Optional
 
 
@@ -293,6 +294,21 @@ class NotificationManager:
             msg += f"\nURL: http://{host}:{port}"
         self.notify_event('service_started', msg)
 
+    def _dispatch_async(self, func, *args, **kwargs):
+        """
+        Helper to dispatch a notification call in a daemon thread so callers
+        (e.g., signal handlers) aren't blocked by network IO.
+        """
+        try:
+            t = threading.Thread(target=func, args=args, kwargs=kwargs, daemon=True)
+            t.start()
+        except Exception as e:
+            print(f"Warning: Failed to dispatch async notification: {e}")
+
+    def notify_service_started_async(self, service_name: str = "TTSLO Dashboard", host: str = None, port: int = None):
+        """Non-blocking wrapper for service started notification."""
+        self._dispatch_async(self.notify_service_started, service_name, host, port)
+
     def notify_service_stopped(self, service_name: str = "TTSLO Dashboard", reason: str = None):
         """
         Notify that the service has stopped.
@@ -305,6 +321,10 @@ class NotificationManager:
         if reason:
             msg += f"\nReason: {reason}"
         self.notify_event('service_stopped', msg)
+
+    def notify_service_stopped_async(self, service_name: str = "TTSLO Dashboard", reason: str = None):
+        """Non-blocking wrapper for service stopped notification."""
+        self._dispatch_async(self.notify_service_stopped, service_name, reason)
 
 
 def create_sample_notifications_config(filename: str = 'notifications.ini.example'):
