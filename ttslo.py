@@ -520,12 +520,33 @@ class TTSLO:
         # Step 12: Attempt to create the order via API
         # Wrap in try-except to catch ANY errors
         try:
+            # Decide best defaults for 'trigger' and 'oflags'
+            # Hard-code trigger to 'index' (use index price)
+            api_kwargs = {'trigger': 'index'}
+
+            # Determine base asset and prefer NOT to pay fees in BTC (keep BTC)
+            try:
+                base_asset = self._extract_base_asset(pair)
+                canonical_base = self._normalize_asset(base_asset)
+            except Exception:
+                base_asset = None
+                canonical_base = ''
+
+            oflags_choice = None
+            # Normalized BTC token in this codebase is 'BT' (from _normalize_asset)
+            if canonical_base and canonical_base.upper() == 'BT':
+                oflags_choice = 'fciq'  # prefer fee in quote currency (not BTC)
+
+            if oflags_choice:
+                api_kwargs['oflags'] = oflags_choice
+
             # Call the Kraken API to create the trailing stop loss order
             result = self.kraken_api_readwrite.add_trailing_stop_loss(
                 pair=pair,
                 direction=direction,
                 volume=volume,
-                trailing_offset_percent=trailing_offset
+                trailing_offset_percent=trailing_offset,
+                **api_kwargs
             )
         except Exception as e:
             # SAFETY: If API call raises exception, do not proceed

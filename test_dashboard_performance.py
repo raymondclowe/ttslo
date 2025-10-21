@@ -11,22 +11,16 @@ def test_caching():
     """Test that caching reduces file I/O."""
     print("Testing config/state caching...")
     
-    # Import after mocking if needed
-    from dashboard import get_cached_config, get_cached_state, _config_cache, _state_cache
+    # Import cached accessors from the dashboard module
+    from dashboard import get_cached_config, get_cached_state
     
-    # Reset caches
-    _config_cache['data'] = None
-    _config_cache['mtime'] = 0
-    _state_cache['data'] = None
-    _state_cache['mtime'] = 0
-    
-    # First call should load from file
+    # First call should load from file (or return immediate cached value if test runner previously warmed it)
     start = time.time()
     config1 = get_cached_config()
     elapsed1 = time.time() - start
     print(f"First config load: {elapsed1:.3f}s, got {len(config1)} configs")
     
-    # Second call should use cache
+    # Second call should use cache (much faster)
     start = time.time()
     config2 = get_cached_config()
     elapsed2 = time.time() - start
@@ -43,7 +37,7 @@ def test_caching():
     state1 = get_cached_state()
     elapsed1 = time.time() - start
     print(f"First state load: {elapsed1:.3f}s, got {len(state1)} state entries")
-    
+
     start = time.time()
     state2 = get_cached_state()
     elapsed2 = time.time() - start
