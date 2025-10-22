@@ -124,20 +124,79 @@ This handshake eliminates race conditions where the service might be in the midd
 | Key Combination | Action |
 |----------------|--------|
 | `Ctrl+S` | Save the CSV file |
-| `Ctrl+Q` | Quit the application |
+| `Ctrl+Q` | Quit the application (prompts if unsaved) |
 | `Ctrl+N` | Add a new row |
 | `Ctrl+D` | Delete the current row |
+| `Ctrl+Shift+D` | Duplicate the current row |
 | `Enter` | Edit the selected cell |
+| `e` | Edit the selected cell (alternative) |
+| `?` or `F1` | Show help screen |
 | `Tab` / `Shift+Tab` | Navigate between cells |
 | `Arrow Keys` | Navigate the table |
 | `Escape` | Cancel cell editing |
 
+## New Features
+
+### Help Screen (`?` or `F1`)
+Press `?` or `F1` at any time to view a comprehensive help screen showing:
+- All available keybindings organized by category
+- Validation rules for each field
+- Quick tips and best practices
+- Safety features and file locking information
+
+The help screen provides quick reference without leaving the editor, making it easier for new users to discover features.
+
+### Row Duplication (`Ctrl+Shift+D`)
+Quickly create a similar configuration by duplicating an existing row:
+1. Navigate to the row you want to duplicate
+2. Press `Ctrl+Shift+D`
+3. A new row is created with all values copied
+4. The `id` field is automatically incremented (e.g., `btc_1` → `btc_2`)
+5. Edit the duplicated row as needed and save with `Ctrl+S`
+
+This feature is especially useful when creating multiple similar trading configurations.
+
+### Unsaved Changes Indicator
+The editor now shows visual feedback for unsaved changes:
+- **Title Bar**: An asterisk (`*`) appears in the title when you have unsaved changes
+- **Quit Confirmation**: When quitting with unsaved changes, you'll be prompted to:
+  - Save and quit
+  - Quit without saving
+  - Cancel and continue editing
+
+This helps prevent accidental data loss by making it clear when changes need to be saved.
+
+### Inline Editing with Smart Dropdowns (NEW!)
+The editor now features an improved inline editing experience:
+
+**For Text Fields** (id, pair, volume, etc.):
+1. Navigate to the cell you want to edit
+2. Press `Enter` or `e`
+3. Type the new value in the inline editor
+4. Press `Enter` to save or `Escape` to cancel
+
+**For Binary Choice Fields** (threshold_type, direction, enabled):
+1. Navigate to the cell
+2. Press `Enter` or `e` to open dropdown
+3. Use arrow keys to select, or press the shortcut key:
+   - **threshold_type**: `A` for Above, `B` for Below
+   - **direction**: `B` for Buy, `S` for Sell
+   - **enabled**: `T` for True, `F` for False
+4. Selection auto-saves when using keyboard shortcuts
+5. Or press `Enter` to confirm, `Escape` to cancel
+
+**Why This Matters**:
+- **Faster**: Single keypress selection for common fields
+- **Intuitive**: Dropdown shows all valid options
+- **Error-Free**: Can't enter invalid values for binary fields
+- **Efficient**: No typing required for above/below, buy/sell choices
+
 ## Editing Workflow
 
 1. **Navigate**: Use arrow keys to move to the cell you want to edit
-2. **Edit**: Press `Enter` to open the edit dialog
-3. **Change**: Type the new value
-4. **Confirm**: Press `Enter` or click "Save" to apply changes, or `Escape` or "Cancel" to discard
+2. **Edit**: Press `Enter` or `e` to open the inline editor
+3. **For text fields**: Type the new value and press `Enter`
+4. **For dropdown fields** (above/below, buy/sell): Press the shortcut key (A/B, B/S, T/F) or use arrows
 5. **Save**: Press `Ctrl+S` to save all changes to the file
 6. **Exit**: Press `Ctrl+Q` to quit
 

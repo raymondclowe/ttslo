@@ -210,10 +210,12 @@ uv run python csv_editor.py yourfile.csv
 ### Key Bindings
 
 - `Ctrl+S`: Save the CSV file
-- `Ctrl+Q`: Quit the application
+- `Ctrl+Q`: Quit the application (prompts if unsaved)
 - `Ctrl+N`: Add a new row
 - `Ctrl+D`: Delete the current row
-- `Enter`: Edit the selected cell
+- `Ctrl+Shift+D`: Duplicate the current row
+- `Enter` or `e`: Edit the selected cell
+- `?` or `F1`: Show help screen
 - `Arrow Keys`: Navigate the table
 - `Tab/Shift+Tab`: Navigate between cells
 
@@ -221,12 +223,17 @@ uv run python csv_editor.py yourfile.csv
 
 - **Smart file detection**: Automatically finds the service's config
 - **File locking**: Prevents conflicts with the running service
+- **Help screen**: Press `?` or `F1` for comprehensive help
+- **Row duplication**: Quickly duplicate rows with `Ctrl+Shift+D`
+- **Unsaved changes indicator**: `*` in title shows unsaved changes
+- **Quit confirmation**: Prompts to save when quitting with unsaved changes
+- **Inline editing with smart dropdowns**: Binary fields (above/below, buy/sell) use dropdown with single-key selection
 - Interactive table view with color-coded rows
-- Modal dialog for editing cell values with validation
+- Inline editor with validation and smart defaults
 - Cell-level validation for configuration fields:
-  - `threshold_type`: must be "above" or "below"
-  - `direction`: must be "buy" or "sell"
-  - `enabled`: must be true/false, yes/no, or 1/0
+  - `threshold_type`: dropdown (A=Above, B=Below)
+  - `direction`: dropdown (B=Buy, S=Sell)
+  - `enabled`: dropdown (T=True, F=False)
   - `pair`: validates against known Kraken pairs
   - `id`: prevents duplicate IDs
 - Add and delete rows
@@ -235,7 +242,7 @@ uv run python csv_editor.py yourfile.csv
 
 For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
 
-**Roadmap**: We're continuously improving the CSV Editor! See [CSV_EDITOR_ROADMAP.md](CSV_EDITOR_ROADMAP.md) for planned enhancements including search/filter, undo/redo, batch operations, and more.
+**Roadmap**: We're continuously improving the CSV Editor! See [CSV_EDITOR_ROADMAP.md](CSV_EDITOR_ROADMAP.md) for planned enhancements. Recent additions include help screen, row duplication, unsaved changes indicators, and inline editing with smart dropdowns.
 
 ## Web Dashboard
 
