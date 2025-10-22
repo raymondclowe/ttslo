@@ -178,4 +178,73 @@ renderData(orders);
 
 ---
 
+## CSV Editor Phase 1 Implementation
+
+**Implementation Date**: October 2025
+
+### Features Implemented
+1. **Help Screen** (`?` or `F1` key)
+   - Comprehensive modal with all keybindings, validation rules, tips
+   - Scrollable content for easy reference
+   - Self-documenting for new users
+
+2. **Row Duplication** (`Ctrl+Shift+D`)
+   - Smart ID auto-increment algorithm
+   - Handles various ID formats: `btc_1` → `btc_2`, `eth_test` → `eth_test_1`
+   - Common workflow made much faster
+
+3. **Unsaved Changes Indicator**
+   - Title shows `*` when file modified
+   - Custom quit handler with confirmation dialog
+   - Prevents accidental data loss
+
+### Key Design Patterns
+
+**Modal Screens in Textual**:
+- Create by subclassing `ModalScreen[T]` where T is return type
+- Use `self.dismiss(value)` to return value to caller
+- Use `self.push_screen(screen, callback)` to show modal
+- Callback receives the dismissed value
+
+**Title Updates**:
+- Create helper method `_update_title()` for consistent title formatting
+- Create `_set_modified(bool)` to update both flag and title
+- Replace direct `self.modified = X` with `self._set_modified(X)`
+
+**Action Override**:
+- Override `action_quit()` to customize quit behavior
+- Use `super(CSVEditor, self).action_quit()` to call parent implementation
+- Can show confirmation dialogs before executing action
+
+**ID Auto-Increment Algorithm**:
+```python
+import re
+match = re.search(r'(.+?)(\d+)$', original_id)
+if match:
+    return f"{match.group(1)}{int(match.group(2)) + 1}"
+else:
+    return f"{original_id}_1"
+```
+
+### Testing Approach
+- Unit tests for helper methods (`_auto_increment_id`, `_update_title`)
+- Screen creation tests (ensure modals can be instantiated)
+- State tests (verify modified flag behavior)
+- All tests pass without running full TUI
+
+### Documentation Updates
+- Updated `CSV_EDITOR_README.md` with new features section
+- Updated `README.md` keybindings table
+- Updated `CSV_EDITOR_ROADMAP.md` with completion status
+- Created demo script to showcase features
+
+### Metrics
+- **Code Added**: ~200 lines (help screen, duplication, quit confirmation)
+- **Tests Added**: 4 new tests (auto-increment, help, modified, confirm)
+- **All Tests**: 13/13 passing
+- **Development Time**: ~2 hours
+- **User Impact**: High (better discoverability, faster workflow, safer editing)
+
+---
+
 *Add new learnings here as we discover them*
