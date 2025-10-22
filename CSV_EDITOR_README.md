@@ -166,12 +166,37 @@ The editor now shows visual feedback for unsaved changes:
 
 This helps prevent accidental data loss by making it clear when changes need to be saved.
 
+### Inline Editing with Smart Dropdowns (NEW!)
+The editor now features an improved inline editing experience:
+
+**For Text Fields** (id, pair, volume, etc.):
+1. Navigate to the cell you want to edit
+2. Press `Enter` or `e`
+3. Type the new value in the inline editor
+4. Press `Enter` to save or `Escape` to cancel
+
+**For Binary Choice Fields** (threshold_type, direction, enabled):
+1. Navigate to the cell
+2. Press `Enter` or `e` to open dropdown
+3. Use arrow keys to select, or press the shortcut key:
+   - **threshold_type**: `A` for Above, `B` for Below
+   - **direction**: `B` for Buy, `S` for Sell
+   - **enabled**: `T` for True, `F` for False
+4. Selection auto-saves when using keyboard shortcuts
+5. Or press `Enter` to confirm, `Escape` to cancel
+
+**Why This Matters**:
+- **Faster**: Single keypress selection for common fields
+- **Intuitive**: Dropdown shows all valid options
+- **Error-Free**: Can't enter invalid values for binary fields
+- **Efficient**: No typing required for above/below, buy/sell choices
+
 ## Editing Workflow
 
 1. **Navigate**: Use arrow keys to move to the cell you want to edit
-2. **Edit**: Press `Enter` to open the edit dialog
-3. **Change**: Type the new value
-4. **Confirm**: Press `Enter` or click "Save" to apply changes, or `Escape` or "Cancel" to discard
+2. **Edit**: Press `Enter` or `e` to open the inline editor
+3. **For text fields**: Type the new value and press `Enter`
+4. **For dropdown fields** (above/below, buy/sell): Press the shortcut key (A/B, B/S, T/F) or use arrows
 5. **Save**: Press `Ctrl+S` to save all changes to the file
 6. **Exit**: Press `Ctrl+Q` to quit
 

@@ -37,12 +37,13 @@ from datetime import datetime
 
 try:
     from textual.app import App, ComposeResult
-    from textual.widgets import DataTable, Footer, Header, Static
+    from textual.widgets import DataTable, Footer, Header, Static, Select
     from textual.containers import Container, Vertical, ScrollableContainer
     from textual.binding import Binding
     from textual.screen import ModalScreen
     from textual.widgets import Input, Label, Button
     from textual import events, log, work
+    from textual.message import Message
 except ModuleNotFoundError as exc:
     # Friendly error when `textual` isn't installed. Many users run the
     # script outside the project's virtual environment; recommend using
@@ -388,6 +389,267 @@ class EditCellScreen(ModalScreen[str]):
         self.dismiss(final_value)
 
 
+class InlineCellEditor(ModalScreen[str]):
+    """Inline cell editor with dropdown support for binary fields."""
+    
+    CSS = """
+    InlineCellEditor {
+        align: center middle;
+    }
+    
+    #inline-edit-dialog {
+        width: 50;
+        height: auto;
+        border: thick $accent;
+        background: $surface;
+        padding: 1;
+    }
+    
+    #inline-edit-dialog Label {
+        width: 100%;
+        margin-bottom: 1;
+    }
+    
+    #inline-edit-dialog Input {
+        width: 100%;
+        margin-bottom: 1;
+    }
+    
+    #inline-edit-dialog Select {
+        width: 100%;
+        margin-bottom: 1;
+    }
+    
+    #validation-message-inline {
+        width: 100%;
+        color: $error;
+        margin-bottom: 1;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "save", "Save"),
+    ]
+    
+    # Define binary choice fields
+    BINARY_FIELDS = {
+        'threshold_type': [
+            ('Above', 'above'),
+            ('Below', 'below')
+        ],
+        'direction': [
+            ('Buy', 'buy'),
+            ('Sell', 'sell')
+        ],
+        'enabled': [
+            ('True', 'true'),
+            ('False', 'false')
+        ]
+    }
+    
+    def __init__(self, current_value: str, column_name: str = "", row_data: dict = None, 
+                 all_ids: set = None, **kwargs):
+        super().__init__(**kwargs)
+        self.current_value = current_value
+        self.column_name = column_name
+        self.row_data = row_data or {}
+        self.all_ids = all_ids or set()
+        self.validation_message = ""
+        self.is_binary_field = column_name.lower() in self.BINARY_FIELDS
+    
+    def compose(self) -> ComposeResult:
+        with Vertical(id="inline-edit-dialog"):
+            yield Label(f"[bold]{self.column_name}[/bold]")
+            
+            if self.is_binary_field:
+                # Use Select for binary choice fields
+                field_name = self.column_name.lower()
+                options = self.BINARY_FIELDS[field_name]
+                
+                # Create Select with options
+                select = Select(
+                    options=[(label, value) for label, value in options],
+                    value=self.current_value.lower() if self.current_value else options[0][1],
+                    id="cell-select"
+                )
+                yield select
+                
+                # Add keyboard shortcuts hint
+                shortcuts = []
+                for label, value in options:
+                    shortcuts.append(f"{label[0].upper()}={label}")
+                yield Label(f"Shortcuts: {', '.join(shortcuts)}", id="shortcuts-hint")
+            else:
+                # Use Input for text fields
+                yield Input(value=self.current_value, id="cell-input")
+            
+            yield Label("", id="validation-message-inline")
+    
+    def on_mount(self) -> None:
+        """Focus the input/select when mounted."""
+        if self.is_binary_field:
+            self.query_one(Select).focus()
+        else:
+            self.query_one(Input).focus()
+    
+    def on_key(self, event: events.Key) -> None:
+        """Handle keyboard shortcuts for binary fields."""
+        if self.is_binary_field and event.character:
+            field_name = self.column_name.lower()
+            options = self.BINARY_FIELDS[field_name]
+            
+            # Check if the key matches any option's first letter
+            key_lower = event.character.lower()
+            for label, value in options:
+                if label[0].lower() == key_lower:
+                    select = self.query_one(Select)
+                    select.value = value
+                    # Auto-save on keyboard shortcut
+                    self.action_save()
+                    event.prevent_default()
+                    return
+    
+    def validate_value(self, value: str) -> Tuple[bool, str]:
+        """Validate the cell value - reuse logic from EditCellScreen."""
+        if not self.column_name:
+            return (True, "")
+        
+        column_lower = self.column_name.lower()
+        
+        # Validate id uniqueness
+        if column_lower == "id":
+            if value in self.all_ids and value != self.current_value:
+                return (False, f"ID '{value}' already exists.")
+        
+        # Validate threshold_type
+        if column_lower == "threshold_type":
+            valid_types = ["above", "below"]
+            if value.lower() not in valid_types:
+                return (False, f"Must be 'above' or 'below'")
+            # Check for financially responsible order
+            if self.row_data:
+                result = self._validate_financial_responsibility(value)
+                if result:
+                    return result
+        
+        # Validate direction
+        elif column_lower == "direction":
+            valid_directions = ["buy", "sell"]
+            if value.lower() not in valid_directions:
+                return (False, f"Must be 'buy' or 'sell'")
+            if self.row_data:
+                result = self._validate_financial_responsibility(None, value)
+                if result:
+                    return result
+        
+        # Validate enabled
+        elif column_lower == "enabled":
+            valid_enabled = ["true", "false", "yes", "no", "1", "0"]
+            if value.lower() not in valid_enabled:
+                return (False, f"Must be true/false")
+        
+        # Validate pair
+        elif column_lower == "pair":
+            match_result = find_pair_match(value)
+            if match_result:
+                if match_result.is_exact():
+                    return (True, "")
+                elif match_result.is_high_confidence():
+                    return (True, match_result.pair_code)
+                else:
+                    warning_msg = f"⚠️ Fuzzy: '{value}' → '{match_result.pair_code}'"
+                    return (True, match_result.pair_code + "|" + warning_msg)
+            else:
+                if validate_pair_exists(value):
+                    return (True, "")
+                else:
+                    return (False, f"Unknown pair: '{value}'")
+        
+        # Validate volume
+        elif column_lower == "volume":
+            try:
+                volume_float = float(value)
+                if volume_float <= 0:
+                    return (False, "Volume must be > 0")
+                formatted_value = f"{volume_float:.8f}"
+                return (True, formatted_value)
+            except ValueError:
+                return (False, "Must be a number")
+        
+        return (True, "")
+    
+    def _validate_financial_responsibility(self, new_threshold_type: str = None, 
+                                          new_direction: str = None) -> Optional[Tuple[bool, str]]:
+        """Validate financial responsibility - simplified version."""
+        pair = self.row_data.get('pair', '').strip().upper()
+        threshold_type = (new_threshold_type or self.row_data.get('threshold_type', '')).strip().lower()
+        direction = (new_direction or self.row_data.get('direction', '')).strip().lower()
+        
+        if not all([pair, threshold_type, direction]):
+            return None
+        
+        # Lazy init validator
+        if not hasattr(self, '_validator'):
+            from validator import ConfigValidator
+            self._validator = ConfigValidator()
+        
+        is_stable_pair = self._validator._is_stablecoin_pair(pair) or self._validator._is_btc_pair(pair)
+        
+        if not is_stable_pair:
+            return None
+        
+        if threshold_type == 'above' and direction == 'buy':
+            return (False, "❌ Can't buy high")
+        
+        if threshold_type == 'below' and direction == 'sell':
+            return (False, "❌ Can't sell low")
+        
+        return None
+    
+    def action_save(self) -> None:
+        """Save the value."""
+        if self.is_binary_field:
+            select = self.query_one(Select)
+            value = select.value
+        else:
+            input_widget = self.query_one(Input)
+            value = input_widget.value
+        
+        # Validate
+        is_valid, message = self.validate_value(value)
+        
+        if not is_valid:
+            validation_label = self.query_one("#validation-message-inline", Label)
+            validation_label.update(message)
+            return
+        
+        # Handle formatted values (volume, pair)
+        final_value = value
+        if self.column_name and self.column_name.lower() == "volume" and message:
+            final_value = message
+        elif self.column_name and self.column_name.lower() == "pair" and message:
+            if "|" in message:
+                final_value = message.split("|", 1)[0]
+            else:
+                final_value = message
+        
+        self.dismiss(final_value)
+    
+    def action_cancel(self) -> None:
+        """Cancel editing."""
+        self.dismiss(None)
+    
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter in Input field."""
+        self.action_save()
+    
+    def on_select_changed(self, event: Select.Changed) -> None:
+        """Handle Select value change."""
+        # Optionally auto-save when selection changes
+        pass
+
+
 class HelpScreen(ModalScreen):
     """Modal screen showing help information."""
     
@@ -446,6 +708,13 @@ class HelpScreen(ModalScreen):
   Enter            Edit selected cell
   e                Edit selected cell (alternative)
   Escape           Cancel editing
+  
+  [bold cyan]Smart Editing for Binary Fields:[/bold cyan]
+  • threshold_type, direction, enabled use dropdown
+  • Press A for Above, B for Below (threshold_type)
+  • Press B for Buy, S for Sell (direction)
+  • Press T for True, F for False (enabled)
+  • Selection auto-saves on keypress
 
 [bold yellow]Row Operations:[/bold yellow]
   Ctrl+N           Add new row
@@ -475,6 +744,8 @@ class HelpScreen(ModalScreen):
   • Use Ctrl+Shift+D to quickly create similar configs
   • Pair names are auto-matched (BTC/USD → XXBTZUSD)
   • Financial validation prevents "buy high, sell low"
+  • Binary fields (above/below, buy/sell) have dropdown + shortcuts
+  • Press first letter to quick-select in dropdowns
 
 [bold yellow]Safety:[/bold yellow]
   • File locking prevents conflicts with service
@@ -1075,7 +1346,7 @@ class CSVEditor(App):
             row_data = {}
             all_ids = set()
         
-        # Show edit screen
+        # Show inline edit screen
         def handle_edit_result(new_value: str | None) -> None:
             if new_value is not None:
                 try:
@@ -1093,7 +1364,7 @@ class CSVEditor(App):
                         severity="error"
                     )
         
-        self.push_screen(EditCellScreen(current_value, column_name, row_data, all_ids), handle_edit_result)
+        self.push_screen(InlineCellEditor(current_value, column_name, row_data, all_ids), handle_edit_result)
 
 
 def main():

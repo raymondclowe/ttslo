@@ -347,6 +347,57 @@ def test_confirm_quit_screen_creation():
     print("✓ Confirm quit screen creation test passed")
 
 
+def test_inline_cell_editor_binary_fields():
+    """Test that inline cell editor recognizes binary fields."""
+    from csv_editor import InlineCellEditor
+    
+    # Test threshold_type (binary field)
+    screen = InlineCellEditor(current_value="above", column_name="threshold_type")
+    assert screen.is_binary_field is True, "threshold_type should be binary field"
+    assert 'threshold_type' in screen.BINARY_FIELDS, "threshold_type should be in BINARY_FIELDS"
+    
+    # Test direction (binary field)
+    screen = InlineCellEditor(current_value="buy", column_name="direction")
+    assert screen.is_binary_field is True, "direction should be binary field"
+    
+    # Test enabled (binary field)
+    screen = InlineCellEditor(current_value="true", column_name="enabled")
+    assert screen.is_binary_field is True, "enabled should be binary field"
+    
+    # Test non-binary field
+    screen = InlineCellEditor(current_value="XXBTZUSD", column_name="pair")
+    assert screen.is_binary_field is False, "pair should not be binary field"
+    
+    # Test another non-binary field
+    screen = InlineCellEditor(current_value="0.01", column_name="volume")
+    assert screen.is_binary_field is False, "volume should not be binary field"
+    
+    print("✓ Inline cell editor binary fields test passed")
+
+
+def test_inline_cell_editor_validation():
+    """Test that inline cell editor validates correctly."""
+    from csv_editor import InlineCellEditor
+    
+    # Test threshold_type validation
+    screen = InlineCellEditor(current_value="above", column_name="threshold_type")
+    is_valid, msg = screen.validate_value("above")
+    assert is_valid is True, "Valid threshold_type should pass"
+    
+    is_valid, msg = screen.validate_value("invalid")
+    assert is_valid is False, "Invalid threshold_type should fail"
+    
+    # Test direction validation
+    screen = InlineCellEditor(current_value="buy", column_name="direction")
+    is_valid, msg = screen.validate_value("sell")
+    assert is_valid is True, "Valid direction should pass"
+    
+    is_valid, msg = screen.validate_value("invalid")
+    assert is_valid is False, "Invalid direction should fail"
+    
+    print("✓ Inline cell editor validation test passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running CSV Editor tests...\n")
@@ -365,6 +416,8 @@ def run_all_tests():
         test_help_screen_creation()
         test_modified_flag_updates_title()
         test_confirm_quit_screen_creation()
+        test_inline_cell_editor_binary_fields()
+        test_inline_cell_editor_validation()
         
         print("\n✅ All CSV Editor tests passed!")
         return 0
