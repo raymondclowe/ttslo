@@ -634,6 +634,131 @@ class TTSLO:
         
         return order_id
     
+    def check_order_filled(self, config_id, order_id):
+        """
+        Check if a specific order has been filled.
+        
+        Args:
+            config_id: Configuration ID for logging
+            order_id: Kraken order ID to check
+            
+        Returns:
+            Tuple of (is_filled: bool, fill_price: float or None)
+        """
+        if not order_id or order_id == 'DRY_RUN_ORDER_ID':
+            # Dry-run orders are never filled
+            return False, None
+        
+        if not self.kraken_api_readwrite:
+            self.log('WARNING', 'Cannot check order status: No read-write API credentials',
+                    config_id=config_id, order_id=order_id)
+            return False, None
+        
+        try:
+            # Query closed orders to see if this order is filled
+            closed_orders = self.kraken_api_readwrite.query_closed_orders()
+            
+            if not closed_orders or 'closed' not in closed_orders:
+                # No closed orders found
+                return False, None
+            
+            # Check if our order is in the closed orders
+            if order_id in closed_orders['closed']:
+                order_info = closed_orders['closed'][order_id]
+                status = order_info.get('status', '')
+                
+                # Order is filled/closed
+                self.log('INFO', f'Order {order_id} status: {status}',
+                        config_id=config_id, order_id=order_id)
+                
+                # Try to get the fill price
+                fill_price = None
+                try:
+                    # Kraken returns price as a string
+                    price_str = order_info.get('price', '0')
+                    fill_price = float(price_str) if price_str else None
+                except (ValueError, TypeError):
+                    pass
+                
+                # Consider order filled if status is 'closed'
+                is_filled = status == 'closed'
+                return is_filled, fill_price
+            
+            # Order not in closed orders yet
+            return False, None
+            
+        except Exception as e:
+            self.log('WARNING', f'Error checking order status: {str(e)}',
+                    config_id=config_id, order_id=order_id, error=str(e))
+            return False, None
+    
+    def check_triggered_orders(self):
+        """
+        Check status of all triggered orders to see if they've been filled.
+        Send notification when an order is filled.
+        """
+        # Skip if in dry-run mode
+        if self.dry_run:
+            return
+        
+        # Find all triggered orders that haven't been notified as filled yet
+        for config_id, state_data in self.state.items():
+            if not isinstance(state_data, dict):
+                continue
+            
+            # Check if this config has a triggered order
+            if state_data.get('triggered') != 'true':
+                continue
+            
+            order_id = state_data.get('order_id')
+            if not order_id:
+                continue
+            
+            # Check if we've already notified about this fill
+            fill_notified = state_data.get('fill_notified', 'false')
+            if fill_notified == 'true':
+                continue
+            
+            # Check if the order is filled
+            is_filled, fill_price = self.check_order_filled(config_id, order_id)
+            
+            if is_filled:
+                self.log('INFO', f'Order {order_id} for config {config_id} has been filled',
+                        config_id=config_id, order_id=order_id)
+                
+                # Find the config to get pair information
+                pair = None
+                if self.configs:
+                    for config in self.configs:
+                        if config.get('id') == config_id:
+                            pair = config.get('pair')
+                            break
+                
+                # Send notification
+                if self.notification_manager:
+                    try:
+                        self.notification_manager.notify_tsl_order_filled(
+                            config_id=config_id,
+                            order_id=order_id,
+                            pair=pair or 'Unknown',
+                            fill_price=fill_price
+                        )
+                        self.log('INFO', f'Sent fill notification for order {order_id}',
+                                config_id=config_id, order_id=order_id)
+                    except Exception as e:
+                        self.log('WARNING', f'Failed to send fill notification: {str(e)}',
+                                config_id=config_id, order_id=order_id, error=str(e))
+                
+                # Mark as notified in state
+                self.state[config_id]['fill_notified'] = 'true'
+                
+                # Save state immediately so we don't re-notify
+                try:
+                    self.save_state()
+                except Exception as e:
+                    self.log('ERROR', f'Failed to save state after fill notification: {str(e)}',
+                            config_id=config_id, error=str(e))
+    
     def process_config(self, config, current_price=None):
         """
         Process a single configuration entry.
@@ -1043,6 +1168,9 @@ class TTSLO:
                 self.log('ERROR', 
                         f'Unexpected exception processing config {config_id}: {str(e)}',
                         config_id=config_id, error=str(e))
+        
+        # Step 6b: Check status of triggered orders to see if they've been filled
+        self.check_triggered_orders()
         
         # Step 7: Save state after processing all configs
         # SAFETY: In dry-run mode, do not save state to disk
