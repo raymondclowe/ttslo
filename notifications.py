@@ -9,6 +9,7 @@ import configparser
 import requests
 import threading
 from typing import Dict, List, Optional
+from datetime import datetime, timezone, timedelta
 
 
 class NotificationManager:
@@ -200,7 +201,12 @@ class NotificationManager:
         self.notify_event('tsl_created', message)
     
     def notify_tsl_order_filled(self, config_id: str, order_id: str,
-                                pair: str, fill_price: Optional[float] = None):
+                                pair: str, fill_price: Optional[float] = None,
+                                volume: Optional[str] = None,
+                                trigger_price: Optional[str] = None,
+                                trigger_time: Optional[str] = None,
+                                offset: Optional[str] = None,
+                                fill_time: Optional[float] = None):
         """
         Notify that a TSL order has been filled.
         
@@ -214,10 +220,42 @@ class NotificationManager:
                   f"Config: {config_id}\n"
                   f"Order ID: {order_id}\n"
                   f"Pair: {pair}")
-        
-        if fill_price:
+
+        # Helper: convert epoch or ISO UTC time to HKT (UTC+8) string
+        def _format_hkt(t):
+            # Accept epoch seconds (float/int) or ISO string
+            if not t:
+                return None
+            try:
+                if isinstance(t, (int, float)):
+                    dt = datetime.fromtimestamp(float(t), tz=timezone.utc)
+                else:
+                    # Try parse ISO
+                    dt = datetime.fromisoformat(str(t))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                # Convert to HKT (UTC+8)
+                hkt = dt.astimezone(timezone(timedelta(hours=8)))
+                return hkt.strftime('%Y-%m-%d %H:%M:%S') + ' HKT'
+            except Exception:
+                return str(t)
+
+        # Append as much useful information as is available
+        if fill_price is not None:
             message += f"\nFill Price: {fill_price}"
-        
+        if volume:
+            message += f"\nExecuted Volume: {volume}"
+        if trigger_price:
+            message += f"\nTrigger Price: {trigger_price}"
+        if offset:
+            message += f"\nTrailing Offset: {offset}"
+        if trigger_time:
+            ft = _format_hkt(trigger_time)
+            message += f"\nTriggered At: {ft if ft else trigger_time}"
+        if fill_time:
+            ff = _format_hkt(fill_time)
+            message += f"\nFilled At: {ff if ff else fill_time}"
+
         self.notify_event('tsl_filled', message)
     
     def notify_insufficient_balance(self, config_id: str, pair: str,
