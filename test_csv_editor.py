@@ -261,6 +261,92 @@ def test_pair_exact_match():
     print("✓ Pair exact match test passed")
 
 
+def test_auto_increment_id():
+    """Test that ID auto-increment works correctly."""
+    from csv_editor import CSVEditor
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_file = os.path.join(tmpdir, 'test.csv')
+        
+        # Create a test CSV file
+        with open(test_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'name'])
+            writer.writerow(['btc_1', 'test'])
+        
+        editor = CSVEditor(filename=test_file)
+        
+        # Test various ID formats
+        assert editor._auto_increment_id("btc_1") == "btc_2", "Should increment trailing number"
+        assert editor._auto_increment_id("eth_test") == "eth_test_1", "Should add _1 to non-numeric ID"
+        assert editor._auto_increment_id("config123") == "config124", "Should increment embedded number"
+        assert editor._auto_increment_id("test_99") == "test_100", "Should handle multi-digit numbers"
+        
+        print("✓ Auto-increment ID test passed")
+
+
+def test_help_screen_creation():
+    """Test that help screen can be created."""
+    from csv_editor import HelpScreen
+    
+    # Create help screen (don't run it)
+    screen = HelpScreen()
+    
+    # Check that it has bindings
+    assert len(screen.BINDINGS) > 0, "Help screen should have keybindings"
+    
+    # Check for expected bindings
+    binding_keys = [b.key for b in screen.BINDINGS]
+    assert "escape" in binding_keys or "q" in binding_keys, "Help screen should have close binding"
+    
+    print("✓ Help screen creation test passed")
+
+
+def test_modified_flag_updates_title():
+    """Test that modified flag updates the title."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_file = os.path.join(tmpdir, 'test.csv')
+        
+        # Create a test CSV file
+        with open(test_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'name'])
+            writer.writerow(['1', 'test'])
+        
+        editor = CSVEditor(filename=test_file)
+        
+        # Test _update_title method exists
+        assert hasattr(editor, '_update_title'), "Editor should have _update_title method"
+        assert hasattr(editor, '_set_modified'), "Editor should have _set_modified method"
+        
+        # Test initial state
+        editor._update_title()
+        assert "*" not in editor.title, "Title should not have * when unmodified"
+        
+        # Test modified state
+        editor._set_modified(True)
+        assert "*" in editor.title, "Title should have * when modified"
+        
+        # Test back to unmodified
+        editor._set_modified(False)
+        assert "*" not in editor.title, "Title should not have * when saved"
+        
+        print("✓ Modified flag updates title test passed")
+
+
+def test_confirm_quit_screen_creation():
+    """Test that confirm quit screen can be created."""
+    from csv_editor import ConfirmQuitScreen
+    
+    # Create confirmation screen (don't run it)
+    screen = ConfirmQuitScreen()
+    
+    # Check that it has bindings
+    assert len(screen.BINDINGS) > 0, "Confirm screen should have keybindings"
+    
+    print("✓ Confirm quit screen creation test passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running CSV Editor tests...\n")
@@ -275,6 +361,10 @@ def run_all_tests():
         test_volume_validation_formatting()
         test_pair_validation_with_human_readable_names()
         test_pair_exact_match()
+        test_auto_increment_id()
+        test_help_screen_creation()
+        test_modified_flag_updates_title()
+        test_confirm_quit_screen_creation()
         
         print("\n✅ All CSV Editor tests passed!")
         return 0

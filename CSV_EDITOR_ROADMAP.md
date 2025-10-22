@@ -72,10 +72,10 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 ## Phase 1: Quick Wins (Low Effort, High Impact)
 
 ### 1.1 Enhanced Help & Discoverability
-**Priority: HIGH** | **Effort: 1-2 days**
+**Priority: HIGH** | **Effort: 1-2 days** | **Status: ✅ COMPLETED**
 
-- [ ] Add `?` or `F1` keybinding to show help screen
-- [ ] Create a comprehensive help modal with:
+- [x] Add `?` or `F1` keybinding to show help screen
+- [x] Create a comprehensive help modal with:
   - All keybindings organized by category
   - Validation rules explanation
   - Quick tips and workflows
@@ -87,8 +87,11 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 - Reduces support questions
 - Improves onboarding experience
 
-**Files to modify:**
-- `csv_editor.py`: Add `HelpScreen` modal, keybinding
+**Files modified:**
+- `csv_editor.py`: Added `HelpScreen` modal, keybinding, and action method
+- `test_csv_editor.py`: Added test for help screen creation
+- `CSV_EDITOR_README.md`: Documented help feature
+- `README.md`: Added help keybinding to feature list
 
 ---
 
@@ -117,20 +120,23 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 ---
 
 ### 1.3 Row Duplication Feature
-**Priority: MEDIUM** | **Effort: 0.5 days**
+**Priority: MEDIUM** | **Effort: 0.5 days** | **Status: ✅ COMPLETED**
 
-- [ ] Add `Ctrl+Shift+D` keybinding to duplicate current row
-- [ ] Auto-increment ID when duplicating (e.g., `btc_1` → `btc_2`)
-- [ ] Place duplicated row immediately below current row
-- [ ] Show notification with new row ID
+- [x] Add `Ctrl+Shift+D` keybinding to duplicate current row
+- [x] Auto-increment ID when duplicating (e.g., `btc_1` → `btc_2`)
+- [x] Place duplicated row immediately below current row
+- [x] Show notification with new row ID
 
 **Benefits:**
 - Common workflow (create similar configs) becomes much faster
 - Reduces typing and errors
 - Improves productivity
 
-**Files to modify:**
-- `csv_editor.py`: Add `action_duplicate_row()` method
+**Files modified:**
+- `csv_editor.py`: Added `action_duplicate_row()` method and `_auto_increment_id()` helper
+- `test_csv_editor.py`: Added test for ID auto-increment
+- `CSV_EDITOR_README.md`: Documented row duplication feature
+- `README.md`: Added duplication keybinding
 
 ---
 
@@ -171,23 +177,28 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 **Files to modify:**
 - `csv_editor.py`: Add key event handler for alphanumeric keys
 
+**Note:** `e` key has been added as an alternative to Enter for editing.
+
 ---
 
 ### 1.6 Quick Save Indicator
-**Priority: LOW** | **Effort: 0.5 days**
+**Priority: LOW** | **Effort: 0.5 days** | **Status: ✅ COMPLETED**
 
-- [ ] Show "*" in title bar when file has unsaved changes
-- [ ] Change footer color when modified
-- [ ] Add visual feedback during save (progress indicator)
-- [ ] Prompt to save on quit if changes exist
+- [x] Show "*" in title bar when file has unsaved changes
+- [x] Change footer color when modified
+- [x] Add visual feedback during save (progress indicator)
+- [x] Prompt to save on quit if changes exist
 
 **Benefits:**
 - Users know when they need to save
 - Prevents accidental data loss
 - Better status visibility
 
-**Files to modify:**
-- `csv_editor.py`: Update title, add quit confirmation
+**Files modified:**
+- `csv_editor.py`: Added `_update_title()`, `_set_modified()`, `ConfirmQuitScreen`, and custom `action_quit()`
+- `test_csv_editor.py`: Added tests for modified flag and confirm quit screen
+- `CSV_EDITOR_README.md`: Documented unsaved changes indicator
+- `README.md`: Updated quit keybinding description
 
 ---
 

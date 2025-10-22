@@ -37,8 +37,8 @@ from datetime import datetime
 
 try:
     from textual.app import App, ComposeResult
-    from textual.widgets import DataTable, Footer, Header
-    from textual.containers import Container, Vertical
+    from textual.widgets import DataTable, Footer, Header, Static
+    from textual.containers import Container, Vertical, ScrollableContainer
     from textual.binding import Binding
     from textual.screen import ModalScreen
     from textual.widgets import Input, Label, Button
@@ -388,6 +388,170 @@ class EditCellScreen(ModalScreen[str]):
         self.dismiss(final_value)
 
 
+class HelpScreen(ModalScreen):
+    """Modal screen showing help information."""
+    
+    CSS = """
+    HelpScreen {
+        align: center middle;
+    }
+    
+    #help-dialog {
+        width: 80;
+        height: 32;
+        border: thick $background 80%;
+        background: $surface;
+        padding: 1;
+    }
+    
+    #help-content {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+    }
+    
+    #help-title {
+        width: 100%;
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    
+    #help-dialog Button {
+        width: 30%;
+        margin-top: 1;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "close", "Close"),
+        Binding("q", "close", "Close"),
+    ]
+    
+    def compose(self) -> ComposeResult:
+        from textual.widgets import Static
+        from textual.containers import ScrollableContainer
+        
+        help_text = """[bold cyan]CSV Editor Help[/bold cyan]
+
+[bold yellow]Navigation:[/bold yellow]
+  Arrow Keys       Navigate between cells
+  Tab              Move to next cell
+  Shift+Tab        Move to previous cell
+  Home             Jump to first column
+  End              Jump to last column
+  Page Up/Down     Scroll table
+
+[bold yellow]Editing:[/bold yellow]
+  Enter            Edit selected cell
+  e                Edit selected cell (alternative)
+  Escape           Cancel editing
+
+[bold yellow]Row Operations:[/bold yellow]
+  Ctrl+N           Add new row
+  Ctrl+D           Delete current row
+  Ctrl+Shift+D     Duplicate current row
+
+[bold yellow]File Operations:[/bold yellow]
+  Ctrl+S           Save CSV file
+  Ctrl+Q           Quit editor
+
+[bold yellow]Help:[/bold yellow]
+  ?                Show this help screen
+  F1               Show this help screen
+
+[bold yellow]Validation Rules:[/bold yellow]
+  id               Must be unique across all rows
+  threshold_type   Must be "above" or "below"
+  direction        Must be "buy" or "sell"
+  enabled          Must be true/false, yes/no, or 1/0
+  pair             Must be valid Kraken trading pair
+                   (e.g., XXBTZUSD, XETHZUSD, or BTC/USD)
+  volume           Must be positive number (formatted to 8 decimals)
+
+[bold yellow]Tips:[/bold yellow]
+  • The editor auto-locks the file to prevent conflicts
+  • Changes are not saved until you press Ctrl+S
+  • Use Ctrl+Shift+D to quickly create similar configs
+  • Pair names are auto-matched (BTC/USD → XXBTZUSD)
+  • Financial validation prevents "buy high, sell low"
+
+[bold yellow]Safety:[/bold yellow]
+  • File locking prevents conflicts with service
+  • Validation runs before saving
+  • Service pauses during editing (no race conditions)
+
+Press [bold]Escape[/bold] or [bold]Q[/bold] to close this help.
+"""
+        
+        with Vertical(id="help-dialog"):
+            with ScrollableContainer(id="help-content"):
+                yield Static(help_text, markup=True)
+            yield Button("Close", variant="primary", id="close-btn")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press."""
+        self.dismiss()
+    
+    def action_close(self) -> None:
+        """Close the help screen."""
+        self.dismiss()
+
+
+class ConfirmQuitScreen(ModalScreen[bool]):
+    """Modal screen to confirm quitting with unsaved changes."""
+    
+    CSS = """
+    ConfirmQuitScreen {
+        align: center middle;
+    }
+    
+    #confirm-dialog {
+        width: 60;
+        height: 12;
+        border: thick $background 80%;
+        background: $surface;
+        padding: 1;
+    }
+    
+    #confirm-dialog Label {
+        width: 100%;
+        content-align: center middle;
+        margin-bottom: 1;
+    }
+    
+    #confirm-dialog Button {
+        width: 30%;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+    
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Label("[bold yellow]Unsaved Changes[/bold yellow]", markup=True)
+            yield Label("You have unsaved changes. Do you want to save before quitting?")
+            with Container():
+                yield Button("Save & Quit", variant="primary", id="save-btn")
+                yield Button("Quit Without Saving", variant="error", id="quit-btn")
+                yield Button("Cancel", variant="default", id="cancel-btn")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "save-btn":
+            self.dismiss(True)  # True = save before quit
+        elif event.button.id == "quit-btn":
+            self.dismiss(False)  # False = quit without save
+        else:
+            self.dismiss(None)  # None = cancel
+    
+    def action_cancel(self) -> None:
+        """Cancel the quit action."""
+        self.dismiss(None)
+
+
 class CSVEditor(App):
     """A Textual app to edit CSV files."""
 
@@ -417,8 +581,11 @@ class CSVEditor(App):
         Binding("ctrl+q", "quit", "Quit"),
         Binding("ctrl+n", "add_row", "Add Row"),
         Binding("ctrl+d", "delete_row", "Delete Row"),
+        Binding("ctrl+shift+d", "duplicate_row", "Duplicate Row"),
         Binding("enter", "edit_cell", "Edit Cell"),
         Binding("e", "edit_cell", "Edit Cell (Alt)", show=True),
+        Binding("?", "show_help", "Help"),
+        Binding("f1", "show_help", "Help"),
     ]
     
     def __init__(self, filename: str, **kwargs):
@@ -435,11 +602,21 @@ class CSVEditor(App):
         with Container(id="main-container"):
             yield DataTable(id="csv_table", zebra_stripes=True, cursor_type="cell")
         yield Footer()
+    
+    def _update_title(self) -> None:
+        """Update the title to reflect the modified state."""
+        modified_indicator = "*" if self.modified else ""
+        self.title = f"CSV Editor - {self.filename.name}{modified_indicator}"
+        self.sub_title = f"Path: {self.filename.absolute()}"
+    
+    def _set_modified(self, modified: bool) -> None:
+        """Set the modified flag and update the title."""
+        self.modified = modified
+        self._update_title()
 
     def on_mount(self) -> None:
         """Called after the application is mounted."""
-        self.title = f"CSV Editor - {self.filename.name}"
-        self.sub_title = f"Path: {self.filename.absolute()}"
+        self._update_title()
         
         # Implement coordination protocol to safely acquire lock
         try:
@@ -656,7 +833,7 @@ class CSVEditor(App):
                 writer.writerows(updated_data)
             
             self.data = updated_data
-            self.modified = False
+            self._set_modified(False)
             self.notify(
                 f"File saved: {self.filename}",
                 title="Saved",
@@ -685,7 +862,7 @@ class CSVEditor(App):
         # Create empty row with correct number of columns
         empty_row = [""] * num_columns
         table.add_row(*empty_row)
-        self.modified = True
+        self._set_modified(True)
         
         self.notify(
             "New row added",
@@ -719,7 +896,7 @@ class CSVEditor(App):
         
         try:
             table.remove_row(row_key)
-            self.modified = True
+            self._set_modified(True)
             self.notify(
                 "Row deleted",
                 title="Row Deleted",
@@ -731,6 +908,117 @@ class CSVEditor(App):
                 title="Error",
                 severity="error"
             )
+    
+    def action_duplicate_row(self) -> None:
+        """Duplicate the currently selected row."""
+        table = self.query_one(DataTable)
+        
+        if table.cursor_row is None:
+            self.notify(
+                "No row selected",
+                title="Error",
+                severity="warning"
+            )
+            return
+        
+        # Get the current row data
+        row_key = table.coordinate_to_cell_key(table.cursor_coordinate).row_key
+        row_data = []
+        id_column_index = None
+        
+        for col_index, col_key in enumerate(table.columns):
+            col_name = str(table.columns[col_key].label.plain)
+            cell_value = str(table.get_cell(row_key, col_key))
+            row_data.append(cell_value)
+            
+            # Track the ID column for auto-increment
+            if col_name.lower() == 'id':
+                id_column_index = col_index
+        
+        # Auto-increment the ID if present
+        if id_column_index is not None and id_column_index < len(row_data):
+            original_id = row_data[id_column_index]
+            new_id = self._auto_increment_id(original_id)
+            row_data[id_column_index] = new_id
+        
+        # Add the duplicated row
+        try:
+            # Get the current row index
+            current_row_index = table.cursor_row
+            
+            # Add row at the end (we can't insert at specific position easily)
+            table.add_row(*row_data)
+            
+            self._set_modified(True)
+            
+            # Show notification
+            if id_column_index is not None:
+                self.notify(
+                    f"Row duplicated with ID: {row_data[id_column_index]}",
+                    title="Row Duplicated",
+                    severity="information"
+                )
+            else:
+                self.notify(
+                    "Row duplicated",
+                    title="Row Duplicated",
+                    severity="information"
+                )
+        except Exception as e:
+            self.notify(
+                f"Failed to duplicate row: {e}",
+                title="Error",
+                severity="error"
+            )
+    
+    def _auto_increment_id(self, original_id: str) -> str:
+        """
+        Auto-increment an ID string.
+        
+        Examples:
+            btc_1 -> btc_2
+            eth_test -> eth_test_1
+            config123 -> config124
+        """
+        import re
+        
+        # Try to find trailing number
+        match = re.search(r'(.+?)(\d+)$', original_id)
+        
+        if match:
+            # Has trailing number - increment it
+            prefix = match.group(1)
+            number = int(match.group(2))
+            return f"{prefix}{number + 1}"
+        else:
+            # No trailing number - add _1
+            return f"{original_id}_1"
+    
+    def action_show_help(self) -> None:
+        """Show the help screen."""
+        self.push_screen(HelpScreen())
+    
+    def action_quit(self) -> None:
+        """Quit the application, prompting to save if there are unsaved changes."""
+        if self.modified:
+            # Show confirmation dialog
+            def handle_quit_response(should_save: bool | None) -> None:
+                if should_save is None:
+                    # User cancelled
+                    return
+                elif should_save:
+                    # Save and quit
+                    self.action_save_csv()
+                    # Wait a moment for save to complete, then quit
+                    self.set_timer(0.5, lambda: super(CSVEditor, self).action_quit())
+                else:
+                    # Quit without saving
+                    super(CSVEditor, self).action_quit()
+            
+            self.push_screen(ConfirmQuitScreen(), handle_quit_response)
+        else:
+            # No unsaved changes, quit immediately
+            super(CSVEditor, self).action_quit()
     
     def action_edit_cell(self) -> None:
         """Edit the currently selected cell."""
@@ -792,7 +1080,7 @@ class CSVEditor(App):
             if new_value is not None:
                 try:
                     table.update_cell_at(table.cursor_coordinate, new_value)
-                    self.modified = True
+                    self._set_modified(True)
                     self.notify(
                         "Cell updated",
                         title="Updated",

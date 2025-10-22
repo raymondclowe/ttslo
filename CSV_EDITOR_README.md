@@ -124,13 +124,47 @@ This handshake eliminates race conditions where the service might be in the midd
 | Key Combination | Action |
 |----------------|--------|
 | `Ctrl+S` | Save the CSV file |
-| `Ctrl+Q` | Quit the application |
+| `Ctrl+Q` | Quit the application (prompts if unsaved) |
 | `Ctrl+N` | Add a new row |
 | `Ctrl+D` | Delete the current row |
+| `Ctrl+Shift+D` | Duplicate the current row |
 | `Enter` | Edit the selected cell |
+| `e` | Edit the selected cell (alternative) |
+| `?` or `F1` | Show help screen |
 | `Tab` / `Shift+Tab` | Navigate between cells |
 | `Arrow Keys` | Navigate the table |
 | `Escape` | Cancel cell editing |
+
+## New Features
+
+### Help Screen (`?` or `F1`)
+Press `?` or `F1` at any time to view a comprehensive help screen showing:
+- All available keybindings organized by category
+- Validation rules for each field
+- Quick tips and best practices
+- Safety features and file locking information
+
+The help screen provides quick reference without leaving the editor, making it easier for new users to discover features.
+
+### Row Duplication (`Ctrl+Shift+D`)
+Quickly create a similar configuration by duplicating an existing row:
+1. Navigate to the row you want to duplicate
+2. Press `Ctrl+Shift+D`
+3. A new row is created with all values copied
+4. The `id` field is automatically incremented (e.g., `btc_1` → `btc_2`)
+5. Edit the duplicated row as needed and save with `Ctrl+S`
+
+This feature is especially useful when creating multiple similar trading configurations.
+
+### Unsaved Changes Indicator
+The editor now shows visual feedback for unsaved changes:
+- **Title Bar**: An asterisk (`*`) appears in the title when you have unsaved changes
+- **Quit Confirmation**: When quitting with unsaved changes, you'll be prompted to:
+  - Save and quit
+  - Quit without saving
+  - Cancel and continue editing
+
+This helps prevent accidental data loss by making it clear when changes need to be saved.
 
 ## Editing Workflow
 
