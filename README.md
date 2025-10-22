@@ -232,7 +232,10 @@ uv run python csv_editor.py yourfile.csv
 - Add and delete rows
 - Visual notifications for all operations
 - Keyboard-driven workflow
+
 For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
+
+**Roadmap**: We're continuously improving the CSV Editor! See [CSV_EDITOR_ROADMAP.md](CSV_EDITOR_ROADMAP.md) for planned enhancements including search/filter, undo/redo, batch operations, and more.
 
 ## Web Dashboard
 

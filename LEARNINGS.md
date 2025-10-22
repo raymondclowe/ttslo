@@ -138,4 +138,44 @@ renderData(orders);
 
 ---
 
+## CSV Editor UX Design Patterns
+
+**Problem**: TUI editors need balance between discoverability (for new users) and efficiency (for power users).
+
+**Key Insights**:
+- Footer-only keybindings are insufficient for discoverability
+- Need dedicated help screen accessible via `?` or `F1`
+- Visual validation indicators (colors, icons) reduce cognitive load
+- Users expect immediate feedback (save indicators, validation status)
+- Common workflows should have shortcuts (row duplication, bulk edits)
+
+**Best Practices**:
+1. Show validation status in table view (not just edit modal)
+2. Provide multiple ways to trigger actions:
+   - Menu selection
+   - Keybinding
+   - Command palette (future)
+3. Use progressive disclosure (simple by default, advanced on demand)
+4. Always show file modification status in title/footer
+5. Confirm destructive actions (delete, overwrite)
+
+**Anti-patterns to Avoid**:
+- Forcing modal edit for every cell (too many keystrokes)
+- Hiding validation errors until save attempt
+- No undo/redo (forces defensive editing)
+- Search/filter only via external tools (breaks workflow)
+- No indication of which fields have auto-formatting
+
+**Related files**:
+- `csv_editor.py`: Main TUI implementation
+- `CSV_EDITOR_ROADMAP.md`: Comprehensive improvement plan
+- `test_csv_editor.py`: Validation and feature tests
+
+**References**:
+- Textual framework docs: https://textual.textualize.io/
+- VisiData (advanced CSV TUI): https://www.visidata.org/
+- Micro editor (modern TUI patterns): https://micro-editor.github.io/
+
+---
+
 *Add new learnings here as we discover them*
