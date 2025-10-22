@@ -339,7 +339,8 @@ class ConfigManager:
             return
             
         # Added 'offset' to capture the trailing offset specified when order was created
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset']
+        # Added 'fill_notified' to track if we've sent notification about order being filled
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset', 'fill_notified']
 
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)

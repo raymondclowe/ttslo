@@ -98,4 +98,44 @@ renderData(orders);
 
 ---
 
+## Order Fill Monitoring
+
+**Feature**: Automatic monitoring and Telegram notification when TSL orders are filled.
+
+**Implementation**: 
+- Monitor triggered orders in `check_triggered_orders()` method called in main loop
+- Query Kraken's `ClosedOrders` API to check status
+- Send Telegram notification when order status becomes 'closed'
+- Track with `fill_notified` flag in state to prevent duplicate notifications
+
+**Key Components**:
+1. `check_order_filled(config_id, order_id)`: Queries Kraken API for order status
+2. `check_triggered_orders()`: Iterates through all triggered orders and checks status
+3. State field `fill_notified`: Tracks if notification was sent (prevents duplicates)
+4. Integration in `run_once()`: Runs after processing configs, before saving state
+
+**Behavior**:
+- Runs every monitoring cycle (default 60s)
+- Only checks orders with `triggered='true'` and valid `order_id`
+- Skips orders already notified (`fill_notified='true'`)
+- Skips in dry-run mode
+- Includes fill price when available from Kraken API
+
+**Error Handling**:
+- Errors in monitoring don't affect order creation or price checking
+- API errors logged but don't crash the application
+- Missing credentials handled gracefully (logs warning)
+
+**Testing**:
+- `test_order_fill_notification.py`: 6 tests covering all scenarios
+- `demo_order_fill_notification.py`: Visual demonstration of workflow
+
+**Related files**:
+- `ttslo.py`: Lines 637-695 (check_order_filled, check_triggered_orders)
+- `config.py`: Line 343 (state fieldnames including fill_notified)
+- `notifications.py`: Lines 202-221 (notify_tsl_order_filled method)
+- `NOTIFICATIONS_README.md`: Documentation of feature
+
+---
+
 *Add new learnings here as we discover them*

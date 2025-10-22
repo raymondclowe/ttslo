@@ -10,7 +10,7 @@ The notification system supports the following event types:
 2. **Validation Errors** - Notifies when configuration validation finds errors
 3. **Trigger Price Reached** - Notifies when a trigger price threshold is met
 4. **TSL Order Created** - Notifies when a trailing stop loss order is created on Kraken
-5. **TSL Order Filled** - Notifies when a TSL order is filled (requires monitoring implementation)
+5. **TSL Order Filled** - Notifies when a TSL order is filled/executed (automatically monitored)
 6. **Application Exit** - Notifies when the application exits (gracefully)
 
 ## Setup
@@ -128,6 +128,28 @@ Volume: 0.01
 Trailing Offset: 5.0%
 Trigger Price: 52000.00
 ```
+
+### TSL Order Filled
+```
+💰 TTSLO: Trailing Stop Loss order FILLED!
+
+Config: btc_sell_1
+Order ID: OQCLML-BW3P3-BUCMWZ
+Pair: XXBTZUSD
+Fill Price: 51000.00
+```
+
+## Order Fill Monitoring
+
+TTSLO automatically monitors all triggered orders to detect when they are filled:
+
+- **Automatic Detection**: Every monitoring cycle, TTSLO checks the status of all triggered orders via Kraken's API
+- **No Duplicate Notifications**: Each order fill is notified only once - tracked via `fill_notified` flag in state
+- **Fill Price Included**: When available, the actual fill price is included in the notification
+- **Minimal API Usage**: Only checks closed orders, reducing API call overhead
+- **Works in Background**: Monitoring happens automatically in the main loop alongside price checking
+
+The system queries Kraken's `ClosedOrders` API endpoint to check if orders created by TTSLO have been executed. When an order transitions from open to closed/filled, a Telegram notification is immediately sent (if configured).
 
 ### Configuration Changed
 ```
