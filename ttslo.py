@@ -671,18 +671,43 @@ class TTSLO:
                 self.log('INFO', f'Order {order_id} status: {status}',
                         config_id=config_id, order_id=order_id)
                 
-                # Try to get the fill price
+                # Try to get the fill price and other useful metadata from the
+                # closed order record so notifications can be informative.
                 fill_price = None
+                api_pair = None
+                filled_volume = None
+                fill_time = None
                 try:
                     # Kraken returns price as a string
-                    price_str = order_info.get('price', '0')
+                    price_str = order_info.get('price', '')
                     fill_price = float(price_str) if price_str else None
                 except (ValueError, TypeError):
                     pass
-                
+
+                # Try to extract pair and executed volume from the order description
+                try:
+                    descr = order_info.get('descr', {}) or {}
+                    api_pair = descr.get('pair') or None
+                except Exception:
+                    api_pair = None
+
+                try:
+                    filled_volume = order_info.get('vol_exec') or order_info.get('vol') or None
+                except Exception:
+                    filled_volume = None
+
+                try:
+                    # closetm is Kraken's close timestamp in epoch seconds
+                    closetm = order_info.get('closetm')
+                    if closetm:
+                        fill_time = float(closetm)
+                except Exception:
+                    filled_volume = None
+                    fill_time = None
                 # Consider order filled if status is 'closed'
                 is_filled = status == 'closed'
-                return is_filled, fill_price
+                # Return pair and volume so caller can include them in notifications
+                return is_filled, fill_price, api_pair, filled_volume
             
             # Order not in closed orders yet
             return False, None
@@ -719,8 +744,9 @@ class TTSLO:
             if fill_notified == 'true':
                 continue
             
-            # Check if the order is filled
-            is_filled, fill_price = self.check_order_filled(config_id, order_id)
+            # Check if the order is filled. The helper now returns additional
+            # metadata (pair, filled_volume) when available from Kraken.
+            is_filled, fill_price, api_pair, filled_volume = self.check_order_filled(config_id, order_id)
             
             if is_filled:
                 self.log('INFO', f'Order {order_id} for config {config_id} has been filled',
@@ -734,14 +760,27 @@ class TTSLO:
                             pair = config.get('pair')
                             break
                 
-                # Send notification
+                # Gather additional context we can provide in the notification.
+                trigger_price = state_data.get('trigger_price')
+                trigger_time = state_data.get('trigger_time')
+                offset = state_data.get('offset') or state_data.get('trailing_offset_percent')
+
+                # If we couldn't find the pair in validated configs, fall back
+                # to the pair reported by Kraken's closed order record.
+                notify_pair = pair or api_pair or 'Unknown'
+
+                # Send notification with richer context
                 if self.notification_manager:
                     try:
                         self.notification_manager.notify_tsl_order_filled(
                             config_id=config_id,
                             order_id=order_id,
-                            pair=pair or 'Unknown',
-                            fill_price=fill_price
+                            pair=notify_pair,
+                            fill_price=fill_price,
+                            volume=filled_volume,
+                            trigger_price=trigger_price,
+                            trigger_time=trigger_time,
+                            offset=offset,
                         )
                         self.log('INFO', f'Sent fill notification for order {order_id}',
                                 config_id=config_id, order_id=order_id)
