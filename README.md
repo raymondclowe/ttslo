@@ -312,6 +312,41 @@ The systemd service uses `--host 0.0.0.0` for network access while remaining pro
 
 ## Tools
 
+### Cryptocurrency Statistics Analysis
+
+Analyze minute-by-minute price statistics to predict price movements with 95% confidence.
+
+```bash
+# Analyze default pairs (30+ popular coins)
+python3 tools/coin_stats.py
+
+# Quick analysis without graphs
+python3 tools/coin_stats.py --no-graphs --hours 24
+
+# Analyze specific pairs with JSON export
+python3 tools/coin_stats.py \
+  --pairs XXBTZUSD XETHZUSD SOLUSD \
+  --hours 48 \
+  --json-output results.json
+```
+
+The tool:
+- Fetches minute-by-minute OHLC data (up to 2,880 data points per pair)
+- Calculates mean, median, standard deviation of prices
+- Tests for normal distribution (Shapiro-Wilk test)
+- Generates distribution graphs as PNGs
+- Predicts 95% probability thresholds for 24-hour price movements
+
+**Example Output**:
+```
+Pair: BTC/USD
+  Mean: $109,848.15, StdDev: $200.19
+  95% Threshold: ±0.06%
+  → 95% probability price will move beyond ±0.06% within 24h
+```
+
+See [COIN_STATS.md](docs/COIN_STATS.md) for detailed documentation.
+
 ### Find Profitable Candidates
 
 A tool to analyze volatility and identify profitable bracketing opportunities.

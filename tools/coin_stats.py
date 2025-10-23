@@ -580,6 +580,19 @@ def main():
     # Save JSON if requested
     if args.json_output:
         # Convert numpy types to native Python for JSON serialization
+        def convert_value(val):
+            """Convert numpy/scipy types to native Python types."""
+            if isinstance(val, (np.integer, np.floating)):
+                return float(val)
+            elif isinstance(val, np.bool_):
+                return bool(val)
+            elif isinstance(val, dict):
+                return {k: convert_value(v) for k, v in val.items()}
+            elif isinstance(val, (list, tuple)):
+                return [convert_value(v) for v in val]
+            else:
+                return val
+        
         json_results = []
         for r in results:
             result_copy = {
@@ -591,13 +604,11 @@ def main():
             for key, value in r['stats'].items():
                 if key in ['prices', 'pct_changes']:
                     continue  # Skip large arrays
-                elif isinstance(value, (int, float, str, bool)):
-                    result_copy['stats'][key] = value
-                elif isinstance(value, dict):
-                    result_copy['stats'][key] = value
+                else:
+                    result_copy['stats'][key] = convert_value(value)
             
             if r.get('threshold_95'):
-                result_copy['threshold_95'] = r['threshold_95']
+                result_copy['threshold_95'] = convert_value(r['threshold_95'])
             
             json_results.append(result_copy)
         
