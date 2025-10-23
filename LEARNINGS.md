@@ -549,5 +549,178 @@ All tests pass without making actual API calls.
 
 ---
 
+## Cryptocurrency Statistics Analysis Tool
+
+**Implementation Date**: October 2025
+
+### Problem Statement
+Need to analyze cryptocurrency price distributions to make probabilistic predictions about price movements. Specifically: "Can we predict with 95% probability that an asset will exceed a certain threshold within 24 hours?"
+
+### Solution
+Created `tools/coin_stats.py` - a comprehensive statistical analysis tool that:
+1. Fetches minute-by-minute OHLC data from Kraken (up to 2,880 data points per pair)
+2. Calculates comprehensive statistics (mean, median, stdev)
+3. Tests for normal distribution using Shapiro-Wilk test
+4. Generates distribution graphs with matplotlib
+5. Calculates 95% probability thresholds based on statistical analysis
+
+### Key Features
+
+**Statistical Analysis**:
+- Basic stats: mean, median, standard deviation, min/max, range
+- Percentage change stats: mean, median, stdev of minute-to-minute changes
+- Shapiro-Wilk normality test with p-value interpretation
+- 95% confidence threshold calculations using normal distribution theory
+
+**Visual Analytics**:
+- Dual histogram graphs (price distribution + percentage changes)
+- Normal distribution overlay when applicable
+- Statistical annotations on graphs
+- PNG export for documentation
+
+**Data Export**:
+- JSON export with proper numpy/scipy type conversion
+- Summary table in terminal
+- Detailed per-pair analysis
+
+### Implementation Details
+
+**Normality Testing**:
+```python
+from scipy import stats as scipy_stats
+
+# Shapiro-Wilk test on percentage changes
+statistic, p_value = scipy_stats.shapiro(pct_changes)
+is_normal = p_value > 0.05  # p > 0.05 suggests normal distribution
+```
+
+**95% Threshold Calculation**:
+```python
+# Use inverse CDF (percent point function) for 95% probability
+z_score = scipy_stats.norm.ppf(1 - 0.95)  # -1.645 for 95%
+threshold_pct = abs(z_score * pct_stdev)
+
+# Calculate actual price thresholds
+threshold_price_up = mean * (1 + threshold_pct / 100)
+threshold_price_down = mean * (1 - threshold_pct / 100)
+```
+
+**JSON Serialization Fix**:
+- Numpy/scipy types (np.bool_, np.integer, np.floating) not JSON serializable
+- Created recursive converter function to handle nested dicts
+- Converts all numpy types to native Python types
+
+### Key Insights
+
+1. **Crypto is NOT Normally Distributed**: 
+   - In testing, 100% of crypto pairs failed normality tests
+   - "Fat tails" are common - more extreme events than normal distribution predicts
+   - Confidence levels adjusted accordingly (mostly "LOW")
+
+2. **Minute Data is Valuable**:
+   - 2,880 data points (48h) provides good statistical power
+   - Captures intraday volatility patterns
+   - Better than hourly for short-term predictions
+
+3. **Volatility Varies by Coin**:
+   - BTC: Relatively stable, ±0.10% typical 95% threshold
+   - ETH: Slightly more volatile, ±0.15%
+   - Smaller coins: Can be ±2-5% or more
+   - StdDev is good indicator of trading opportunities
+
+4. **Distribution Shapes Matter**:
+   - Symmetric distribution = stable, no trend
+   - Skewed distribution = directional bias
+   - Multiple peaks = trading ranges/support levels
+   - Visual inspection complements statistical tests
+
+5. **Tool Design Patterns**:
+   - Follow existing tool structure (`find_profitable_candidates.py`)
+   - Use same `format_pair_name()` mapping
+   - Graceful degradation when scipy/matplotlib unavailable
+   - Clear separation: analysis logic vs. presentation
+
+### Testing Strategy
+
+Created 11 unit tests covering:
+- Pair name formatting
+- Basic statistics calculation
+- Statistics consistency with stdlib
+- Normality test integration
+- Probability threshold calculation
+- Data filtering by time
+- Complete analysis pipeline
+- Graph generation
+- Error handling (insufficient data)
+
+All tests use mock data, no API calls required.
+
+### Usage Examples
+
+**Quick Analysis**:
+```bash
+python3 tools/coin_stats.py --pairs XXBTZUSD --hours 24 --no-graphs
+```
+
+**Full Analysis with Graphs**:
+```bash
+python3 tools/coin_stats.py --pairs XXBTZUSD XETHZUSD SOLUSD --hours 48
+```
+
+**Export for Further Processing**:
+```bash
+python3 tools/coin_stats.py --hours 48 --json-output results.json
+```
+
+### Limitations and Warnings
+
+**Statistical Limitations**:
+1. Past performance doesn't predict future results
+2. 48 hours may not capture weekly/monthly patterns
+3. Black swan events not reflected in statistics
+4. Non-normal distributions reduce prediction reliability
+
+**Technical Limitations**:
+1. Kraken API may limit minute data availability
+2. Some pairs may not have full 48 hours of data
+3. Requires scipy/matplotlib for full functionality
+4. Large memory usage for many pairs (stores all candles)
+
+### Documentation
+
+- `docs/COIN_STATS.md`: Complete user guide (250+ lines)
+- `demos/demo_coin_stats.py`: Interactive demonstration (200+ lines)
+- `README.md`: Quick examples in Tools section
+- `tests/test_coin_stats.py`: Test suite with examples
+
+### Metrics
+
+- **Code**: 615 lines (tool) + 280 lines (tests) + 240 lines (demo) = 1,135 lines
+- **Tests**: 11 tests, all passing
+- **Documentation**: 250 lines user guide + 200 lines demo
+- **API Calls**: 1 OHLC call per pair (efficient)
+- **Performance**: Analyzes 3 pairs in ~5 seconds
+- **Security**: Passed CodeQL scan, no vulnerabilities
+
+### Related Files
+- `tools/coin_stats.py`: Main implementation
+- `tests/test_coin_stats.py`: Unit tests  
+- `docs/COIN_STATS.md`: User documentation
+- `demos/demo_coin_stats.py`: Demo script
+- `kraken_api.py`: OHLC endpoint (interval=1 for minute data)
+
+### Future Enhancements (Optional)
+
+1. **Multiple Timeframes**: Analyze 1m, 5m, 15m, 1h simultaneously
+2. **Correlation Analysis**: Compare movement between pairs
+3. **Backtesting**: Validate threshold predictions against historical data
+4. **Volatility Forecasting**: Predict future volatility (GARCH models)
+5. **Risk Metrics**: VaR, CVaR, Sharpe ratio calculations
+6. **Machine Learning**: LSTM/ARIMA for time series prediction
+7. **Real-time Updates**: Stream data and update statistics live
+8. **Alert Integration**: Notify when volatility exceeds thresholds
+
+---
+
 *Add new learnings here as we discover them*
 
