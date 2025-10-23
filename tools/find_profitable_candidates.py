@@ -345,14 +345,45 @@ class CandidateAnalyzer:
         """Convert Kraken pair format to readable format."""
         # Common conversions
         conversions = {
+            # Major cryptocurrencies
             'XXBTZUSD': 'BTC/USD',
             'XETHZUSD': 'ETH/USD',
             'XXBTZUSDT': 'BTC/USDT',
             'XETHZUSDT': 'ETH/USDT',
-            'XXRPZUSD': 'XRP/USD',
-            'XLTCZUSD': 'LTC/USD',
-            'ADAUSD': 'ADA/USD',
             'SOLUSD': 'SOL/USD',
+            'XLTCZUSD': 'LTC/USD',
+            'XXRPZUSD': 'XRP/USD',
+            'XXMRZUSD': 'XMR/USD',
+            # DeFi and Smart Contract platforms
+            'AAVEUSD': 'AAVE/USD',
+            'ATOMUSD': 'ATOM/USD',
+            'COMPUSD': 'COMP/USD',
+            'DYDXUSD': 'DYDX/USD',
+            'EGLDUSD': 'EGLD/USD',
+            'ENSUSD': 'ENS/USD',
+            'FILUSD': 'FIL/USD',
+            'INJUSD': 'INJ/USD',
+            'NEARUSD': 'NEAR/USD',
+            # Meme coins and trending tokens
+            'BONKUSD': 'BONK/USD',
+            'DOGSUSD': 'DOGE/USD',
+            'MEMEUSD': 'MEME/USD',
+            'MEWUSD': 'MEW/USD',
+            'PEPEUSD': 'PEPE/USD',
+            'PONKEUSD': 'PONKE/USD',
+            'POPCATUSD': 'POPCAT/USD',
+            'TRUMPUSD': 'TRUMP/USD',
+            # Other popular coins
+            'ATHUSD': 'ATH/USD',
+            'NANOUSD': 'NANO/USD',
+            'RAYUSD': 'RAY/USD',
+            'RENDERUSD': 'RENDER/USD',
+            'SUPERUSD': 'SUPER/USD',
+            'TONUSD': 'TON/USD',
+            'TRXUSD': 'TRX/USD',
+            'WALUSD': 'WAL/USD',
+            # Legacy pairs
+            'ADAUSD': 'ADA/USD',
             'DOTUSD': 'DOT/USD',
             'MATICUSD': 'MATIC/USD',
         }
@@ -403,8 +434,20 @@ def main():
     parser.add_argument(
         '--pairs',
         nargs='+',
-        default=['XXBTZUSD', 'XETHZUSD', 'XXBTZUSDT', 'XETHZUSDT'],
-        help='Trading pairs to analyze (default: BTC/USD, ETH/USD, BTC/USDT, ETH/USDT)'
+        default=[
+            # Major cryptocurrencies
+            'XXBTZUSD', 'XETHZUSD', 'SOLUSD', 'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
+            # DeFi and Smart Contract platforms
+            'AAVEUSD', 'ATOMUSD', 'COMPUSD', 'DYDXUSD', 'EGLDUSD', 'ENSUSD',
+            'FILUSD', 'INJUSD', 'NEARUSD',
+            # Meme coins and trending tokens
+            'BONKUSD', 'DOGSUSD', 'MEMEUSD', 'MEWUSD', 'PEPEUSD', 
+            'PONKEUSD', 'POPCATUSD', 'TRUMPUSD',
+            # Other popular coins
+            'ATHUSD', 'NANOUSD', 'RAYUSD', 'RENDERUSD', 'SUPERUSD', 
+            'TONUSD', 'TRXUSD', 'WALUSD',
+        ],
+        help='Trading pairs to analyze (default: 30 popular pairs including BTC, ETH, SOL, meme coins, and more)'
     )
     parser.add_argument(
         '--hours',
