@@ -402,5 +402,152 @@ def action_quit(self) -> None:
 
 ---
 
+## Profitable Candidates Tool Implementation
+
+**Implementation Date**: October 2025
+
+### Problem Statement
+Traders needed a way to identify volatile trading pairs with oscillating prices that could be profitable for bracketing strategies (buying low and selling high when prices oscillate).
+
+### Solution
+Created `tools/find_profitable_candidates.py` - a comprehensive analysis tool that:
+1. Fetches hourly OHLC (Open/High/Low/Close) data from Kraken
+2. Calculates volatility metrics and oscillation patterns
+3. Estimates profit probability based on historical frequency
+4. Ranks candidates by profitability
+5. Creates bracketing orders interactively
+
+### Key Features
+
+**Statistical Analysis**:
+- Calculates percentage oscillations between consecutive periods
+- Measures volatility (average, max, standard deviation)
+- Counts significant swings (moves >2% by default)
+- Tracks direction changes (price reversals)
+
+**Probability Model**:
+```python
+probability = (historical_hits / periods) × (1 + oscillation_frequency × 0.5)
+```
+- Based on historical frequency of hitting target
+- Adjusts for oscillation consistency
+- Provides confidence levels (low/medium/high)
+- Estimates expected time to hit target
+
+**Interactive Mode**:
+- Lists ranked candidates
+- User selects pair and volume
+- Preview order details before execution
+- Dry-run mode for safe testing
+- Creates limit orders for bracketing
+
+### Implementation Details
+
+**Classes**:
+1. `CandidateAnalyzer`: Analyzes pairs for profitability
+   - `fetch_ohlc_data()`: Get historical candles
+   - `calculate_oscillations()`: Compute volatility metrics
+   - `calculate_profit_probability()`: Estimate success probability
+   - `analyze_pair()`: Complete analysis pipeline
+
+2. `OrderCreator`: Creates bracketing orders
+   - `create_bracket_orders()`: Place buy+sell limit orders
+   - `estimate_balance_needed()`: Calculate required funds
+
+**Algorithm for Oscillation Analysis**:
+```python
+# Calculate % change between consecutive closes
+pct_change = ((close[i] - close[i-1]) / close[i-1]) * 100
+
+# Count significant swings
+significant = sum(1 for osc in oscillations if abs(osc) >= threshold)
+
+# Count direction changes (oscillation frequency)
+changes = sum(1 for i in range(1, len(osc)) 
+              if (osc[i] > 0) != (osc[i-1] > 0))
+```
+
+**Probability Confidence Levels**:
+- **High**: ≥40 periods analyzed AND ≥3 historical hits
+- **Medium**: ≥20 periods analyzed AND ≥1 historical hit
+- **Low**: Insufficient data or no historical hits
+
+### Usage Examples
+
+**Basic analysis**:
+```bash
+uv run python tools/find_profitable_candidates.py
+```
+
+**Custom parameters**:
+```bash
+uv run python tools/find_profitable_candidates.py \
+  --pairs XXBTZUSD XETHZUSD SOLUSD \
+  --hours 72 --target-profit 3.0 --top 5
+```
+
+**Interactive with dry-run**:
+```bash
+uv run python tools/find_profitable_candidates.py \
+  --interactive --dry-run
+```
+
+### Testing Strategy
+
+Created 10 unit tests covering:
+- Oscillation calculations (basic, edge cases)
+- Significant swing detection
+- Direction change counting
+- Probability calculation (high/low/moderate volatility)
+- Pair name formatting
+- Insufficient data handling
+
+All tests pass without making actual API calls.
+
+### Key Insights
+
+1. **Historical Frequency**: Best predictor is actual historical frequency of hitting target, not just theoretical probability from normal distribution
+
+2. **Oscillation Consistency**: Pairs that oscillate consistently (frequent direction changes) are better candidates than those with rare large moves
+
+3. **Market Conditions**: Tool correctly identifies when market is calm (low volatility) vs volatile - important for risk management
+
+4. **Dry-Run Essential**: Interactive mode with dry-run allows users to safely explore without risking funds
+
+5. **Balance Requirements**: For bracketing, need both fiat (for buy orders) and crypto (for sell orders) - document clearly
+
+### Documentation
+
+- `docs/FIND_PROFITABLE_CANDIDATES.md`: Complete user guide (190 lines)
+- `README.md`: Tools section with quick examples
+- `demos/demo_find_profitable_candidates.py`: Visual demonstration (200 lines)
+
+### Metrics
+
+- **Code**: 470 lines (tool) + 230 lines (tests) + 200 lines (demo) = 900 lines
+- **Tests**: 10 new tests, all passing
+- **API Calls**: Efficient - 1 OHLC call per pair analyzed
+- **Performance**: Analyzes 4 pairs in ~2 seconds
+- **Security**: Passed CodeQL scan, no vulnerabilities
+
+### Related Files
+- `tools/find_profitable_candidates.py`: Main implementation
+- `tests/test_find_profitable_candidates.py`: Unit tests
+- `docs/FIND_PROFITABLE_CANDIDATES.md`: User documentation
+- `demos/demo_find_profitable_candidates.py`: Demo script
+- `kraken_api.py`: Lines 507-537 (get_ohlc method)
+
+### Future Enhancements (Optional)
+
+1. **Stop Loss Integration**: Add stop-loss orders to bracketing strategy
+2. **Backtesting**: Simulate historical performance of identified candidates
+3. **Multiple Timeframes**: Analyze 1h, 4h, 1d simultaneously
+4. **Export Results**: Save analysis to CSV for further review
+5. **Notification Integration**: Alert when good candidates emerge
+6. **Risk Metrics**: Calculate max drawdown, Sharpe ratio
+7. **Fee Consideration**: Adjust probability for trading fees
+
+---
+
 *Add new learnings here as we discover them*
 
