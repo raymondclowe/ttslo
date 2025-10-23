@@ -247,4 +247,97 @@ else:
 
 ---
 
+## Kraken API Error Handling
+
+**Implementation Date**: October 2025
+
+### Problem
+During maintenance, network issues, or service outages, Kraken API calls could fail in various ways:
+- Timeouts (slow network, overloaded server)
+- Connection errors (network down, DNS failures)
+- Server errors 5xx (maintenance, crashes)
+- Rate limiting 429 (too many requests)
+
+These failures needed to be:
+1. Properly classified and logged
+2. Handled gracefully without crashing
+3. Notified to users via Telegram
+
+### Solution
+Created custom exception hierarchy for API errors:
+
+```python
+KrakenAPIError (base)
+├── KrakenAPITimeoutError
+├── KrakenAPIConnectionError
+├── KrakenAPIServerError
+└── KrakenAPIRateLimitError
+```
+
+Each exception stores:
+- `error_type`: String identifier (timeout, connection, server_error, rate_limit)
+- `details`: Dict with context (status_code, timeout value, endpoint, etc.)
+
+### Implementation Details
+
+**API Client Changes** (`kraken_api.py`):
+1. Added timeout parameter to all requests (default 30s)
+2. Wrapped all API calls in try-except with specific error classification
+3. Check status codes before raising generic exceptions
+4. Preserve original exception with `from e` for debugging
+
+**Error Detection Order**:
+1. Catch `requests.exceptions.Timeout` → `KrakenAPITimeoutError`
+2. Catch `requests.exceptions.ConnectionError` → `KrakenAPIConnectionError`
+3. Check status code 429 → `KrakenAPIRateLimitError`
+4. Check status code >= 500 → `KrakenAPIServerError`
+5. Call `response.raise_for_status()` for other HTTP errors
+6. Catch `requests.exceptions.RequestException` → `KrakenAPIError`
+
+**Notification System** (`notifications.py`):
+- Added `notify_api_error()` method
+- Icon mapping for visual distinction (⏱️ timeout, 🔌 connection, 🔥 server, 🚦 rate limit)
+- Contextual help messages for each error type
+- Includes endpoint, error message, and relevant details
+
+**Integration** (`ttslo.py`):
+- Catch `KrakenAPIError` before generic `Exception`
+- Send notification on API errors
+- Log with error_type for filtering
+- Continue running (don't crash on API errors)
+- Safe abort (no orders created on errors)
+
+### Testing
+16 new tests covering:
+- All error types on public endpoints
+- All error types on private endpoints
+- Custom timeout parameter
+- Notification message formatting
+- Subscription handling
+
+All tests pass, no regressions in existing tests.
+
+### Key Insights
+
+1. **Exception Hierarchy**: Use custom exceptions with type field rather than string parsing
+2. **Chaining**: Use `raise ... from e` to preserve original traceback
+3. **Order Matters**: Check specific exceptions before generic ones
+4. **Status Codes First**: Check status codes before `.raise_for_status()`
+5. **Timeouts**: Always set explicit timeouts on network requests
+6. **Context**: Store detailed context in exception for debugging and notifications
+
+### Related Files
+- `kraken_api.py`: Lines 17-62 (exception classes), 304-408 (_query_public/private)
+- `notifications.py`: Lines 367-408 (notify_api_error)
+- `ttslo.py`: Import statement, error handling in process_config, run_once
+- `test_api_error_handling.py`: Complete test suite
+- `demo_api_error_handling.py`: Visual demonstration
+
+### Documentation
+- `README.md`: API Error Handling section
+- `NOTIFICATIONS_README.md`: API error notification examples
+- `notifications.ini.example`: api_error event type
+
+---
+
 *Add new learnings here as we discover them*

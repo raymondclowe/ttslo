@@ -20,6 +20,7 @@ The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can 
 
 - **Real-Time WebSocket Price Monitoring**: Get instant price updates via Kraken's WebSocket API (90,000x faster than REST!)
 - **Fail-Safe Order Logic**: Never creates incorrect orders under any circumstances
+- **Robust Error Handling**: Comprehensive error detection and recovery for API failures (timeouts, connection issues, server errors)
 - **Price Threshold Triggers**: Set price levels (above/below) that trigger TSL order creation
 - **CSV-based Configuration**: Simple CSV files for configuration, state, and logs
 - **Interactive CSV Editor**: Built-in TUI for editing configuration files with keyboard navigation
@@ -429,6 +430,109 @@ uv run python demo_notifications.py
 ```
 
 For complete documentation, see [NOTIFICATIONS_README.md](NOTIFICATIONS_README.md).
+
+## API Error Handling
+
+TTSLO includes comprehensive error handling for Kraken API failures:
+
+### Error Types Handled
+
+1. **Timeout Errors** - Request takes too long (default: 30s timeout)
+2. **Connection Errors** - Cannot reach Kraken API (network issues, DNS failures)
+3. **Server Errors (5xx)** - Kraken API experiencing issues (maintenance, overload)
+4. **Rate Limiting (429)** - Too many requests to the API
+5. **Other Request Errors** - Malformed requests, SSL errors, etc.
+
+### Error Behavior
+
+When an API error occurs:
+- The error is logged with type and details
+- A Telegram notification is sent (if configured)
+- The operation is safely aborted (no orders created on errors)
+- The system continues running and retries on next cycle
+
+### Example Error Scenarios
+
+**Network Outage**: If your internet connection drops, TTSLO will:
+- Log connection errors for each failed API call
+- **Queue** notifications that fail to send
+- **Persist** the queue to disk (`notification_queue.json`)
+- All errors are still logged locally in logs.csv
+- Continue trying on next monitoring cycle
+- **Automatically flush** queued notifications when connection is restored
+- **Send recovery notification** with downtime duration and queued message count
+
+**Kraken Maintenance**: If Kraken API returns 503 (Service Unavailable):
+- Log server error with status code
+- Send notification about Kraken being down (queued if network is also down)
+- Skip processing for this cycle
+- Automatically resume when service is back
+
+**API Rate Limiting**: If you exceed rate limits:
+- Log rate limit error
+- Send notification about rate limiting
+- System continues (with backoff handled by monitoring interval)
+
+### Configuration
+
+To receive API error notifications, add to your `notifications.ini`:
+
+```ini
+[notify.api_error]
+users = alice
+```
+
+This ensures you're immediately notified of any API issues so you can take action if needed.
+
+### Limitations of Telegram Notifications
+
+**Enhanced with Notification Queue**: TTSLO now includes an intelligent notification queue system that handles network outages gracefully.
+
+**How it works**:
+
+1. **During Network Outage**:
+   - Notifications that fail to send are automatically queued
+   - Queue is persisted to disk (`notification_queue.json`)
+   - Console shows: `📬 Queued notification for alice (X total in queue)`
+   - All errors still logged to `logs.csv`
+
+2. **When Network Recovers**:
+   - Next successful API call triggers automatic queue flush
+   - All queued notifications sent with `[Queued from TIMESTAMP]` prefix
+   - Recovery notification sent to all recipients with downtime duration
+   - Queue cleared after successful delivery
+
+3. **Persistent Across Restarts**:
+   - Queue survives application restarts
+   - Notifications will be sent when app restarts and network is available
+
+**Example Recovery Notification**:
+```
+✅ TTSLO: Telegram notifications restored
+
+Notifications were unavailable for 2 hours 15 minutes
+From: 2025-10-23 10:00:00 UTC
+To: 2025-10-23 12:15:00 UTC
+
+Sending 5 queued notifications...
+```
+
+**What Gets Logged vs Notified**:
+- ✅ **Always logged**: All API errors, with full details and timestamps
+- 📬 **Queued if unreachable**: Telegram messages queued for later delivery
+- ✅ **Eventually delivered**: All queued notifications sent when network restored
+- ✅ **Console output**: Error messages printed to stdout/stderr (visible in systemd logs)
+
+**Best Practices**:
+1. Always monitor `logs.csv` for complete error history
+2. Set up monitoring on the log file itself (e.g., log aggregation tools)
+3. Consider running TTSLO on a server with redundant network connections
+4. Use `--verbose` mode to see real-time console output
+
+**What Gets Logged vs Notified**:
+- ✅ **Always logged**: All API errors, with full details and timestamps
+- ⚠️ **Notification attempted**: Telegram message is attempted but may fail during network outage
+- ✅ **Console output**: Error messages printed to stdout/stderr (visible in systemd logs)
 
 ## Command Line Options
 

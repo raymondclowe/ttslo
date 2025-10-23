@@ -12,6 +12,7 @@ The notification system supports the following event types:
 4. **TSL Order Created** - Notifies when a trailing stop loss order is created on Kraken
 5. **TSL Order Filled** - Notifies when a TSL order is filled/executed (automatically monitored)
 6. **Application Exit** - Notifies when the application exits (gracefully)
+7. **API Errors** - Notifies when Kraken API calls fail (timeouts, connection errors, server errors, rate limiting)
 
 ## Setup
 
@@ -65,6 +66,9 @@ users = alice, bob
 
 [notify.app_exit]
 users = alice
+
+[notify.api_error]
+users = alice
 ```
 
 You can also create a sample configuration file:
@@ -103,6 +107,7 @@ Available event types:
 - `tsl_created`
 - `tsl_filled`
 - `app_exit`
+- `api_error`
 
 ## Example Notifications
 
@@ -150,6 +155,52 @@ TTSLO automatically monitors all triggered orders to detect when they are filled
 - **Works in Background**: Monitoring happens automatically in the main loop alongside price checking
 
 The system queries Kraken's `ClosedOrders` API endpoint to check if orders created by TTSLO have been executed. When an order transitions from open to closed/filled, a Telegram notification is immediately sent (if configured).
+
+### API Error
+```
+🔌 TTSLO: Kraken API Error
+
+Error Type: connection
+Endpoint: Ticker/get_current_price
+Message: Failed to connect to Kraken API for Ticker: [Errno -2] Name or service not known
+
+⚠️ Cannot reach Kraken API. Check your network connection.
+```
+
+Example timeout error:
+```
+⏱️ TTSLO: Kraken API Error
+
+Error Type: timeout
+Endpoint: Balance
+Message: Request to Kraken API timed out after 30s for Balance
+Timeout: 30s
+
+⚠️ This could indicate network issues or Kraken API being slow.
+```
+
+Example server error (5xx):
+```
+🔥 TTSLO: Kraken API Error
+
+Error Type: server_error
+Endpoint: AddOrder/add_trailing_stop_loss
+Message: Kraken API server error (HTTP 503) for AddOrder
+Status Code: 503
+
+⚠️ Kraken API is experiencing issues. Service may be down or under maintenance.
+```
+
+Example rate limit error:
+```
+🚦 TTSLO: Kraken API Error
+
+Error Type: rate_limit
+Endpoint: Ticker
+Message: Kraken API rate limit exceeded for Ticker
+
+⚠️ API rate limit exceeded. TTSLO will retry with backoff.
+```
 
 ### Configuration Changed
 ```
@@ -237,6 +288,86 @@ def monitor_ttslo():
 ```
 
 ## Troubleshooting
+
+### Notifications Not Working
+
+1. **Check bot token**: Ensure `TELEGRAM_BOT_TOKEN` is set correctly in `.env`
+2. **Verify chat ID**: Make sure your chat ID is correct in `notifications.ini`
+3. **Test bot**: Message your bot directly to verify it's active
+4. **Check verbose output**: Run with `--verbose` to see if notifications are enabled
+5. **Check permissions**: Ensure the bot can send messages to your chat
+
+### Network Outage Scenario
+
+**Important Limitation**: During a complete network outage, Telegram notifications cannot be sent.
+
+**Enhanced Behavior (with Notification Queue)**:
+
+TTSLO now includes an intelligent notification queue system that:
+
+1. **Detects** when Telegram API is unreachable (timeout or connection error)
+2. **Queues** all notifications that fail to send
+3. **Persists** the queue to disk (`notification_queue.json`)
+4. **Monitors** for when Telegram becomes reachable again
+5. **Flushes** all queued notifications when connectivity is restored
+6. **Notifies** users about the downtime period and queued message count
+
+**What happens during network outage**:
+- TTSLO detects Kraken API is unreachable (connection error)
+- TTSLO logs the error to `logs.csv`
+- TTSLO attempts to send Telegram notification
+- Telegram notification fails (cannot reach Telegram API either)
+- Notification is **queued** for later delivery
+- Error message printed to console: `✗ Cannot reach Telegram API (network may be down)`
+- Queue is saved to disk: `📬 Queued notification for alice (1 total in queue)`
+- Processing continues on next cycle
+
+**What happens when network is restored**:
+- Next successful API call triggers queue flush attempt
+- All queued notifications are sent with `[Queued from TIMESTAMP]` prefix
+- Recovery notification sent to all recipients:
+  ```
+  ✅ TTSLO: Telegram notifications restored
+  
+  Notifications were unavailable for 2 hours 15 minutes
+  From: 2025-10-23 10:00:00 UTC
+  To: 2025-10-23 12:15:00 UTC
+  
+  Sending 5 queued notifications...
+  ```
+- Queue is cleared after successful delivery
+
+**What you'll see in logs**:
+```
+[2025-10-23 12:00:00] ERROR: Kraken API error getting current price for XXBTZUSD: Failed to connect to Kraken API (type: connection)
+✗ Cannot reach Telegram API (network may be down): [Errno -2] Name or service not known
+⚠️  Telegram marked as unreachable at 2025-10-23T12:00:00+00:00
+📬 Queued notification for alice (1 total in queue)
+...
+[2025-10-23 14:15:00] INFO: Price check successful
+Attempting to flush 5 queued notifications...
+✓ Sent 5 queued notifications
+✓ Telegram is reachable again after 2 hours 15 minutes downtime
+```
+
+**Benefits of Notification Queue**:
+- **No lost notifications**: All notifications are eventually delivered
+- **Automatic recovery**: No manual intervention needed
+- **Downtime awareness**: Users are informed about the outage duration
+- **Persistent across restarts**: Queue survives application restarts
+- **Ordered delivery**: Notifications sent in the order they were queued
+
+**Recommendations**:
+1. **Always check logs.csv**: All errors are logged regardless of notification status
+2. **Monitor log files**: Set up log monitoring/aggregation (e.g., tail -f, logwatch)
+3. **Use systemd**: Run as systemd service to see console output in journalctl
+4. **Redundant networking**: Run on server with redundant network connections
+5. **External monitoring**: Use external monitoring service to detect when TTSLO server is unreachable
+
+**Recovery**:
+- When network is restored, TTSLO automatically resumes normal operation
+- New Telegram notifications will work once network is back
+- Review logs.csv to see what happened during the outage
 
 ### Notifications Not Working
 

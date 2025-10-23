@@ -8,27 +8,38 @@ import os
 import configparser
 import requests
 import threading
-from typing import Dict, List, Optional
+import json
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone, timedelta
 
 
 class NotificationManager:
     """Manages Telegram notifications based on configuration."""
     
-    def __init__(self, config_file: str = 'notifications.ini'):
+    def __init__(self, config_file: str = 'notifications.ini', queue_file: str = 'notification_queue.json'):
         """
         Initialize notification manager.
         
         Args:
             config_file: Path to notifications configuration file
+            queue_file: Path to notification queue file (for offline queueing)
         """
         self.config_file = config_file
+        self.queue_file = queue_file
         self.telegram_token = os.getenv('TELEGRAM_BOT_TOKEN') or os.getenv('copilot_TELEGRAM_BOT_TOKEN')
         self.recipients = {}
         self.enabled = False
         
+        # Notification queue for when Telegram is unreachable
+        self.notification_queue = []
+        self.telegram_unreachable_since = None  # Track when Telegram became unreachable
+        self.telegram_was_unreachable = False  # Track if we need to send recovery notification
+        
         if os.path.exists(config_file):
             self._load_config()
+        
+        # Load any queued notifications from previous runs
+        self._load_queue()
         
     def _load_config(self):
         """Load notification configuration from INI file."""
@@ -58,9 +69,160 @@ class NotificationManager:
             print(f"Warning: Failed to load notification config: {e}")
             self.enabled = False
     
+    def _load_queue(self):
+        """Load queued notifications from disk."""
+        try:
+            if os.path.exists(self.queue_file):
+                with open(self.queue_file, 'r') as f:
+                    data = json.load(f)
+                    self.notification_queue = data.get('queue', [])
+                    
+                    # Restore unreachable state if it was set
+                    if data.get('unreachable_since'):
+                        self.telegram_unreachable_since = datetime.fromisoformat(data['unreachable_since'])
+                        self.telegram_was_unreachable = True
+                    
+                    if self.notification_queue:
+                        print(f"Loaded {len(self.notification_queue)} queued notifications from {self.queue_file}")
+        except Exception as e:
+            print(f"Warning: Failed to load notification queue: {e}")
+            self.notification_queue = []
+    
+    def _save_queue(self):
+        """Save queued notifications to disk."""
+        try:
+            data = {
+                'queue': self.notification_queue,
+                'unreachable_since': self.telegram_unreachable_since.isoformat() if self.telegram_unreachable_since else None
+            }
+            with open(self.queue_file, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Failed to save notification queue: {e}")
+    
+    def _mark_telegram_unreachable(self):
+        """Mark Telegram as unreachable and record the timestamp."""
+        if self.telegram_unreachable_since is None:
+            self.telegram_unreachable_since = datetime.now(timezone.utc)
+            self.telegram_was_unreachable = True
+            print(f"⚠️  Telegram marked as unreachable at {self.telegram_unreachable_since.isoformat()}")
+            self._save_queue()
+    
+    def _mark_telegram_reachable(self):
+        """Mark Telegram as reachable and send recovery notification if needed."""
+        if self.telegram_was_unreachable and self.telegram_unreachable_since:
+            # Calculate downtime duration
+            downtime_end = datetime.now(timezone.utc)
+            downtime_duration = downtime_end - self.telegram_unreachable_since
+            
+            # Format duration nicely
+            hours = int(downtime_duration.total_seconds() // 3600)
+            minutes = int((downtime_duration.total_seconds() % 3600) // 60)
+            
+            duration_str = ""
+            if hours > 0:
+                duration_str = f"{hours} hour{'s' if hours != 1 else ''}"
+                if minutes > 0:
+                    duration_str += f" {minutes} min{'s' if minutes != 1 else ''}"
+            else:
+                duration_str = f"{minutes} minute{'s' if minutes != 1 else ''}"
+            
+            # Send recovery notification to all users
+            recovery_msg = (
+                f"✅ TTSLO: Telegram notifications restored\n\n"
+                f"Notifications were unavailable for {duration_str}\n"
+                f"From: {self.telegram_unreachable_since.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+                f"To: {downtime_end.strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+                f"Sending {len(self.notification_queue)} queued notification{'s' if len(self.notification_queue) != 1 else ''}..."
+            )
+            
+            # Send to all recipients (not just subscribed to specific events)
+            for username in self.recipients.keys():
+                self._send_message_direct(username, recovery_msg)
+            
+            print(f"✓ Telegram is reachable again after {duration_str} downtime")
+            
+            # Reset state
+            self.telegram_unreachable_since = None
+            self.telegram_was_unreachable = False
+            self._save_queue()
+    
+    def _flush_queue(self):
+        """Attempt to send all queued notifications."""
+        if not self.notification_queue:
+            return
+        
+        print(f"Attempting to flush {len(self.notification_queue)} queued notifications...")
+        
+        sent_count = 0
+        failed_queue = []
+        
+        for item in self.notification_queue:
+            username = item.get('username')
+            message = item.get('message')
+            timestamp = item.get('timestamp')
+            
+            # Add timestamp to the message
+            timestamped_message = f"[Queued from {timestamp}]\n\n{message}"
+            
+            # Try to send
+            if self._send_message_direct(username, timestamped_message):
+                sent_count += 1
+            else:
+                # If send fails, keep in queue
+                failed_queue.append(item)
+        
+        # Update queue with only failed items
+        self.notification_queue = failed_queue
+        self._save_queue()
+        
+        if sent_count > 0:
+            print(f"✓ Sent {sent_count} queued notification{'s' if sent_count != 1 else ''}")
+        
+        if failed_queue:
+            print(f"⚠️  {len(failed_queue)} notification{'s' if len(failed_queue) != 1 else ''} still queued")
+    
+    def _send_message_direct(self, username: str, message: str) -> bool:
+        """
+        Send a message directly without queueing (internal method).
+        
+        Args:
+            username: Username from notifications.ini
+            message: Message text to send
+            
+        Returns:
+            True if message sent successfully, False otherwise
+        """
+        if not self.enabled:
+            return False
+        
+        if username not in self.recipients:
+            return False
+        
+        chat_id = self.recipients[username]
+        
+        try:
+            url = f'https://api.telegram.org/bot{self.telegram_token}/sendMessage'
+            response = requests.post(url, data={'chat_id': chat_id, 'text': message}, timeout=10)
+            
+            # Check both status code and response JSON
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('ok'):
+                    return True
+            return False
+                
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+            return False
+        except Exception:
+            return False
+    
     def send_message(self, username: str, message: str) -> bool:
         """
         Send a message to a Telegram user.
+        
+        If Telegram is unreachable, the message is queued and will be sent
+        when connectivity is restored.
         
         Args:
             username: Username from notifications.ini
@@ -78,6 +240,10 @@ class NotificationManager:
             print(f"Available recipients: {list(self.recipients.keys())}")
             return False
         
+        # First, try to flush any queued notifications (in case Telegram is reachable again)
+        if self.notification_queue:
+            self._flush_queue()
+        
         chat_id = self.recipients[username]
         
         try:
@@ -91,6 +257,11 @@ class NotificationManager:
                 result = response.json()
                 if result.get('ok'):
                     print(f"✓ Telegram message sent successfully to {username}")
+                    
+                    # If this succeeds and we were previously unreachable, mark as reachable
+                    if self.telegram_was_unreachable:
+                        self._mark_telegram_reachable()
+                    
                     return True
                 else:
                     print(f"✗ Telegram API returned ok=False: {result}")
@@ -99,11 +270,45 @@ class NotificationManager:
                 print(f"✗ Failed to send Telegram message (HTTP {response.status_code}): {response.text}")
                 return False
                 
+        except requests.exceptions.Timeout:
+            print(f"✗ Timeout sending Telegram message to {username} (network may be slow or down)")
+            self._queue_notification(username, message, "timeout")
+            return False
+        except requests.exceptions.ConnectionError as e:
+            print(f"✗ Cannot reach Telegram API (network may be down): {e}")
+            self._queue_notification(username, message, "connection_error")
+            return False
         except Exception as e:
             print(f"✗ Exception sending Telegram message: {e}")
             import traceback
             traceback.print_exc()
             return False
+    
+    def _queue_notification(self, username: str, message: str, reason: str):
+        """
+        Queue a notification for later delivery.
+        
+        Args:
+            username: Username to send to
+            message: Message to send
+            reason: Reason for queueing (timeout, connection_error, etc.)
+        """
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        
+        self.notification_queue.append({
+            'username': username,
+            'message': message,
+            'timestamp': timestamp,
+            'reason': reason
+        })
+        
+        # Mark Telegram as unreachable
+        self._mark_telegram_unreachable()
+        
+        print(f"📬 Queued notification for {username} ({len(self.notification_queue)} total in queue)")
+        
+        # Save queue to disk
+        self._save_queue()
     
     def notify_event(self, event_type: str, message: str):
         """
@@ -364,6 +569,49 @@ class NotificationManager:
         """Non-blocking wrapper for service stopped notification."""
         self._dispatch_async(self.notify_service_stopped, service_name, reason)
 
+    def notify_api_error(self, error_type: str, endpoint: str, error_message: str, 
+                        details: Optional[Dict] = None):
+        """
+        Notify about Kraken API errors.
+        
+        Args:
+            error_type: Type of error (timeout, connection, server_error, rate_limit, etc.)
+            endpoint: API endpoint that failed
+            error_message: Error message
+            details: Additional error details (optional)
+        """
+        icon_map = {
+            'timeout': '⏱️',
+            'connection': '🔌',
+            'server_error': '🔥',
+            'rate_limit': '🚦',
+            'unknown': '❌'
+        }
+        
+        icon = icon_map.get(error_type, icon_map['unknown'])
+        
+        message = f"{icon} TTSLO: Kraken API Error\n\n"
+        message += f"Error Type: {error_type}\n"
+        message += f"Endpoint: {endpoint}\n"
+        message += f"Message: {error_message}\n"
+        
+        if details:
+            if 'status_code' in details:
+                message += f"Status Code: {details['status_code']}\n"
+            if 'timeout' in details:
+                message += f"Timeout: {details['timeout']}s\n"
+        
+        if error_type == 'timeout':
+            message += "\n⚠️ This could indicate network issues or Kraken API being slow."
+        elif error_type == 'connection':
+            message += "\n⚠️ Cannot reach Kraken API. Check your network connection."
+        elif error_type == 'server_error':
+            message += "\n⚠️ Kraken API is experiencing issues. Service may be down or under maintenance."
+        elif error_type == 'rate_limit':
+            message += "\n⚠️ API rate limit exceeded. TTSLO will retry with backoff."
+        
+        self.notify_event('api_error', message)
+
 
 def create_sample_notifications_config(filename: str = 'notifications.ini.example'):
     """
@@ -437,6 +685,12 @@ users =
 # Note: This only works if the app can send the notification before exiting
 users = 
 
+[notify.api_error]
+# Notified when Kraken API calls fail
+# Triggered by: Timeouts, connection errors, server errors (5xx), rate limiting
+# Includes error type, endpoint, and details about the failure
+users = 
+
 # To enable notifications:
 # 1. Copy this file to notifications.ini
 # 2. Add recipient usernames and their Telegram chat IDs in [recipients]
@@ -455,6 +709,7 @@ users =
 # - insufficient_balance: "⚠️ TTSLO: Cannot create order - Insufficient balance!"
 # - order_failed: "❌ TTSLO: Order creation failed! Error: [Kraken error message]"
 # - app_exit: "🛑 TTSLO: Application has exited. Reason: Unexpected exception"
+# - api_error: "🔌 TTSLO: Kraken API Error - Error Type: connection, Endpoint: Ticker, Message: Failed to connect"
 """
     
     with open(filename, 'w') as f:

@@ -13,7 +13,10 @@ import signal
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, getcontext
 
-from kraken_api import KrakenAPI
+from kraken_api import (
+    KrakenAPI, KrakenAPIError, KrakenAPITimeoutError, 
+    KrakenAPIConnectionError, KrakenAPIServerError, KrakenAPIRateLimitError
+)
 from config import ConfigManager
 from validator import ConfigValidator, format_validation_result
 from creds import load_env, find_kraken_credentials, get_env_var
@@ -293,6 +296,24 @@ class TTSLO:
             balance = self.kraken_api_readwrite.get_balance()
             if not balance:
                 return (False, 'Could not retrieve account balance', None)
+        except KrakenAPIError as e:
+            self.log('ERROR', f'Kraken API error checking balance: {str(e)} (type: {e.error_type})',
+                    error=str(e), error_type=e.error_type)
+            
+            # Send notification about API error
+            if self.notification_manager:
+                self.notification_manager.notify_api_error(
+                    error_type=e.error_type,
+                    endpoint='Balance',
+                    error_message=str(e),
+                    details=e.details
+                )
+            
+            return (False, f'API error checking balance: {str(e)}', None)
+        except Exception as e:
+            return (False, f'Error checking balance: {str(e)}', None)
+        
+        try:
             
             # Extract base asset from pair
             base_asset = self._extract_base_asset(pair)
@@ -548,11 +569,31 @@ class TTSLO:
                 trailing_offset_percent=trailing_offset,
                 **api_kwargs
             )
+        except KrakenAPIError as e:
+            # SAFETY: If API call raises exception, do not proceed
+            error_msg = str(e)
+            self.log('ERROR', 
+                    f"Kraken API error creating TSL order: {error_msg} (type: {e.error_type})",
+                    config_id=config_id, error=error_msg, error_type=e.error_type)
+            
+            # Send notification about API error
+            if self.notification_manager:
+                self.notification_manager.notify_api_error(
+                    error_type=e.error_type,
+                    endpoint='AddOrder/add_trailing_stop_loss',
+                    error_message=error_msg,
+                    details=e.details
+                )
+            
+            # Check if error is related to API permissions
+            if 'permission' in error_msg.lower() or 'invalid key' in error_msg.lower():
+                print(f"ERROR: API credentials may not have proper permissions for creating orders. "
+                      f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
         except Exception as e:
             # SAFETY: If API call raises exception, do not proceed
             error_msg = str(e)
             self.log('ERROR', 
-                    f"Exception creating TSL order: {error_msg}",
+                    f"Unexpected exception creating TSL order: {error_msg}",
                     config_id=config_id, error=error_msg)
             
             # Check if error is related to API permissions
@@ -661,6 +702,26 @@ class TTSLO:
             if not closed_orders or 'closed' not in closed_orders:
                 # No closed orders found
                 return False, None
+        except KrakenAPIError as e:
+            self.log('ERROR', f'Kraken API error checking order status: {str(e)} (type: {e.error_type})',
+                    config_id=config_id, order_id=order_id, error=str(e), error_type=e.error_type)
+            
+            # Send notification about API error
+            if self.notification_manager:
+                self.notification_manager.notify_api_error(
+                    error_type=e.error_type,
+                    endpoint='ClosedOrders/query_closed_orders',
+                    error_message=str(e),
+                    details=e.details
+                )
+            
+            return False, None
+        except Exception as e:
+            self.log('ERROR', f'Unexpected error checking order status: {str(e)}',
+                    config_id=config_id, order_id=order_id, error=str(e))
+            return False, None
+        
+        try:
             
             # Check if our order is in the closed orders
             if order_id in closed_orders['closed']:
@@ -877,10 +938,27 @@ class TTSLO:
             try:
                 # Use read-only API to get current price
                 current_price = self.kraken_api_readonly.get_current_price(pair)
+            except KrakenAPIError as e:
+                # SAFETY: Cannot get price - do not process
+                self.log('ERROR', 
+                        f"Kraken API error getting current price for {pair}: {str(e)} (type: {e.error_type})",
+                        config_id=config_id, pair=pair, error=str(e), error_type=e.error_type)
+                
+                # Send notification about API error
+                if self.notification_manager:
+                    self.notification_manager.notify_api_error(
+                        error_type=e.error_type,
+                        endpoint='Ticker/get_current_price',
+                        error_message=str(e),
+                        details=e.details
+                    )
+                
+                # Return without creating order - this is safe
+                return
             except Exception as e:
                 # SAFETY: Cannot get price - do not process
                 self.log('ERROR', 
-                        f"Error getting current price for {pair}: {str(e)}",
+                        f"Unexpected error getting current price for {pair}: {str(e)}",
                         config_id=config_id, pair=pair, error=str(e))
                 # Return without creating order - this is safe
                 return
@@ -1192,9 +1270,22 @@ class TTSLO:
         for pair in pairs_to_fetch:
             try:
                 prices[pair] = self.kraken_api_readonly.get_current_price(pair)
+            except KrakenAPIError as e:
+                prices[pair] = None
+                self.log('ERROR', f'Kraken API error prefetching price for {pair}: {str(e)} (type: {e.error_type})', 
+                        pair=pair, error=str(e), error_type=e.error_type)
+                
+                # Send notification about API error
+                if self.notification_manager:
+                    self.notification_manager.notify_api_error(
+                        error_type=e.error_type,
+                        endpoint='Ticker/get_current_price',
+                        error_message=str(e),
+                        details=e.details
+                    )
             except Exception as e:
                 prices[pair] = None
-                self.log('ERROR', f'Error prefetching price for {pair}: {str(e)}', pair=pair, error=str(e))
+                self.log('ERROR', f'Unexpected error prefetching price for {pair}: {str(e)}', pair=pair, error=str(e))
 
         # Step 6: Process each configuration using the cached prices where possible
         for config in configs:
