@@ -63,6 +63,12 @@ users =
 # Note: This only works if the app can send the notification before exiting
 users = 
 
+[notify.api_error]
+# Notified when Kraken API calls fail
+# Triggered by: Timeouts, connection errors, server errors (5xx), rate limiting
+# Includes error type, endpoint, and details about the failure
+users = 
+
 # To enable notifications:
 # 1. Copy this file to notifications.ini
 # 2. Add recipient usernames and their Telegram chat IDs in [recipients]
@@ -81,3 +87,4 @@ users =
 # - insufficient_balance: "⚠️ TTSLO: Cannot create order - Insufficient balance!"
 # - order_failed: "❌ TTSLO: Order creation failed! Error: [Kraken error message]"
 # - app_exit: "🛑 TTSLO: Application has exited. Reason: Unexpected exception"
+# - api_error: "🔌 TTSLO: Kraken API Error - Error Type: connection, Endpoint: Ticker, Message: Failed to connect"

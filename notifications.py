@@ -364,6 +364,49 @@ class NotificationManager:
         """Non-blocking wrapper for service stopped notification."""
         self._dispatch_async(self.notify_service_stopped, service_name, reason)
 
+    def notify_api_error(self, error_type: str, endpoint: str, error_message: str, 
+                        details: Optional[Dict] = None):
+        """
+        Notify about Kraken API errors.
+        
+        Args:
+            error_type: Type of error (timeout, connection, server_error, rate_limit, etc.)
+            endpoint: API endpoint that failed
+            error_message: Error message
+            details: Additional error details (optional)
+        """
+        icon_map = {
+            'timeout': '⏱️',
+            'connection': '🔌',
+            'server_error': '🔥',
+            'rate_limit': '🚦',
+            'unknown': '❌'
+        }
+        
+        icon = icon_map.get(error_type, icon_map['unknown'])
+        
+        message = f"{icon} TTSLO: Kraken API Error\n\n"
+        message += f"Error Type: {error_type}\n"
+        message += f"Endpoint: {endpoint}\n"
+        message += f"Message: {error_message}\n"
+        
+        if details:
+            if 'status_code' in details:
+                message += f"Status Code: {details['status_code']}\n"
+            if 'timeout' in details:
+                message += f"Timeout: {details['timeout']}s\n"
+        
+        if error_type == 'timeout':
+            message += "\n⚠️ This could indicate network issues or Kraken API being slow."
+        elif error_type == 'connection':
+            message += "\n⚠️ Cannot reach Kraken API. Check your network connection."
+        elif error_type == 'server_error':
+            message += "\n⚠️ Kraken API is experiencing issues. Service may be down or under maintenance."
+        elif error_type == 'rate_limit':
+            message += "\n⚠️ API rate limit exceeded. TTSLO will retry with backoff."
+        
+        self.notify_event('api_error', message)
+
 
 def create_sample_notifications_config(filename: str = 'notifications.ini.example'):
     """
@@ -437,6 +480,12 @@ users =
 # Note: This only works if the app can send the notification before exiting
 users = 
 
+[notify.api_error]
+# Notified when Kraken API calls fail
+# Triggered by: Timeouts, connection errors, server errors (5xx), rate limiting
+# Includes error type, endpoint, and details about the failure
+users = 
+
 # To enable notifications:
 # 1. Copy this file to notifications.ini
 # 2. Add recipient usernames and their Telegram chat IDs in [recipients]
@@ -455,6 +504,7 @@ users =
 # - insufficient_balance: "⚠️ TTSLO: Cannot create order - Insufficient balance!"
 # - order_failed: "❌ TTSLO: Order creation failed! Error: [Kraken error message]"
 # - app_exit: "🛑 TTSLO: Application has exited. Reason: Unexpected exception"
+# - api_error: "🔌 TTSLO: Kraken API Error - Error Type: connection, Endpoint: Ticker, Message: Failed to connect"
 """
     
     with open(filename, 'w') as f:

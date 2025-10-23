@@ -21,6 +21,41 @@ except ImportError:
 from creds import find_kraken_credentials
 
 
+class KrakenAPIError(Exception):
+    """Base exception for Kraken API errors."""
+    def __init__(self, message: str, error_type: str = "unknown", details: Optional[Dict] = None):
+        super().__init__(message)
+        self.error_type = error_type
+        self.details = details or {}
+
+
+class KrakenAPITimeoutError(KrakenAPIError):
+    """Raised when API request times out."""
+    def __init__(self, message: str, details: Optional[Dict] = None):
+        super().__init__(message, error_type="timeout", details=details)
+
+
+class KrakenAPIConnectionError(KrakenAPIError):
+    """Raised when connection to Kraken fails."""
+    def __init__(self, message: str, details: Optional[Dict] = None):
+        super().__init__(message, error_type="connection", details=details)
+
+
+class KrakenAPIServerError(KrakenAPIError):
+    """Raised when Kraken API returns 5xx server error."""
+    def __init__(self, message: str, status_code: int = None, details: Optional[Dict] = None):
+        details = details or {}
+        if status_code:
+            details['status_code'] = status_code
+        super().__init__(message, error_type="server_error", details=details)
+
+
+class KrakenAPIRateLimitError(KrakenAPIError):
+    """Raised when API rate limit is exceeded."""
+    def __init__(self, message: str, details: Optional[Dict] = None):
+        super().__init__(message, error_type="rate_limit", details=details)
+
+
 class WebSocketPriceProvider:
     """
     Real-time price provider using Kraken WebSocket API.
@@ -301,34 +336,90 @@ class KrakenAPI:
         sigdigest = base64.b64encode(mac.digest())
         return sigdigest.decode()
     
-    def _query_public(self, method, params=None):
+    def _query_public(self, method, params=None, timeout=30):
         """
         Query public Kraken API endpoint.
         
         Args:
             method: API method name
             params: Optional parameters dictionary
+            timeout: Request timeout in seconds (default: 30)
             
         Returns:
             API response as dictionary
+            
+        Raises:
+            KrakenAPITimeoutError: If request times out
+            KrakenAPIConnectionError: If connection fails
+            KrakenAPIServerError: If server returns 5xx error
+            KrakenAPIRateLimitError: If rate limit exceeded (429)
+            KrakenAPIError: For other API errors
         """
         url = f"{self.base_url}/0/public/{method}"
         print(f"[DEBUG] KrakenAPI._query_public: Calling {url} with params={params}")
-        response = requests.get(url, params=params or {})
-        print(f"[DEBUG] KrakenAPI._query_public: Response status={response.status_code}")
-        response.raise_for_status()
-        return response.json()
+        
+        try:
+            response = requests.get(url, params=params or {}, timeout=timeout)
+            print(f"[DEBUG] KrakenAPI._query_public: Response status={response.status_code}")
+            
+            # Check for rate limiting
+            if response.status_code == 429:
+                raise KrakenAPIRateLimitError(
+                    f"Kraken API rate limit exceeded for {method}",
+                    details={'method': method, 'url': url}
+                )
+            
+            # Check for server errors (5xx)
+            if response.status_code >= 500:
+                raise KrakenAPIServerError(
+                    f"Kraken API server error (HTTP {response.status_code}) for {method}",
+                    status_code=response.status_code,
+                    details={'method': method, 'url': url, 'response': response.text[:500]}
+                )
+            
+            # Raise for other HTTP errors (4xx)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except requests.exceptions.Timeout as e:
+            raise KrakenAPITimeoutError(
+                f"Request to Kraken API timed out after {timeout}s for {method}",
+                details={'method': method, 'url': url, 'timeout': timeout}
+            ) from e
+            
+        except requests.exceptions.ConnectionError as e:
+            raise KrakenAPIConnectionError(
+                f"Failed to connect to Kraken API for {method}: {str(e)}",
+                details={'method': method, 'url': url}
+            ) from e
+            
+        except requests.exceptions.RequestException as e:
+            # Catch any other requests exceptions
+            raise KrakenAPIError(
+                f"Request failed for {method}: {str(e)}",
+                error_type="request_error",
+                details={'method': method, 'url': url}
+            ) from e
     
-    def _query_private(self, method, params=None):
+    def _query_private(self, method, params=None, timeout=30):
         """
         Query private Kraken API endpoint (requires authentication).
         
         Args:
             method: API method name
             params: Optional parameters dictionary
+            timeout: Request timeout in seconds (default: 30)
             
         Returns:
             API response as dictionary
+            
+        Raises:
+            KrakenAPITimeoutError: If request times out
+            KrakenAPIConnectionError: If connection fails
+            KrakenAPIServerError: If server returns 5xx error
+            KrakenAPIRateLimitError: If rate limit exceeded (429)
+            KrakenAPIError: For other API errors
         """
         if not self.api_key or not self.api_secret:
             raise ValueError("API key and secret required for private endpoints")
@@ -350,10 +441,50 @@ class KrakenAPI:
         }
         
         print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
-        response = requests.post(url, headers=headers, data=json_data)
-        print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
-        response.raise_for_status()
-        return response.json()
+        
+        try:
+            response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
+            print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
+            
+            # Check for rate limiting
+            if response.status_code == 429:
+                raise KrakenAPIRateLimitError(
+                    f"Kraken API rate limit exceeded for {method}",
+                    details={'method': method, 'url': url}
+                )
+            
+            # Check for server errors (5xx)
+            if response.status_code >= 500:
+                raise KrakenAPIServerError(
+                    f"Kraken API server error (HTTP {response.status_code}) for {method}",
+                    status_code=response.status_code,
+                    details={'method': method, 'url': url, 'response': response.text[:500]}
+                )
+            
+            # Raise for other HTTP errors (4xx)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except requests.exceptions.Timeout as e:
+            raise KrakenAPITimeoutError(
+                f"Request to Kraken API timed out after {timeout}s for {method}",
+                details={'method': method, 'url': url, 'timeout': timeout}
+            ) from e
+            
+        except requests.exceptions.ConnectionError as e:
+            raise KrakenAPIConnectionError(
+                f"Failed to connect to Kraken API for {method}: {str(e)}",
+                details={'method': method, 'url': url}
+            ) from e
+            
+        except requests.exceptions.RequestException as e:
+            # Catch any other requests exceptions
+            raise KrakenAPIError(
+                f"Request failed for {method}: {str(e)}",
+                error_type="request_error",
+                details={'method': method, 'url': url}
+            ) from e
     
     def get_ticker(self, pair):
         """
