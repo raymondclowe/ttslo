@@ -20,6 +20,7 @@ The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can 
 
 - **Real-Time WebSocket Price Monitoring**: Get instant price updates via Kraken's WebSocket API (90,000x faster than REST!)
 - **Fail-Safe Order Logic**: Never creates incorrect orders under any circumstances
+- **Robust Error Handling**: Comprehensive error detection and recovery for API failures (timeouts, connection issues, server errors)
 - **Price Threshold Triggers**: Set price levels (above/below) that trigger TSL order creation
 - **CSV-based Configuration**: Simple CSV files for configuration, state, and logs
 - **Interactive CSV Editor**: Built-in TUI for editing configuration files with keyboard navigation
@@ -429,6 +430,56 @@ uv run python demo_notifications.py
 ```
 
 For complete documentation, see [NOTIFICATIONS_README.md](NOTIFICATIONS_README.md).
+
+## API Error Handling
+
+TTSLO includes comprehensive error handling for Kraken API failures:
+
+### Error Types Handled
+
+1. **Timeout Errors** - Request takes too long (default: 30s timeout)
+2. **Connection Errors** - Cannot reach Kraken API (network issues, DNS failures)
+3. **Server Errors (5xx)** - Kraken API experiencing issues (maintenance, overload)
+4. **Rate Limiting (429)** - Too many requests to the API
+5. **Other Request Errors** - Malformed requests, SSL errors, etc.
+
+### Error Behavior
+
+When an API error occurs:
+- The error is logged with type and details
+- A Telegram notification is sent (if configured)
+- The operation is safely aborted (no orders created on errors)
+- The system continues running and retries on next cycle
+
+### Example Error Scenarios
+
+**Network Outage**: If your internet connection drops, TTSLO will:
+- Log connection errors for each failed API call
+- Send notifications about connection issues
+- Continue trying on next monitoring cycle
+- Resume normal operation when connection is restored
+
+**Kraken Maintenance**: If Kraken API returns 503 (Service Unavailable):
+- Log server error with status code
+- Send notification about Kraken being down
+- Skip processing for this cycle
+- Automatically resume when service is back
+
+**API Rate Limiting**: If you exceed rate limits:
+- Log rate limit error
+- Send notification about rate limiting
+- System continues (with backoff handled by monitoring interval)
+
+### Configuration
+
+To receive API error notifications, add to your `notifications.ini`:
+
+```ini
+[notify.api_error]
+users = alice
+```
+
+This ensures you're immediately notified of any API issues so you can take action if needed.
 
 ## Command Line Options
 

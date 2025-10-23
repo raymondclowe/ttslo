@@ -12,6 +12,7 @@ The notification system supports the following event types:
 4. **TSL Order Created** - Notifies when a trailing stop loss order is created on Kraken
 5. **TSL Order Filled** - Notifies when a TSL order is filled/executed (automatically monitored)
 6. **Application Exit** - Notifies when the application exits (gracefully)
+7. **API Errors** - Notifies when Kraken API calls fail (timeouts, connection errors, server errors, rate limiting)
 
 ## Setup
 
@@ -65,6 +66,9 @@ users = alice, bob
 
 [notify.app_exit]
 users = alice
+
+[notify.api_error]
+users = alice
 ```
 
 You can also create a sample configuration file:
@@ -103,6 +107,7 @@ Available event types:
 - `tsl_created`
 - `tsl_filled`
 - `app_exit`
+- `api_error`
 
 ## Example Notifications
 
@@ -150,6 +155,52 @@ TTSLO automatically monitors all triggered orders to detect when they are filled
 - **Works in Background**: Monitoring happens automatically in the main loop alongside price checking
 
 The system queries Kraken's `ClosedOrders` API endpoint to check if orders created by TTSLO have been executed. When an order transitions from open to closed/filled, a Telegram notification is immediately sent (if configured).
+
+### API Error
+```
+🔌 TTSLO: Kraken API Error
+
+Error Type: connection
+Endpoint: Ticker/get_current_price
+Message: Failed to connect to Kraken API for Ticker: [Errno -2] Name or service not known
+
+⚠️ Cannot reach Kraken API. Check your network connection.
+```
+
+Example timeout error:
+```
+⏱️ TTSLO: Kraken API Error
+
+Error Type: timeout
+Endpoint: Balance
+Message: Request to Kraken API timed out after 30s for Balance
+Timeout: 30s
+
+⚠️ This could indicate network issues or Kraken API being slow.
+```
+
+Example server error (5xx):
+```
+🔥 TTSLO: Kraken API Error
+
+Error Type: server_error
+Endpoint: AddOrder/add_trailing_stop_loss
+Message: Kraken API server error (HTTP 503) for AddOrder
+Status Code: 503
+
+⚠️ Kraken API is experiencing issues. Service may be down or under maintenance.
+```
+
+Example rate limit error:
+```
+🚦 TTSLO: Kraken API Error
+
+Error Type: rate_limit
+Endpoint: Ticker
+Message: Kraken API rate limit exceeded for Ticker
+
+⚠️ API rate limit exceeded. TTSLO will retry with backoff.
+```
 
 ### Configuration Changed
 ```
