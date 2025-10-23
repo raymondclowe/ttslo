@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 import statistics
 from pathlib import Path
 import json
+import csv
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -479,6 +480,338 @@ def print_summary_table(results):
     print(f"Non-normal distributions: {total_count - normal_count}/{total_count} ({(total_count-normal_count)/total_count*100:.1f}%)")
 
 
+def save_summary_csv(results, analyzer, output_file='summary_stats.csv'):
+    """
+    Save summary table to CSV file for spreadsheet analysis.
+    
+    Args:
+        results: List of analysis results
+        analyzer: CoinStatsAnalyzer instance
+        output_file: Path to CSV file
+    """
+    if not results:
+        return None
+    
+    with open(output_file, 'w', newline='') as csvfile:
+        fieldnames = [
+            'Pair', 'Pair_Name', 'Mean', 'Median', 'StdDev', 'Min', 'Max', 'Range',
+            'Pct_Mean', 'Pct_Median', 'Pct_StdDev',
+            'Normal_Distribution', 'Normality_PValue', 
+            'Threshold_95_Pct', 'Threshold_Price_Up', 'Threshold_Price_Down',
+            'Confidence', 'Data_Points'
+        ]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for analysis in results:
+            pair = analysis['pair']
+            stats = analysis['stats']
+            threshold = analysis.get('threshold_95')
+            
+            row = {
+                'Pair': pair,
+                'Pair_Name': analyzer.format_pair_name(pair),
+                'Mean': stats['mean'],
+                'Median': stats['median'],
+                'StdDev': stats['stdev'],
+                'Min': stats['min_price'],
+                'Max': stats['max_price'],
+                'Range': stats['range'],
+                'Pct_Mean': stats.get('pct_mean', 0),
+                'Pct_Median': stats.get('pct_median', 0),
+                'Pct_StdDev': stats.get('pct_stdev', 0),
+                'Normal_Distribution': stats.get('normality_test', {}).get('is_normal', False),
+                'Normality_PValue': stats.get('normality_test', {}).get('p_value', 0),
+                'Threshold_95_Pct': threshold['threshold_pct'] if threshold else 0,
+                'Threshold_Price_Up': threshold['threshold_price_up'] if threshold else 0,
+                'Threshold_Price_Down': threshold['threshold_price_down'] if threshold else 0,
+                'Confidence': threshold['confidence'] if threshold else 'N/A',
+                'Data_Points': stats['count']
+            }
+            writer.writerow(row)
+    
+    return output_file
+
+
+def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='index.html'):
+    """
+    Generate HTML file for viewing all distribution graphs in browser.
+    
+    Args:
+        results: List of analysis results
+        analyzer: CoinStatsAnalyzer instance
+        output_dir: Directory containing PNG graphs
+        html_file: Output HTML filename
+    """
+    if not results:
+        return None
+    
+    html_path = os.path.join(output_dir, html_file)
+    
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptocurrency Statistics Analysis</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }}
+        h1 {{
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }}
+        .info {{
+            background-color: #e7f3fe;
+            border-left: 6px solid #2196F3;
+            padding: 10px;
+            margin-bottom: 20px;
+        }}
+        .graph-container {{
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .graph-header {{
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }}
+        .stats-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }}
+        .stats-table th, .stats-table td {{
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }}
+        .stats-table th {{
+            background-color: #4CAF50;
+            color: white;
+        }}
+        .stats-table tr:nth-child(even) {{
+            background-color: #f2f2f2;
+        }}
+        img {{
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }}
+        .normal-yes {{
+            color: green;
+            font-weight: bold;
+        }}
+        .normal-no {{
+            color: red;
+            font-weight: bold;
+        }}
+        .timestamp {{
+            color: #666;
+            font-size: 0.9em;
+            text-align: right;
+            margin-top: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <h1>📊 Cryptocurrency Statistics Analysis</h1>
+    
+    <div class="info">
+        <strong>Analysis Summary:</strong><br>
+        Total pairs analyzed: {len(results)}<br>
+        Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    </div>
+"""
+    
+    for analysis in results:
+        pair = analysis['pair']
+        pair_name = analyzer.format_pair_name(pair)
+        stats = analysis['stats']
+        threshold = analysis.get('threshold_95')
+        
+        # Check if normality test exists
+        is_normal = stats.get('normality_test', {}).get('is_normal', False)
+        normal_class = 'normal-yes' if is_normal else 'normal-no'
+        normal_text = '✓ YES' if is_normal else '✗ NO'
+        
+        graph_filename = f"{pair}_distribution.png"
+        
+        html_content += f"""
+    <div class="graph-container">
+        <div class="graph-header">
+            <h2>{pair_name} ({pair})</h2>
+        </div>
+        
+        <table class="stats-table">
+            <tr>
+                <th>Metric</th>
+                <th>Value</th>
+            </tr>
+            <tr>
+                <td>Mean Price</td>
+                <td>${stats['mean']:,.4f}</td>
+            </tr>
+            <tr>
+                <td>Median Price</td>
+                <td>${stats['median']:,.4f}</td>
+            </tr>
+            <tr>
+                <td>Standard Deviation</td>
+                <td>${stats['stdev']:,.4f}</td>
+            </tr>
+            <tr>
+                <td>Min / Max Price</td>
+                <td>${stats['min_price']:,.4f} / ${stats['max_price']:,.4f}</td>
+            </tr>
+            <tr>
+                <td>Data Points</td>
+                <td>{stats['count']} minutes</td>
+            </tr>
+            <tr>
+                <td>Normal Distribution?</td>
+                <td class="{normal_class}">{normal_text}</td>
+            </tr>
+"""
+        
+        if threshold:
+            html_content += f"""
+            <tr>
+                <td>95% Threshold</td>
+                <td>±{threshold['threshold_pct']:.2f}%</td>
+            </tr>
+            <tr>
+                <td>Upper Price Target</td>
+                <td>${threshold['threshold_price_up']:,.4f}</td>
+            </tr>
+            <tr>
+                <td>Lower Price Target</td>
+                <td>${threshold['threshold_price_down']:,.4f}</td>
+            </tr>
+            <tr>
+                <td>Confidence</td>
+                <td>{threshold['confidence'].upper()}</td>
+            </tr>
+"""
+        
+        html_content += f"""
+        </table>
+        
+        <img src="{graph_filename}" alt="{pair_name} Distribution">
+    </div>
+"""
+    
+    html_content += f"""
+    <div class="timestamp">
+        Generated by coin_stats.py on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    </div>
+</body>
+</html>
+"""
+    
+    with open(html_path, 'w') as f:
+        f.write(html_content)
+    
+    return html_path
+
+
+def generate_config_suggestions(results, analyzer, output_file='suggested_config.csv'):
+    """
+    Generate suggested config.csv entries for high-probability triggers.
+    
+    Creates configuration entries that are likely to trigger within 24 hours
+    based on the 95% probability thresholds.
+    
+    Args:
+        results: List of analysis results
+        analyzer: CoinStatsAnalyzer instance
+        output_file: Path to suggested config CSV file
+    """
+    if not results:
+        return None
+    
+    # Filter for results with valid thresholds
+    valid_results = [r for r in results if r.get('threshold_95')]
+    
+    if not valid_results:
+        return None
+    
+    with open(output_file, 'w', newline='') as csvfile:
+        fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
+                     'direction', 'volume', 'trailing_offset_percent', 'enabled']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        entry_count = 0
+        for analysis in valid_results:
+            pair = analysis['pair']
+            stats = analysis['stats']
+            threshold = analysis.get('threshold_95')
+            
+            if not threshold:
+                continue
+            
+            # Get current mean price
+            current_price = stats['mean']
+            threshold_pct = threshold['threshold_pct']
+            
+            # Calculate threshold prices (95% probability of being exceeded)
+            upper_threshold = threshold['threshold_price_up']
+            lower_threshold = threshold['threshold_price_down']
+            
+            # Use a conservative trailing offset based on volatility
+            # Use half of the threshold percentage as trailing offset
+            trailing_offset = max(1.0, threshold_pct / 2)
+            
+            # Suggest a small volume for testing (0.01 for most, smaller for high-value assets)
+            if current_price > 10000:  # BTC-like prices
+                volume = 0.001
+            elif current_price > 1000:  # ETH-like prices
+                volume = 0.01
+            else:
+                volume = 0.1
+            
+            # Create entry for price going above upper threshold (sell TSL)
+            entry_count += 1
+            pair_short = analyzer.format_pair_name(pair).replace('/', '_').lower()
+            writer.writerow({
+                'id': f"{pair_short}_above_{entry_count}",
+                'pair': pair,
+                'threshold_price': f"{upper_threshold:.2f}",
+                'threshold_type': 'above',
+                'direction': 'sell',
+                'volume': f"{volume:.4f}",
+                'trailing_offset_percent': f"{trailing_offset:.2f}",
+                'enabled': 'true'
+            })
+            
+            # Create entry for price going below lower threshold (buy TSL)
+            entry_count += 1
+            writer.writerow({
+                'id': f"{pair_short}_below_{entry_count}",
+                'pair': pair,
+                'threshold_price': f"{lower_threshold:.2f}",
+                'threshold_type': 'below',
+                'direction': 'buy',
+                'volume': f"{volume:.4f}",
+                'trailing_offset_percent': f"{trailing_offset:.2f}",
+                'enabled': 'true'
+            })
+    
+    return output_file
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -523,6 +856,24 @@ def main():
         '--json-output',
         type=str,
         help='Save results to JSON file'
+    )
+    parser.add_argument(
+        '--csv-output',
+        type=str,
+        default='summary_stats.csv',
+        help='Save summary table to CSV file (default: summary_stats.csv)'
+    )
+    parser.add_argument(
+        '--html-output',
+        type=str,
+        default='index.html',
+        help='HTML filename for graph viewer (default: index.html, saved in output-dir)'
+    )
+    parser.add_argument(
+        '--config-output',
+        type=str,
+        default='suggested_config.csv',
+        help='Generate suggested config.csv for TTSLO (default: suggested_config.csv)'
     )
     
     args = parser.parse_args()
@@ -576,6 +927,34 @@ def main():
     
     # Print summary table
     print_summary_table(results)
+    
+    # Save CSV summary
+    csv_path = save_summary_csv(results, analyzer, args.csv_output)
+    if csv_path:
+        print(f"\n✓ Summary table saved to {csv_path}")
+    
+    # Generate HTML viewer for graphs
+    if not args.no_graphs:
+        html_path = generate_html_viewer(results, analyzer, args.output_dir, args.html_output)
+        if html_path:
+            print(f"✓ HTML graph viewer saved to {html_path}")
+            print(f"  Open in browser: file://{os.path.abspath(html_path)}")
+    
+    # Generate suggested config.csv entries
+    config_path = generate_config_suggestions(results, analyzer, args.config_output)
+    if config_path:
+        print(f"\n{'='*70}")
+        print(f"SUGGESTED CONFIG FOR HIGH-PROBABILITY TRIGGERS")
+        print(f"{'='*70}")
+        print(f"\nIn order to create items that have a high chance of triggering")
+        print(f"in the next 24 hours, add these lines to your config.csv:")
+        print(f"\n✓ Suggested config saved to {config_path}")
+        print(f"\nThese entries are based on 95% probability thresholds from the analysis.")
+        print(f"Each pair has two entries:")
+        print(f"  - Above threshold: Triggers when price exceeds upper bound")
+        print(f"  - Below threshold: Triggers when price falls below lower bound")
+        print(f"\n⚠️  WARNING: These are suggestions based on statistical analysis.")
+        print(f"   Review and adjust volumes before using in production!")
     
     # Save JSON if requested
     if args.json_output:

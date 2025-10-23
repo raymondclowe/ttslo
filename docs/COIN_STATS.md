@@ -29,6 +29,12 @@ The `coin_stats.py` tool analyzes minute-by-minute price data for cryptocurrency
 - **Confidence Levels**: Assesses prediction reliability (High/Medium/Low) based on normality test
 - **24-Hour Predictions**: Estimates likely price range for the next day
 
+### Export Capabilities
+- **CSV Export**: Summary table exported to CSV for spreadsheet analysis
+- **HTML Viewer**: Auto-generated HTML page for viewing all graphs in browser
+- **Config Suggestions**: Generates suggested config.csv entries for TTSLO based on probability thresholds
+- **JSON Export**: Complete analysis results in JSON format
+
 ## Installation
 
 The tool requires additional Python packages for full functionality:
@@ -81,11 +87,41 @@ python3 tools/coin_stats.py --hours 168
 
 ### Save Results
 
-Export results to JSON:
+Export results in multiple formats:
 
 ```bash
+# Export to JSON
 python3 tools/coin_stats.py --json-output results.json
+
+# Export summary to CSV (default: summary_stats.csv)
+python3 tools/coin_stats.py --csv-output my_summary.csv
+
+# Generate HTML viewer for graphs (default: index.html in output-dir)
+python3 tools/coin_stats.py --html-output viewer.html
+
+# Generate suggested config.csv for TTSLO (default: suggested_config.csv)
+python3 tools/coin_stats.py --config-output my_config.csv
 ```
+
+### Complete Analysis with All Exports
+
+```bash
+python3 tools/coin_stats.py \
+  --pairs XXBTZUSD XETHZUSD SOLUSD \
+  --hours 48 \
+  --output-dir ./analysis_results \
+  --csv-output summary.csv \
+  --html-output index.html \
+  --config-output suggested_triggers.csv \
+  --json-output full_data.json
+```
+
+This will create:
+- Distribution graphs in `./analysis_results/`
+- HTML viewer at `./analysis_results/index.html`
+- CSV summary table at `summary.csv`
+- Suggested config entries at `suggested_triggers.csv`
+- Complete JSON data at `full_data.json`
 
 ### Skip Graph Generation
 
@@ -119,9 +155,76 @@ python3 tools/coin_stats.py --output-dir /path/to/graphs
 --no-graphs
     Skip generating graphs (useful for quick analysis)
     
+--csv-output CSV_OUTPUT
+    Save summary table to CSV file (default: summary_stats.csv)
+    
+--html-output HTML_OUTPUT
+    HTML filename for graph viewer (default: index.html, saved in output-dir)
+    
+--config-output CONFIG_OUTPUT
+    Generate suggested config.csv for TTSLO (default: suggested_config.csv)
+    
 --json-output JSON_OUTPUT
-    Save results to JSON file for further processing
+    Save complete results to JSON file for further processing
 ```
+
+## Output Files
+
+### CSV Summary Table (`summary_stats.csv`)
+
+Spreadsheet-friendly export with columns:
+- Pair, Pair_Name, Mean, Median, StdDev, Min, Max, Range
+- Pct_Mean, Pct_Median, Pct_StdDev
+- Normal_Distribution, Normality_PValue
+- Threshold_95_Pct, Threshold_Price_Up, Threshold_Price_Down
+- Confidence, Data_Points
+
+**Use cases:**
+- Import into Excel/Google Sheets for further analysis
+- Create custom charts and visualizations
+- Compare results across multiple runs
+- Filter and sort by volatility or other metrics
+
+### HTML Graph Viewer (`index.html`)
+
+Interactive HTML page with:
+- All distribution graphs embedded
+- Statistical summary tables for each pair
+- Color-coded normality indicators
+- Responsive design for mobile/desktop viewing
+
+**How to use:**
+1. Open `graphs/index.html` in any web browser
+2. Scroll through all pairs and their graphs
+3. Click graphs to view full size
+4. Print or save page for documentation
+
+### Suggested Config (`suggested_config.csv`)
+
+Ready-to-use config.csv entries for TTSLO with:
+- High-probability trigger thresholds (based on 95% analysis)
+- Both above and below entries for each pair
+- Conservative volumes suitable for testing
+- Trailing offsets calculated from volatility
+
+**Format (compatible with TTSLO config.csv):**
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
+btc_usd_above_1,XXBTZUSD,109958.73,above,sell,0.0010,1.00,true
+btc_usd_below_2,XXBTZUSD,109834.91,below,buy,0.0010,1.00,true
+```
+
+**How to use:**
+1. Review suggested entries carefully
+2. Adjust volumes based on your risk tolerance
+3. Copy entries to your main config.csv
+4. Run TTSLO to monitor triggers
+
+**⚠️ WARNING:** These are statistical predictions, not guarantees. Always:
+- Start with small volumes for testing
+- Monitor market conditions
+- Adjust based on your strategy
+- Review before enabling in production
 
 ## Output Explanation
 

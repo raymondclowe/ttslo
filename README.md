@@ -320,14 +320,13 @@ Analyze minute-by-minute price statistics to predict price movements with 95% co
 # Analyze default pairs (30+ popular coins)
 python3 tools/coin_stats.py
 
-# Quick analysis without graphs
-python3 tools/coin_stats.py --no-graphs --hours 24
-
-# Analyze specific pairs with JSON export
+# Complete analysis with all exports
 python3 tools/coin_stats.py \
   --pairs XXBTZUSD XETHZUSD SOLUSD \
   --hours 48 \
-  --json-output results.json
+  --csv-output summary.csv \
+  --html-output index.html \
+  --config-output suggested_config.csv
 ```
 
 The tool:
@@ -335,6 +334,9 @@ The tool:
 - Calculates mean, median, standard deviation of prices
 - Tests for normal distribution (Shapiro-Wilk test)
 - Generates distribution graphs as PNGs
+- **NEW:** Exports summary to CSV for spreadsheet analysis
+- **NEW:** Creates HTML viewer for easy browser viewing of all graphs
+- **NEW:** Generates suggested config.csv entries for TTSLO
 - Predicts 95% probability thresholds for 24-hour price movements
 
 **Example Output**:
@@ -343,6 +345,10 @@ Pair: BTC/USD
   Mean: $109,848.15, StdDev: $200.19
   95% Threshold: ±0.06%
   → 95% probability price will move beyond ±0.06% within 24h
+
+✓ Summary table saved to summary_stats.csv
+✓ HTML graph viewer saved to graphs/index.html
+✓ Suggested config saved to suggested_config.csv
 ```
 
 See [COIN_STATS.md](docs/COIN_STATS.md) for detailed documentation.
