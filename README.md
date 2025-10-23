@@ -455,15 +455,16 @@ When an API error occurs:
 
 **Network Outage**: If your internet connection drops, TTSLO will:
 - Log connection errors for each failed API call
-- **Attempt** to send notifications about connection issues
-- **Note**: If network is completely down, Telegram notifications will also fail (can't reach Telegram API either)
+- **Queue** notifications that fail to send
+- **Persist** the queue to disk (`notification_queue.json`)
 - All errors are still logged locally in logs.csv
 - Continue trying on next monitoring cycle
-- Resume normal operation and send queued notifications when connection is restored
+- **Automatically flush** queued notifications when connection is restored
+- **Send recovery notification** with downtime duration and queued message count
 
 **Kraken Maintenance**: If Kraken API returns 503 (Service Unavailable):
 - Log server error with status code
-- Send notification about Kraken being down
+- Send notification about Kraken being down (queued if network is also down)
 - Skip processing for this cycle
 - Automatically resume when service is back
 
@@ -485,13 +486,42 @@ This ensures you're immediately notified of any API issues so you can take actio
 
 ### Limitations of Telegram Notifications
 
-**Important**: Telegram notifications have a known limitation during complete network outages:
+**Enhanced with Notification Queue**: TTSLO now includes an intelligent notification queue system that handles network outages gracefully.
 
-- If your local network is completely down, TTSLO cannot reach either Kraken API **or** Telegram API
-- In this case, notifications will fail silently (timeout/connection error)
-- **All errors are still logged locally** in `logs.csv` regardless of notification status
-- When network is restored, you can review `logs.csv` to see what happened during the outage
-- Future notifications will resume working once network is back
+**How it works**:
+
+1. **During Network Outage**:
+   - Notifications that fail to send are automatically queued
+   - Queue is persisted to disk (`notification_queue.json`)
+   - Console shows: `📬 Queued notification for alice (X total in queue)`
+   - All errors still logged to `logs.csv`
+
+2. **When Network Recovers**:
+   - Next successful API call triggers automatic queue flush
+   - All queued notifications sent with `[Queued from TIMESTAMP]` prefix
+   - Recovery notification sent to all recipients with downtime duration
+   - Queue cleared after successful delivery
+
+3. **Persistent Across Restarts**:
+   - Queue survives application restarts
+   - Notifications will be sent when app restarts and network is available
+
+**Example Recovery Notification**:
+```
+✅ TTSLO: Telegram notifications restored
+
+Notifications were unavailable for 2 hours 15 minutes
+From: 2025-10-23 10:00:00 UTC
+To: 2025-10-23 12:15:00 UTC
+
+Sending 5 queued notifications...
+```
+
+**What Gets Logged vs Notified**:
+- ✅ **Always logged**: All API errors, with full details and timestamps
+- 📬 **Queued if unreachable**: Telegram messages queued for later delivery
+- ✅ **Eventually delivered**: All queued notifications sent when network restored
+- ✅ **Console output**: Error messages printed to stdout/stderr (visible in systemd logs)
 
 **Best Practices**:
 1. Always monitor `logs.csv` for complete error history

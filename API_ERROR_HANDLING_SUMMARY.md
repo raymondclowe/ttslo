@@ -185,16 +185,37 @@ Created `demo_api_error_handling.py` to demonstrate:
 
 ### Known Limitation: Network Outages
 
-**Important**: During a complete network outage:
+**Enhanced with Notification Queue** (New Feature):
+
+TTSLO now includes an intelligent notification queue system that solves the network outage problem:
+
+**During network outage**:
 - Kraken API calls fail (connection error)
 - Telegram notification attempts also fail (cannot reach Telegram API)
+- **Notifications are automatically queued** instead of being lost
+- Queue is persisted to disk (`notification_queue.json`)
 - **All errors are still logged to logs.csv**
-- Console output shows: `✗ Cannot reach Telegram API (network may be down)`
+- Console shows: `📬 Queued notification for alice (X total in queue)`
 - System continues running and monitoring
 
-**Why this happens**: If you can't reach Kraken's servers, you likely can't reach Telegram's servers either (same network outage).
+**When network is restored**:
+- Next successful API call triggers automatic queue flush
+- All queued notifications sent with `[Queued from TIMESTAMP]` prefix
+- Recovery notification sent to all recipients:
+  ```
+  ✅ TTSLO: Telegram notifications restored
+  
+  Notifications were unavailable for 2 hours 15 minutes
+  From: 2025-10-23 10:00:00 UTC
+  To: 2025-10-23 12:15:00 UTC
+  
+  Sending 5 queued notifications...
+  ```
+- Queue cleared after successful delivery
 
-**Mitigation strategies**:
+**Why this is better**: Previously, notifications during network outages were lost. Now they are queued and automatically delivered when connectivity is restored, with full context about the outage.
+
+**Additional mitigation strategies**:
 1. Always check `logs.csv` for complete error history
 2. Monitor log files with external tools (log aggregation, alerts on log patterns)
 3. Run TTSLO as systemd service to capture console output in journalctl

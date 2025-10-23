@@ -210,6 +210,7 @@ __marimo__/
 config.csv
 state.csv
 logs.csv
+notification_queue.json
 
 # Environment files (but keep the example)
 .env

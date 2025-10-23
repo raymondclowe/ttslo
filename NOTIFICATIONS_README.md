@@ -301,19 +301,61 @@ def monitor_ttslo():
 
 **Important Limitation**: During a complete network outage, Telegram notifications cannot be sent.
 
-**What happens**:
+**Enhanced Behavior (with Notification Queue)**:
+
+TTSLO now includes an intelligent notification queue system that:
+
+1. **Detects** when Telegram API is unreachable (timeout or connection error)
+2. **Queues** all notifications that fail to send
+3. **Persists** the queue to disk (`notification_queue.json`)
+4. **Monitors** for when Telegram becomes reachable again
+5. **Flushes** all queued notifications when connectivity is restored
+6. **Notifies** users about the downtime period and queued message count
+
+**What happens during network outage**:
 - TTSLO detects Kraken API is unreachable (connection error)
 - TTSLO logs the error to `logs.csv`
 - TTSLO attempts to send Telegram notification
 - Telegram notification fails (cannot reach Telegram API either)
+- Notification is **queued** for later delivery
 - Error message printed to console: `✗ Cannot reach Telegram API (network may be down)`
+- Queue is saved to disk: `📬 Queued notification for alice (1 total in queue)`
 - Processing continues on next cycle
+
+**What happens when network is restored**:
+- Next successful API call triggers queue flush attempt
+- All queued notifications are sent with `[Queued from TIMESTAMP]` prefix
+- Recovery notification sent to all recipients:
+  ```
+  ✅ TTSLO: Telegram notifications restored
+  
+  Notifications were unavailable for 2 hours 15 minutes
+  From: 2025-10-23 10:00:00 UTC
+  To: 2025-10-23 12:15:00 UTC
+  
+  Sending 5 queued notifications...
+  ```
+- Queue is cleared after successful delivery
 
 **What you'll see in logs**:
 ```
 [2025-10-23 12:00:00] ERROR: Kraken API error getting current price for XXBTZUSD: Failed to connect to Kraken API (type: connection)
 ✗ Cannot reach Telegram API (network may be down): [Errno -2] Name or service not known
+⚠️  Telegram marked as unreachable at 2025-10-23T12:00:00+00:00
+📬 Queued notification for alice (1 total in queue)
+...
+[2025-10-23 14:15:00] INFO: Price check successful
+Attempting to flush 5 queued notifications...
+✓ Sent 5 queued notifications
+✓ Telegram is reachable again after 2 hours 15 minutes downtime
 ```
+
+**Benefits of Notification Queue**:
+- **No lost notifications**: All notifications are eventually delivered
+- **Automatic recovery**: No manual intervention needed
+- **Downtime awareness**: Users are informed about the outage duration
+- **Persistent across restarts**: Queue survives application restarts
+- **Ordered delivery**: Notifications sent in the order they were queued
 
 **Recommendations**:
 1. **Always check logs.csv**: All errors are logged regardless of notification status
