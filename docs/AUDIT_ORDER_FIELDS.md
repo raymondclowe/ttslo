@@ -30,7 +30,7 @@ All required fields are present, properly mapped, and the buy/sell direction log
    - Official Kraken sample implementation
 4. **Compliance Report:** `api-docs/COMPLIANCE_REPORT.md`
    - Previous compliance analysis
-5. **Test Coverage:** `test_extract_open_orders.py`
+5. **Test Coverage:** `tests/test_extract_open_orders.py`
    - Tests validating buy/sell direction handling
 
 ---
@@ -228,9 +228,9 @@ From `api-docs/add-order.md`:
 
 ## Test Coverage Analysis
 
-### Test File: `test_extract_open_orders.py`
+### Test File: `tests/test_extract_open_orders.py`
 
-#### Test: `test_extract_trailing_stop_orders_filters_correctly()`
+#### Test: `tests/test_extract_trailing_stop_orders_filters_correctly()`
 
 **Lines 22-77:** Tests both buy and sell directions
 
@@ -258,7 +258,7 @@ From `api-docs/add-order.md`:
 - ✅ Line 65: `assert orders[0]['direction'] == 'sell'`
 - ✅ Line 74: `assert orders[1]['direction'] == 'buy'`
 
-#### Test: `test_extract_orders_from_real_api_format()`
+#### Test: `tests/test_extract_orders_from_real_api_format()`
 
 **Lines 178-263:** Tests with real API format (matching example orders)
 
@@ -566,7 +566,7 @@ The code is **fully compliant** with Kraken API documentation and correctly hand
 All existing tests pass and validate the correct behavior:
 
 ```bash
-$ uv run pytest test_extract_open_orders.py -v
+$ uv run pytest tests/test_extract_open_orders.py -v
 ============================= test session starts ==============================
 test_extract_open_orders.py::test_extract_trailing_stop_orders_filters_correctly PASSED
 test_extract_open_orders.py::test_extract_trailing_stop_orders_empty_response PASSED

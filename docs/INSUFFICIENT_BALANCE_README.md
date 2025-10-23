@@ -172,10 +172,10 @@ All balance checks and order creation attempts are logged:
 
 ```bash
 # Run all balance-related tests
-uv run pytest test_insufficient_balance.py -v
+uv run pytest tests/test_insufficient_balance.py -v
 
 # Run notification tests
-uv run pytest test_notifications.py -v
+uv run pytest tests/test_notifications.py -v
 
 # Run all tests
 uv run pytest -v

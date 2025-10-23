@@ -198,8 +198,8 @@ To modify the dashboard:
 
 1. **Backend:** Edit `dashboard.py` for API endpoints and data processing
 2. **Frontend:** Edit `templates/dashboard.html` for UI changes
-3. **Tests:** Add tests to `test_dashboard.py`
-4. **Run tests:** `uv run pytest test_dashboard.py -v`
+3. **Tests:** Add tests to `tests/test_dashboard.py`
+4. **Run tests:** `uv run pytest tests/test_dashboard.py -v`
 
 ## Design Principles
 

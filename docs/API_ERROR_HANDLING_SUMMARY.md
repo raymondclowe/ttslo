@@ -118,7 +118,7 @@ users = alice
 
 ### Test Coverage
 
-Created comprehensive test suite in `test_api_error_handling.py`:
+Created comprehensive test suite in `tests/test_api_error_handling.py`:
 
 **Kraken API Error Handling Tests (11 tests):**
 - Timeout on public endpoint
@@ -163,7 +163,7 @@ Created `demo_api_error_handling.py` to demonstrate:
 | `kraken_api.py` | +147 | 4 | Exception classes, error handling |
 | `notifications.py` | +43 | 7 | API error notifications |
 | `ttslo.py` | +83 | 16 | Error handling integration |
-| `test_api_error_handling.py` | +296 | 0 | Test suite |
+| `tests/test_api_error_handling.py` | +296 | 0 | Test suite |
 | `notifications.ini.example` | +7 | 0 | Configuration template |
 | `README.md` | +51 | 0 | Documentation |
 | `NOTIFICATIONS_README.md` | +51 | 0 | Notification examples |

@@ -89,12 +89,12 @@ Successfully migrated TTSLO price querying from REST API polling to WebSocket re
 ### Files Created
 - `WEBSOCKET_INTEGRATION.md`: Comprehensive usage guide
 - Demo scripts in `/tmp`:
-  - `test_websocket_price.py`: Basic functionality test
-  - `test_ttslo_integration.py`: TTSLO integration test
-  - `test_performance.py`: Performance comparison
-  - `test_realtime.py`: Real-time monitoring demo
+  - `tests/test_websocket_price.py`: Basic functionality test
+  - `tests/test_ttslo_integration.py`: TTSLO integration test
+  - `tests/test_performance.py`: Performance comparison
+  - `tests/test_realtime.py`: Real-time monitoring demo
   - `websocket_demo.py`: Full feature demonstration
-  - `test_final_integration.py`: Complete workflow test
+  - `tests/test_final_integration.py`: Complete workflow test
 
 ### Examples Provided
 - Basic WebSocket usage

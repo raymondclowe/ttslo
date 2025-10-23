@@ -97,8 +97,8 @@ def on_key(self, event: events.Key) -> None:
    - Updated `action_edit_cell()` to use new editor
 
 2. **test_csv_editor.py** (+53 lines)
-   - Added `test_inline_cell_editor_binary_fields()`
-   - Added `test_inline_cell_editor_validation()`
+   - Added `tests/test_inline_cell_editor_binary_fields()`
+   - Added `tests/test_inline_cell_editor_validation()`
 
 3. **CSV_EDITOR_README.md** (+30 lines)
    - Added "Inline Editing with Smart Dropdowns" section
@@ -130,8 +130,8 @@ All tests passing: **27/27 (100%)**
 **CSV Editor Tests** (15 tests):
 - 13 existing tests (all passing)
 - 2 new tests:
-  - `test_inline_cell_editor_binary_fields`: Verifies binary field detection
-  - `test_inline_cell_editor_validation`: Tests validation logic
+  - `tests/test_inline_cell_editor_binary_fields`: Verifies binary field detection
+  - `tests/test_inline_cell_editor_validation`: Tests validation logic
 
 **Financial Validation Tests** (9 tests):
 - All passing (validates buy high/sell low prevention)

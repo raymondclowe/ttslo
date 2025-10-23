@@ -182,13 +182,13 @@ Comprehensive tests are available:
 
 ```bash
 # Run pair matcher tests
-uv run pytest test_pair_matcher.py -v
+uv run pytest tests/test_pair_matcher.py -v
 
 # Run CSV editor integration tests
-uv run pytest test_csv_editor.py -v
+uv run pytest tests/test_csv_editor.py -v
 
 # Run all tests
-uv run pytest test_pair_matcher.py test_csv_editor.py -v
+uv run pytest tests/test_pair_matcher.py test_csv_editor.py -v
 ```
 
 Test coverage includes:
@@ -296,8 +296,8 @@ Potential improvements for future versions:
 To add new features or fix bugs:
 
 1. Update `pair_matcher.py` with your changes
-2. Add tests to `test_pair_matcher.py`
-3. Run tests: `uv run pytest test_pair_matcher.py -v`
+2. Add tests to `tests/test_pair_matcher.py`
+3. Run tests: `uv run pytest tests/test_pair_matcher.py -v`
 4. Update this README with new functionality
 
 ## License

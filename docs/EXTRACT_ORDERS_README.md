@@ -144,19 +144,19 @@ This shows how the utility works without requiring actual Kraken API credentials
 Run the tests:
 
 ```bash
-pytest test_extract_open_orders.py -v
+pytest tests/test_extract_open_orders.py -v
 ```
 
 Or with uv:
 
 ```bash
-uv run pytest test_extract_open_orders.py -v
+uv run pytest tests/test_extract_open_orders.py -v
 ```
 
 ## Related Files
 
 - `extract_open_orders.py` - Main utility script
-- `test_extract_open_orders.py` - Test suite
+- `tests/test_extract_open_orders.py` - Test suite
 - `demo_extract_open_orders.py` - Demo with mock data
 - `config.csv` - Your local configuration
 - `state.csv` - Tracking state of triggered orders

@@ -211,10 +211,10 @@ Run the test suite to verify WebSocket integration:
 
 ```bash
 # Run all TTSLO tests
-python3 -m pytest test_ttslo.py -v
+python3 -m pytest tests/test_ttslo.py -v
 
 # Run specific test
-python3 -m pytest test_ttslo.py::test_threshold_checking -v
+python3 -m pytest tests/test_ttslo.py::test_threshold_checking -v
 ```
 
 All existing tests pass with WebSocket enabled.

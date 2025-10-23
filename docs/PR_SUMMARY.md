@@ -112,10 +112,10 @@ Result: NO LINES LOST ✅
 
 ```bash
 # Run all race condition tests
-uv run pytest test_config_race_conditions.py -v
+uv run pytest tests/test_config_race_conditions.py -v
 
 # Run integration tests
-uv run pytest test_editor_integration.py -v
+uv run pytest tests/test_editor_integration.py -v
 
 # Run interactive demo
 uv run python demo_race_condition_fix.py

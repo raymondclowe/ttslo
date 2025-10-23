@@ -79,7 +79,7 @@ Successfully implemented automatic Telegram notifications when orders created by
 ## Testing
 
 ### Test Coverage
-- 6 new tests in `test_order_fill_notification.py`
+- 6 new tests in `tests/test_order_fill_notification.py`
 - All tests pass (100% success rate)
 - Tests cover:
   - Order filled scenario
@@ -138,7 +138,7 @@ The system will:
 ### Testing
 ```bash
 # Run tests
-uv run pytest test_order_fill_notification.py -v
+uv run pytest tests/test_order_fill_notification.py -v
 
 # Run demonstration
 uv run python3 demo_order_fill_notification.py
@@ -164,7 +164,7 @@ Fill Price: 49750.00
 4. `LEARNINGS.md` - Added implementation notes
 
 ### Added
-1. `test_order_fill_notification.py` - Comprehensive tests
+1. `tests/test_order_fill_notification.py` - Comprehensive tests
 2. `demo_order_fill_notification.py` - Visual demonstration
 3. `ORDER_FILL_NOTIFICATION_SUMMARY.md` - This document
 

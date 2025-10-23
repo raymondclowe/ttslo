@@ -155,12 +155,12 @@ if trailing_offset <= 0:
 - Errors in one config don't crash system
 - State saving wrapped in try-except
 
-### 8. Comprehensive Safety Tests (`test_ttslo.py`)
+### 8. Comprehensive Safety Tests (`tests/test_ttslo.py`)
 
 **New Tests Added:**
-- `test_fail_safe_order_creation()` - Tests order creation with invalid inputs
-- `test_fail_safe_threshold_checking()` - Tests threshold checking with invalid inputs
-- `test_kraken_api_parameter_validation()` - Tests API parameter validation
+- `tests/test_fail_safe_order_creation()` - Tests order creation with invalid inputs
+- `tests/test_fail_safe_threshold_checking()` - Tests threshold checking with invalid inputs
+- `tests/test_kraken_api_parameter_validation()` - Tests API parameter validation
 
 **Test Coverage:**
 - 8 scenarios for order creation failures
@@ -264,7 +264,7 @@ All tests pass successfully:
 
 - `ttslo.py`: ~520 lines → ~998 lines (+92% for safety)
 - `kraken_api.py`: ~200 lines → ~347 lines (+74% for safety)
-- `test_ttslo.py`: ~331 lines → ~570 lines (+72% for tests)
+- `tests/test_ttslo.py`: ~331 lines → ~570 lines (+72% for tests)
 - New: `SECURITY.md`: 294 lines
 - Updated: `README.md`: Added safety section
 
@@ -355,7 +355,7 @@ All changes are backward compatible:
    - Confirm no code path creates orders on invalid input
 
 2. **Test Review:**
-   - Review new test functions in `test_ttslo.py`
+   - Review new test functions in `tests/test_ttslo.py`
    - Verify test coverage of error cases
    - Run tests and verify all pass
 

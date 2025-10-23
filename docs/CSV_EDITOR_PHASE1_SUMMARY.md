@@ -45,7 +45,7 @@ Successfully implemented Phase 1 "Quick Wins" features from the CSV Editor Roadm
   - `btc_1` → `btc_2` (increments trailing number)
   - `eth_test` → `eth_test_1` (adds `_1` if no number)
   - `config123` → `config124` (increments embedded number)
-  - `test_99` → `test_100` (handles multi-digit numbers)
+  - `tests/test_99` → `tests/test_100` (handles multi-digit numbers)
 - Duplicated row placed at end of table
 - Notification shows new ID after duplication
 
@@ -94,10 +94,10 @@ Successfully implemented Phase 1 "Quick Wins" features from the CSV Editor Roadm
 - **Total Test Suite**: 25/25 tests passing
 
 ### New Tests
-1. `test_auto_increment_id`: Verifies ID increment logic for various formats
-2. `test_help_screen_creation`: Ensures help screen can be instantiated
-3. `test_modified_flag_updates_title`: Verifies title updates with modification state
-4. `test_confirm_quit_screen_creation`: Ensures quit confirmation can be created
+1. `tests/test_auto_increment_id`: Verifies ID increment logic for various formats
+2. `tests/test_help_screen_creation`: Ensures help screen can be instantiated
+3. `tests/test_modified_flag_updates_title`: Verifies title updates with modification state
+4. `tests/test_confirm_quit_screen_creation`: Ensures quit confirmation can be created
 
 ### Demo Script
 - Created `demo_csv_editor_roadmap.py` to showcase all features
@@ -143,7 +143,7 @@ Successfully implemented Phase 1 "Quick Wins" features from the CSV Editor Roadm
   - Overrode `action_quit()` (~25 lines)
   - Updated keybindings (+3 bindings)
 
-- `test_csv_editor.py`: +78 lines
+- `tests/test_csv_editor.py`: +78 lines
   - Added 4 new test functions
 
 - Documentation: +219 lines across 4 files

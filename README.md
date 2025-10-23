@@ -4,7 +4,7 @@ A Python tool for Kraken.com that monitors cryptocurrency prices and automatical
 
 ## ⚠️ Security Notice
 
-TTSLO is designed with **fail-safe** order handling. The system will **NEVER** create an order if anything is uncertain or abnormal. See [SECURITY.md](SECURITY.md) for complete safety guarantees and security documentation.
+TTSLO is designed with **fail-safe** order handling. The system will **NEVER** create an order if anything is uncertain or abnormal. See [SECURITY.md](docs/SECURITY.md) for complete safety guarantees and security documentation.
 
 ## Overview
 
@@ -150,7 +150,7 @@ TTSLO now uses Kraken's WebSocket API for real-time price updates, providing:
 
 ### Usage
 
-WebSocket is enabled by default - no configuration needed! For more details, see [WEBSOCKET_INTEGRATION.md](WEBSOCKET_INTEGRATION.md).
+WebSocket is enabled by default - no configuration needed! For more details, see [WEBSOCKET_INTEGRATION.md](docs/WEBSOCKET_INTEGRATION.md).
 
 To disable WebSocket (use REST only):
 ```python
@@ -241,9 +241,9 @@ uv run python csv_editor.py yourfile.csv
 - Visual notifications for all operations
 - Keyboard-driven workflow
 
-For detailed documentation, see [CSV_EDITOR_README.md](CSV_EDITOR_README.md).
+For detailed documentation, see [CSV_EDITOR_README.md](docs/CSV_EDITOR_README.md).
 
-**Roadmap**: We're continuously improving the CSV Editor! See [CSV_EDITOR_ROADMAP.md](CSV_EDITOR_ROADMAP.md) for planned enhancements. Recent additions include help screen, row duplication, unsaved changes indicators, and inline editing with smart dropdowns.
+**Roadmap**: We're continuously improving the CSV Editor! See [CSV_EDITOR_ROADMAP.md](docs/CSV_EDITOR_ROADMAP.md) for planned enhancements. Recent additions include help screen, row duplication, unsaved changes indicators, and inline editing with smart dropdowns.
 
 ## Web Dashboard
 
@@ -338,7 +338,7 @@ The codebase has been specifically designed for security review by beginners:
 - **Safety annotations**: Every check has a "SAFETY:" comment explaining why
 - **Comprehensive tests**: All safety features are tested
 
-See [SECURITY.md](SECURITY.md) for complete documentation of safety guarantees.
+See [SECURITY.md](docs/SECURITY.md) for complete documentation of safety guarantees.
 
 ## Configuration
 
@@ -429,7 +429,7 @@ Test your notification setup:
 uv run python demo_notifications.py
 ```
 
-For complete documentation, see [NOTIFICATIONS_README.md](NOTIFICATIONS_README.md).
+For complete documentation, see [NOTIFICATIONS_README.md](docs/NOTIFICATIONS_README.md).
 
 ## API Error Handling
 
@@ -748,7 +748,7 @@ uv run python extract_open_orders.py > open_orders.csv
 diff config.csv open_orders.csv
 ```
 
-This is useful when config.csv or state.csv may be out of sync with actual open orders on Kraken. See [EXTRACT_ORDERS_README.md](EXTRACT_ORDERS_README.md) for details.
+This is useful when config.csv or state.csv may be out of sync with actual open orders on Kraken. See [EXTRACT_ORDERS_README.md](docs/EXTRACT_ORDERS_README.md) for details.
 
 ## Contributing
 
