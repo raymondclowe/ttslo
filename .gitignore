@@ -224,3 +224,4 @@ notifications.ini
 graphs/
 *.png
 !docs/*.png
+deliverables_48h/
