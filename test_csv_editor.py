@@ -398,6 +398,72 @@ def test_inline_cell_editor_validation():
     print("✓ Inline cell editor validation test passed")
 
 
+def test_quit_binding_exists():
+    """Test that quit bindings are properly configured."""
+    from csv_editor import CSVEditor
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_file = os.path.join(tmpdir, 'test.csv')
+        
+        # Create a test CSV file
+        with open(test_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'name'])
+            writer.writerow(['1', 'test'])
+        
+        editor = CSVEditor(filename=test_file)
+        
+        # Check that quit bindings exist
+        binding_keys = [b.key for b in editor.BINDINGS]
+        assert "ctrl+q" in binding_keys, "Ctrl+Q binding should exist"
+        assert "escape" in binding_keys, "ESC binding should exist"
+        
+        # Check that both bindings map to 'quit' action
+        quit_bindings = [b for b in editor.BINDINGS if b.action == 'quit']
+        assert len(quit_bindings) >= 2, "Should have at least 2 quit bindings (Ctrl+Q and ESC)"
+        
+        # Verify action_quit method exists and is callable
+        assert hasattr(editor, 'action_quit'), "Editor should have action_quit method"
+        assert callable(editor.action_quit), "action_quit should be callable"
+        
+        print("✓ Quit binding exists test passed")
+
+
+def test_quit_action_calls_exit():
+    """Test that action_quit calls self.exit() properly."""
+    from csv_editor import CSVEditor
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_file = os.path.join(tmpdir, 'test.csv')
+        
+        # Create a test CSV file
+        with open(test_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'name'])
+            writer.writerow(['1', 'test'])
+        
+        editor = CSVEditor(filename=test_file)
+        
+        # Mock the exit method to verify it gets called
+        exit_called = []
+        original_exit = editor.exit
+        
+        def mock_exit(*args, **kwargs):
+            exit_called.append(True)
+            # Don't actually exit in the test
+            pass
+        
+        editor.exit = mock_exit
+        
+        # Test quit without unsaved changes
+        editor.modified = False
+        editor.action_quit()
+        
+        assert len(exit_called) == 1, "exit() should be called when quitting without unsaved changes"
+        
+        print("✓ Quit action calls exit test passed")
+
+
 def run_all_tests():
     """Run all tests."""
     print("Running CSV Editor tests...\n")
@@ -418,6 +484,8 @@ def run_all_tests():
         test_confirm_quit_screen_creation()
         test_inline_cell_editor_binary_fields()
         test_inline_cell_editor_validation()
+        test_quit_binding_exists()
+        test_quit_action_calls_exit()
         
         print("\n✅ All CSV Editor tests passed!")
         return 0
