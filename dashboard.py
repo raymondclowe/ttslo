@@ -12,9 +12,12 @@ import os
 import sys
 import signal
 import time
+import json
+import zipfile
+import io
 from datetime import datetime, timezone
 from functools import wraps
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, send_file
 from config import ConfigManager
 from kraken_api import KrakenAPI
 from creds import load_env
@@ -461,6 +464,89 @@ def api_status():
         'kraken_api_available': kraken_api is not None,
         'timestamp': datetime.now(timezone.utc).isoformat()
     })
+
+
+@app.route('/health')
+def health():
+    """Health check endpoint for monitoring."""
+    checks = {
+        'config_file': os.path.exists(CONFIG_FILE),
+        'kraken_api': kraken_api is not None
+    }
+    
+    is_healthy = all(checks.values())
+    
+    return jsonify({
+        'status': 'healthy' if is_healthy else 'unhealthy',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': checks
+    }), 200 if is_healthy else 503
+
+
+@app.route('/backup')
+def backup():
+    """Create and download a backup zip file with all config and data files."""
+    # Create an in-memory zip file
+    memory_file = io.BytesIO()
+    
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add config file if it exists
+        if os.path.exists(CONFIG_FILE):
+            zf.write(CONFIG_FILE, os.path.basename(CONFIG_FILE))
+        
+        # Add state file if it exists
+        if os.path.exists(STATE_FILE):
+            zf.write(STATE_FILE, os.path.basename(STATE_FILE))
+        
+        # Add log file if it exists
+        if os.path.exists(LOG_FILE):
+            zf.write(LOG_FILE, os.path.basename(LOG_FILE))
+        
+        # Add .env file if it exists (contains credentials)
+        env_file = os.getenv('TTSLO_ENV_FILE', '.env')
+        if os.path.exists(env_file):
+            zf.write(env_file, os.path.basename(env_file))
+        
+        # Add notifications config if it exists
+        notifications_ini_paths = [
+            'notifications.ini',
+            '/var/lib/ttslo/notifications.ini',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'notifications.ini')
+        ]
+        for notif_path in notifications_ini_paths:
+            if os.path.exists(notif_path):
+                zf.write(notif_path, 'notifications.ini')
+                break
+        
+        # Add a manifest with backup metadata
+        manifest = {
+            'backup_time': datetime.now(timezone.utc).isoformat(),
+            'files_included': zf.namelist()
+        }
+        zf.writestr('backup_manifest.json', json.dumps(manifest, indent=2))
+    
+    # Seek to beginning of BytesIO buffer
+    memory_file.seek(0)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
+    filename = f'ttslo-backup-{timestamp}.zip'
+    
+    return send_file(
+        memory_file,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@app.route('/openapi.json')
+def openapi_spec():
+    """Serve the OpenAPI specification."""
+    spec_path = os.path.join(os.path.dirname(__file__), 'openapi.json')
+    with open(spec_path, 'r') as f:
+        spec = json.load(f)
+    return jsonify(spec)
 
 
 if __name__ == '__main__':

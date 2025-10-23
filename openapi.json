@@ -1,0 +1,461 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "TTSLO Dashboard API",
+    "description": "REST API for TTSLO (Triggered Trailing Stop Loss Orders) dashboard - Monitor cryptocurrency orders on Kraken exchange",
+    "version": "1.0.0",
+    "contact": {
+      "name": "TTSLO Project",
+      "url": "https://github.com/raymondclowe/ttslo"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "orders",
+      "description": "Order monitoring endpoints"
+    },
+    {
+      "name": "system",
+      "description": "System status and utilities"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Dashboard UI",
+        "description": "Returns the main dashboard HTML interface",
+        "tags": ["system"],
+        "responses": {
+          "200": {
+            "description": "Dashboard HTML page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "System Status",
+        "description": "Get overall system status including configuration files and API availability",
+        "tags": ["system"],
+        "responses": {
+          "200": {
+            "description": "System status information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pending": {
+      "get": {
+        "summary": "Pending Orders",
+        "description": "Get list of pending orders that haven't triggered yet",
+        "tags": ["orders"],
+        "responses": {
+          "200": {
+            "description": "List of pending orders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PendingOrder"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/active": {
+      "get": {
+        "summary": "Active Orders",
+        "description": "Get list of orders that have triggered and are active on Kraken",
+        "tags": ["orders"],
+        "responses": {
+          "200": {
+            "description": "List of active orders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActiveOrder"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/completed": {
+      "get": {
+        "summary": "Completed Orders",
+        "description": "Get list of orders that have been executed",
+        "tags": ["orders"],
+        "responses": {
+          "200": {
+            "description": "List of completed orders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompletedOrder"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Returns the health status of the dashboard service",
+        "tags": ["system"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is unhealthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backup": {
+      "get": {
+        "summary": "Download Backup",
+        "description": "Download a zip file containing all configuration and data files including state, logs, and credentials (if available)",
+        "tags": ["system"],
+        "responses": {
+          "200": {
+            "description": "Backup zip file",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "attachment; filename=ttslo-backup-20251023-044300.zip"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI Specification",
+        "description": "Returns the OpenAPI specification for this API",
+        "tags": ["system"],
+        "responses": {
+          "200": {
+            "description": "OpenAPI specification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SystemStatus": {
+        "type": "object",
+        "properties": {
+          "config_file": {
+            "type": "string",
+            "description": "Path to configuration file",
+            "example": "config.csv"
+          },
+          "state_file": {
+            "type": "string",
+            "description": "Path to state file",
+            "example": "state.csv"
+          },
+          "config_exists": {
+            "type": "boolean",
+            "description": "Whether configuration file exists"
+          },
+          "state_exists": {
+            "type": "boolean",
+            "description": "Whether state file exists"
+          },
+          "kraken_api_available": {
+            "type": "boolean",
+            "description": "Whether Kraken API connection is available"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Current server timestamp (ISO 8601)"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["healthy", "unhealthy"],
+            "description": "Overall health status"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Health check timestamp (ISO 8601)"
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "config_file": {
+                "type": "boolean",
+                "description": "Configuration file is accessible"
+              },
+              "kraken_api": {
+                "type": "boolean",
+                "description": "Kraken API connection is working"
+              }
+            }
+          }
+        }
+      },
+      "PendingOrder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Configuration ID",
+            "example": "btc_1"
+          },
+          "pair": {
+            "type": "string",
+            "description": "Trading pair",
+            "example": "XXBTZUSD"
+          },
+          "threshold_price": {
+            "type": "string",
+            "description": "Price threshold that triggers the order",
+            "example": "50000"
+          },
+          "threshold_type": {
+            "type": "string",
+            "enum": ["above", "below"],
+            "description": "Condition type for trigger"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["buy", "sell"],
+            "description": "Order direction"
+          },
+          "volume": {
+            "type": "string",
+            "description": "Amount to trade",
+            "example": "0.01"
+          },
+          "trailing_offset_percent": {
+            "type": "string",
+            "description": "Trailing stop offset percentage",
+            "example": "5.0"
+          },
+          "current_price": {
+            "type": "number",
+            "description": "Current market price (null if unavailable)",
+            "nullable": true
+          },
+          "distance": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "absolute": {
+                "type": "number",
+                "description": "Absolute distance to trigger"
+              },
+              "percent": {
+                "type": "number",
+                "description": "Percentage distance to trigger"
+              },
+              "triggered": {
+                "type": "boolean",
+                "description": "Whether trigger condition is met"
+              }
+            }
+          }
+        }
+      },
+      "ActiveOrder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Configuration ID"
+          },
+          "order_id": {
+            "type": "string",
+            "description": "Kraken order ID"
+          },
+          "pair": {
+            "type": "string",
+            "description": "Trading pair"
+          },
+          "trigger_price": {
+            "type": "string",
+            "description": "Price at which order was triggered",
+            "nullable": true
+          },
+          "trigger_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the order was triggered",
+            "nullable": true
+          },
+          "volume": {
+            "type": "string",
+            "description": "Order volume"
+          },
+          "executed_volume": {
+            "type": "string",
+            "description": "Volume executed so far"
+          },
+          "status": {
+            "type": "string",
+            "description": "Order status from Kraken"
+          },
+          "order_type": {
+            "type": "string",
+            "description": "Type of order"
+          },
+          "price": {
+            "type": "string",
+            "description": "Order price"
+          },
+          "trailing_offset_percent": {
+            "type": "string",
+            "description": "Trailing stop offset percentage"
+          },
+          "manual": {
+            "type": "boolean",
+            "description": "Whether this is a manual order not created by TTSLO",
+            "nullable": true
+          },
+          "source": {
+            "type": "string",
+            "description": "Order source (e.g., 'kraken' for manual orders)",
+            "nullable": true
+          }
+        }
+      },
+      "CompletedOrder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Configuration ID"
+          },
+          "order_id": {
+            "type": "string",
+            "description": "Kraken order ID"
+          },
+          "pair": {
+            "type": "string",
+            "description": "Trading pair"
+          },
+          "trigger_price": {
+            "type": "number",
+            "description": "Price at which order was triggered"
+          },
+          "executed_price": {
+            "type": "number",
+            "description": "Price at which order was executed"
+          },
+          "trigger_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the order was triggered",
+            "nullable": true
+          },
+          "close_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the order was closed",
+            "nullable": true
+          },
+          "volume": {
+            "type": "string",
+            "description": "Order volume"
+          },
+          "status": {
+            "type": "string",
+            "description": "Order status"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["buy", "sell"],
+            "description": "Order direction"
+          },
+          "benefit": {
+            "type": "number",
+            "description": "Benefit from trailing stop (positive = profit)"
+          },
+          "benefit_percent": {
+            "type": "number",
+            "description": "Benefit as percentage"
+          },
+          "trailing_offset_percent": {
+            "type": "string",
+            "description": "Trailing stop offset percentage"
+          }
+        }
+      }
+    }
+  }
+}
