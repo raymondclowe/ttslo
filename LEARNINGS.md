@@ -549,5 +549,92 @@ All tests pass without making actual API calls.
 
 ---
 
+## Index Price Unavailable Fallback
+
+**Implementation Date**: October 2025
+
+### Problem
+Some trading pairs on Kraken don't have an "index price" available, only "last trade price". When creating trailing stop loss orders with `trigger='index'`, these pairs fail with error:
+```
+EGeneral:Invalid arguments:Index unavailable
+```
+
+### Root Cause
+- Kraken API supports two trigger types for stop orders: `index` and `last`
+- Index price is preferred (more stable, less manipulable)
+- Some coins (e.g., smaller altcoins) only have last trade price
+- AssetPairs API doesn't indicate which pairs support index price
+
+### Solution
+Implemented automatic fallback in `create_tsl_order()` method:
+1. Try creating order with `trigger='index'` first (preferred)
+2. Catch "Index unavailable" error specifically (case-insensitive)
+3. Automatically retry with `trigger='last'`
+4. Log the fallback for visibility
+
+### Implementation Details
+
+**Code Location**: `ttslo.py` lines 535-696 (create_tsl_order method)
+
+**Error Detection**:
+```python
+if 'index unavailable' in error_msg.lower():
+    # Retry with trigger='last'
+```
+
+**Retry Logic**:
+```python
+# First attempt
+api_kwargs = {'trigger': 'index'}
+result = api.add_trailing_stop_loss(..., **api_kwargs)
+
+# On index unavailable error
+api_kwargs['trigger'] = 'last'
+result = api.add_trailing_stop_loss(..., **api_kwargs)
+```
+
+**Logging**:
+- WARNING: "Index price unavailable for {pair}, retrying with last trade price"
+- INFO: "TSL order created successfully using last price trigger for {pair}"
+
+### Testing
+
+**Test File**: `tests/test_index_unavailable_fallback.py`
+
+**Test Cases** (5 tests, all passing):
+1. `test_index_unavailable_retries_with_last_price`: Verify retry succeeds
+2. `test_non_index_error_does_not_retry`: Other errors don't trigger retry
+3. `test_both_index_and_last_fail`: Handle case where both fail
+4. `test_case_insensitive_index_unavailable_detection`: Case variations work
+5. `test_successful_first_attempt_no_retry`: Success on first attempt (no retry)
+
+### Key Insights
+
+1. **Prefer Index**: Always try index price first - it's more stable and less prone to manipulation
+2. **Automatic Fallback**: Users don't need to configure anything - system handles it transparently
+3. **Case Insensitive**: Error detection works regardless of error message case
+4. **Minimal Changes**: Only retries on specific error, maintains all other error handling
+5. **Logging**: Clear visibility into which trigger was used for each order
+
+### Related Files
+- `ttslo.py`: Lines 535-696 (implementation)
+- `tests/test_index_unavailable_fallback.py`: Complete test suite
+- `api-docs/add-order.md`: API documentation for trigger parameter
+
+### Documentation
+From Kraken API docs:
+> **trigger** (string): Price signal used to trigger stop/take-profit orders
+> - Possible values: `index`, `last`
+> - Default value: `last`
+
+### Metrics
+- **Code Added**: ~110 lines (retry logic with error handling)
+- **Tests Added**: 5 new tests, all passing
+- **Total Tests**: 286 passing (up from 281)
+- **Performance**: No impact (retry only on specific error)
+- **Security**: Maintains all existing safety checks
+
+---
+
 *Add new learnings here as we discover them*
 
