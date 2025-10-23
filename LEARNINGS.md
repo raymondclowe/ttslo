@@ -340,4 +340,43 @@ All tests pass, no regressions in existing tests.
 
 ---
 
+## Textual App Action Quit Override
+
+**Problem**: When overriding `action_quit()` in a Textual App, calling `super().action_quit()` doesn't work.
+
+**Root Cause**: 
+- `App.action_quit()` is defined as `async def action_quit(self)` 
+- When you override it as `def action_quit(self)` (not async), calling `super().action_quit()` returns a coroutine that never executes
+- The quit action appears to do nothing
+
+**Solution**: Call `self.exit()` directly instead of `super().action_quit()`
+
+**Example**:
+```python
+# ❌ WRONG - doesn't work
+def action_quit(self) -> None:
+    if self.confirm_quit():
+        super(CSVEditor, self).action_quit()  # Returns unawaited coroutine!
+    
+# ✓ CORRECT - works properly  
+def action_quit(self) -> None:
+    if self.confirm_quit():
+        self.exit()  # Directly calls exit method
+```
+
+**Key Points**:
+1. `App.action_quit()` is async, but your override is typically sync
+2. Use `self.exit()` to properly terminate the app
+3. `exit()` accepts optional parameters: `result`, `return_code`, `message`
+4. Don't try to await the super call unless your override is also async
+
+**Related Issue**: csv_editor.py quit button didn't work (Ctrl+Q, ESC)
+
+**Related Files**:
+- `csv_editor.py`: Lines 1272-1292 (action_quit implementation)
+- `test_csv_editor.py`: test_quit_action_calls_exit() test
+
+---
+
 *Add new learnings here as we discover them*
+
