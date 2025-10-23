@@ -53,7 +53,7 @@ def test_check_order_filled_when_filled():
         )
         
         # Check order filled
-        is_filled, fill_price = ttslo.check_order_filled('test1', 'ORDER123')
+        is_filled, fill_price, api_pair, filled_volume = ttslo.check_order_filled('test1', 'ORDER123')
         
         assert is_filled == True, "Order should be marked as filled"
         assert fill_price == 51000.00, f"Fill price should be 51000.00, got {fill_price}"
