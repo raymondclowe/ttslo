@@ -145,7 +145,7 @@ See [CSV_EDITOR_ROADMAP.md](CSV_EDITOR_ROADMAP.md) for detailed contribution gui
 - **User Guide**: [CSV_EDITOR_README.md](CSV_EDITOR_README.md)
 - **Demo & Screenshots**: [CSV_EDITOR_DEMO.md](CSV_EDITOR_DEMO.md)
 - **Implementation Details**: [CSV_EDITOR_IMPLEMENTATION_SUMMARY.md](CSV_EDITOR_IMPLEMENTATION_SUMMARY.md)
-- **Tests**: `test_csv_editor.py`, `test_csv_editor_financial_validation.py`
+- **Tests**: `tests/test_csv_editor.py`, `tests/test_csv_editor_financial_validation.py`
 
 ## Questions?
 

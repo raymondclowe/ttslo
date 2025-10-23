@@ -76,8 +76,8 @@ if column_lower == "pair":
 #### 3. Test Coverage
 
 **Test Files:**
-- `test_pair_matcher.py`: 29 tests covering core matching logic
-- `test_csv_editor.py`: 9 tests including integration tests
+- `tests/test_pair_matcher.py`: 29 tests covering core matching logic
+- `tests/test_csv_editor.py`: 9 tests including integration tests
 
 **Test Categories:**
 - ✅ Exact matching
@@ -241,13 +241,13 @@ cd /home/runner/work/ttslo/ttslo
 export PATH="$HOME/.local/bin:$PATH"
 
 # Run pair matcher tests
-uv run pytest test_pair_matcher.py -v
+uv run pytest tests/test_pair_matcher.py -v
 
 # Run CSV editor tests (includes integration)
-uv run pytest test_csv_editor.py -v
+uv run pytest tests/test_csv_editor.py -v
 
 # Run all tests
-uv run pytest test_pair_matcher.py test_csv_editor.py -v
+uv run pytest tests/test_pair_matcher.py test_csv_editor.py -v
 ```
 
 ### Run Demo

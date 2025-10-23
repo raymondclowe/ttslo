@@ -124,7 +124,7 @@ Pending orders (cached):  ~0.004 seconds ✅ 2500x FASTER!
 - `config.py` - Added timing instrumentation
 
 ### Supporting Files
-- `test_dashboard_performance.py` - Performance test suite
+- `tests/test_dashboard_performance.py` - Performance test suite
 - `DASHBOARD_PERFORMANCE_ANALYSIS.md` - Detailed analysis
 - `DASHBOARD_PERFORMANCE_SUMMARY.md` - This summary
 

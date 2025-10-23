@@ -113,7 +113,7 @@ for attempt in range(max_retries):
 
 ### Test Coverage
 
-**Unit Tests** (`test_config_race_conditions.py`): 11 tests
+**Unit Tests** (`tests/test_config_race_conditions.py`): 11 tests
 - ✅ Atomic writes preserve all lines
 - ✅ Disable operations preserve all lines
 - ✅ Concurrent writes don't lose data
@@ -122,7 +122,7 @@ for attempt in range(max_retries):
 - ✅ Multiple sequential updates work
 - ✅ New columns don't cause line loss
 
-**Integration Tests** (`test_editor_integration.py`): 3 tests
+**Integration Tests** (`tests/test_editor_integration.py`): 3 tests
 - ✅ Editor adds lines while ttslo runs continuously
 - ✅ Validation failures don't delete lines
 - ✅ Triggered config updates preserve other lines
@@ -191,10 +191,10 @@ If you edit a specific config at the exact moment ttslo updates it, one of the c
 
 ```bash
 # Run all race condition tests
-uv run pytest test_config_race_conditions.py -v
+uv run pytest tests/test_config_race_conditions.py -v
 
 # Run integration tests
-uv run pytest test_editor_integration.py -v
+uv run pytest tests/test_editor_integration.py -v
 
 # Run demonstration
 uv run python demo_race_condition_fix.py

@@ -89,7 +89,7 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 
 **Files modified:**
 - `csv_editor.py`: Added `HelpScreen` modal, keybinding, and action method
-- `test_csv_editor.py`: Added test for help screen creation
+- `tests/test_csv_editor.py`: Added test for help screen creation
 - `CSV_EDITOR_README.md`: Documented help feature
 - `README.md`: Added help keybinding to feature list
 
@@ -134,7 +134,7 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 
 **Files modified:**
 - `csv_editor.py`: Added `action_duplicate_row()` method and `_auto_increment_id()` helper
-- `test_csv_editor.py`: Added test for ID auto-increment
+- `tests/test_csv_editor.py`: Added test for ID auto-increment
 - `CSV_EDITOR_README.md`: Documented row duplication feature
 - `README.md`: Added duplication keybinding
 
@@ -157,7 +157,7 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 
 **Files to modify:**
 - `csv_editor.py`: Add cell styling, status widget
-- `test_csv_editor.py`: Add tests for validation indicators
+- `tests/test_csv_editor.py`: Add tests for validation indicators
 
 ---
 
@@ -196,7 +196,7 @@ The CSV Editor is a functional Textual-based TUI for editing TTSLO configuration
 
 **Files modified:**
 - `csv_editor.py`: Added `_update_title()`, `_set_modified()`, `ConfirmQuitScreen`, and custom `action_quit()`
-- `test_csv_editor.py`: Added tests for modified flag and confirm quit screen
+- `tests/test_csv_editor.py`: Added tests for modified flag and confirm quit screen
 - `CSV_EDITOR_README.md`: Documented unsaved changes indicator
 - `README.md`: Updated quit keybinding description
 
@@ -506,12 +506,12 @@ Low Priority or High Effort (Future/Nice-to-Have)
 For each implemented feature:
 
 1. **Unit Tests**
-   - Add tests in `test_csv_editor.py`
+   - Add tests in `tests/test_csv_editor.py`
    - Cover happy path and error cases
    - Test validation logic
 
 2. **Integration Tests**
-   - Add tests in `test_editor_integration.py`
+   - Add tests in `tests/test_editor_integration.py`
    - Test with sample config files
    - Test file locking coordination
 

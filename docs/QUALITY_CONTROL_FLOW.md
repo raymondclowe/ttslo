@@ -178,10 +178,10 @@ users = alice
 Run the test suite to verify everything works:
 ```bash
 # Test balance checking
-uv run pytest test_insufficient_balance.py -v
+uv run pytest tests/test_insufficient_balance.py -v
 
 # Test notifications
-uv run pytest test_notifications.py -v
+uv run pytest tests/test_notifications.py -v
 
 # Test everything
 uv run pytest -v

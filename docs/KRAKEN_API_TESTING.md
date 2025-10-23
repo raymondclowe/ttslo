@@ -48,18 +48,18 @@ api = KrakenAPI(
 
 ```bash
 # Run all Kraken API tests
-uv run pytest test_kraken_api.py -v
+uv run pytest tests/test_kraken_api.py -v
 
 # Run all tests
 uv run pytest -q
 
 # Run specific test class
-uv run pytest test_kraken_api.py::TestKrakenAPIPublic -v
+uv run pytest tests/test_kraken_api.py::TestKrakenAPIPublic -v
 ```
 
 ### Test Coverage
 
-The test suite (`test_kraken_api.py`) includes 25 comprehensive tests:
+The test suite (`tests/test_kraken_api.py`) includes 25 comprehensive tests:
 
 #### Public Endpoints
 - ✓ Initialization with default and custom base URLs

@@ -24,7 +24,7 @@ The audit confirms that **all order fields are correctly mapped**, all required 
 - Example orders from live Kraken API (`example_tslo_orders-20251021.json`)
 - Official Kraken API documentation (`api-docs/add-order.md`)
 - Previous compliance report (`api-docs/COMPLIANCE_REPORT.md`)
-- Test coverage (`test_extract_open_orders.py`)
+- Test coverage (`tests/test_extract_open_orders.py`)
 
 ---
 
@@ -86,7 +86,7 @@ From official documentation:
 
 ### All Tests Pass
 ```
-$ uv run pytest test_order_field_mapping.py test_extract_open_orders.py -v
+$ uv run pytest tests/test_order_field_mapping.py test_extract_open_orders.py -v
 ============================== 24 passed ==============================
 ```
 
@@ -322,15 +322,15 @@ After comprehensive analysis:
 
 ### Files Created
 1. `AUDIT_ORDER_FIELDS.md` - Detailed 400+ line audit report
-2. `test_order_field_mapping.py` - 18 comprehensive tests
+2. `tests/test_order_field_mapping.py` - 18 comprehensive tests
 3. `AUDIT_SUMMARY.md` - This executive summary
 
 ### Test Results
 ```bash
-$ uv run pytest test_order_field_mapping.py -v
+$ uv run pytest tests/test_order_field_mapping.py -v
 ============================== 18 passed ==============================
 
-$ uv run pytest test_extract_open_orders.py -v
+$ uv run pytest tests/test_extract_open_orders.py -v
 ============================== 6 passed ==============================
 
 Total: 24 tests, 24 passed, 0 failed
@@ -341,7 +341,7 @@ Total: 24 tests, 24 passed, 0 failed
 - Example orders: `example_tslo_orders-20251021.json`
 - Previous compliance: `api-docs/COMPLIANCE_REPORT.md`
 - Code: `ttslo.py`, `kraken_api.py`
-- Tests: `test_extract_open_orders.py`, `test_order_field_mapping.py`
+- Tests: `tests/test_extract_open_orders.py`, `tests/test_order_field_mapping.py`
 
 ---
 

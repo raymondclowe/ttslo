@@ -47,14 +47,14 @@ Three comprehensive test suites were added:
 
 ### 1. test_validation_disable.py
 Unit tests for the disabling mechanism:
-- `test_disable_configs_with_errors` - Verifies single config disabling
-- `test_disable_multiple_configs` - Verifies multiple configs disabling
-- `test_no_disable_when_no_errors` - Verifies no changes when validation passes
+- `tests/test_disable_configs_with_errors` - Verifies single config disabling
+- `tests/test_disable_multiple_configs` - Verifies multiple configs disabling
+- `tests/test_no_disable_when_no_errors` - Verifies no changes when validation passes
 
 ### 2. test_integration_validation.py
 Integration tests with the TTSLO class:
-- `test_validation_error_disables_config` - Full integration test with single error
-- `test_validation_with_multiple_errors` - Full integration test with multiple errors
+- `tests/test_validation_error_disables_config` - Full integration test with single error
+- `tests/test_validation_with_multiple_errors` - Full integration test with multiple errors
 
 ### 3. Existing tests
 All existing tests continue to pass:

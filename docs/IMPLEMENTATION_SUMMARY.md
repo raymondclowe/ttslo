@@ -110,15 +110,15 @@ sum([0.5, 0.3])    → 0.8 BTC total
 - `ttslo.py` - Core balance checking logic
 - `notifications.py` - New notification methods
 - `notifications.ini.example` - New event types
-- `test_ttslo.py` - Fixed 3 tests for balance mocking
+- `tests/test_ttslo.py` - Fixed 3 tests for balance mocking
 
 ### New Files
-- `test_insufficient_balance.py` - 10 comprehensive tests
+- `tests/test_insufficient_balance.py` - 10 comprehensive tests
 - `INSUFFICIENT_BALANCE_README.md` - Feature documentation
 - `QUALITY_CONTROL_FLOW.md` - Visual flow charts
 
 ### Test Updates
-- `test_notifications.py` - Added 2 tests for new methods
+- `tests/test_notifications.py` - Added 2 tests for new methods
 
 ## ✅ Testing Results
 

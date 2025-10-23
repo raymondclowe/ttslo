@@ -2,6 +2,30 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Repository Organization
+
+**Date**: 2025-10-23
+
+**Context**: Repository had become cluttered with 100+ files in root directory, making it hard to navigate.
+
+**Solution**: Organized into logical directories:
+- `docs/` - All documentation (51 files)
+- `tests/` - All test files (35 files) 
+- `demos/` - Demo scripts and examples (15 files)
+- `tools/` - Debug/investigation scripts (12 files)
+- Root - Only core application files and required docs (AGENTS.md, README.md, LEARNINGS.md)
+
+**Key steps**:
+1. Use `git mv` to preserve history
+2. Create `tests/conftest.py` to add project root to Python path for imports
+3. Add `[tool.pytest.ini_options]` to `pyproject.toml` with `testpaths = ["tests"]`
+4. Update all documentation references: `sed -i 's|pytest test_|pytest tests/test_|g'`
+5. Update README.md links to moved docs: `[SECURITY.md](docs/SECURITY.md)`
+
+**Result**: Clean root directory, better organization, all 258 tests still passing.
+
+---
+
 ## IP Detection for Network Services
 
 **Problem**: When binding Flask/web services to `0.0.0.0`, `socket.gethostname()` and `socket.getaddrinfo()` may return localhost IPs like `127.0.1.1` instead of the actual LAN IP.

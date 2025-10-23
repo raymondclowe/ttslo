@@ -2,12 +2,12 @@
 
 ## Overview
 
-The live integration tests (`test_kraken_api_live.py`) run against the real Kraken API to verify the client implementation works correctly in production. These tests are designed to be safe and non-disruptive.
+The live integration tests (`tests/test_kraken_api_live.py`) run against the real Kraken API to verify the client implementation works correctly in production. These tests are designed to be safe and non-disruptive.
 
 ## Safety Features
 
 ### 1. Prerequisites Check
-- **Only runs after local tests pass**: Live tests will not run unless all unit tests in `test_kraken_api.py` pass first
+- **Only runs after local tests pass**: Live tests will not run unless all unit tests in `tests/test_kraken_api.py` pass first
 - **Requires explicit credentials**: Tests are skipped if environment variables are not set
 
 ### 2. Safe Order Design
@@ -84,7 +84,7 @@ LOCAL TESTS PASSED - Proceeding with live tests
 If you want to run live tests directly (skips local test check):
 
 ```bash
-uv run pytest test_kraken_api_live.py -v -s
+uv run pytest tests/test_kraken_api_live.py -v -s
 ```
 
 The `-s` flag shows detailed logging output during test execution.
@@ -94,7 +94,7 @@ The `-s` flag shows detailed logging output during test execution.
 To run a single test:
 
 ```bash
-uv run pytest test_kraken_api_live.py::TestKrakenAPILive::test_01_live_add_query_modify_cancel_limit_order -v -s
+uv run pytest tests/test_kraken_api_live.py::TestKrakenAPILive::test_01_live_add_query_modify_cancel_limit_order -v -s
 ```
 
 ## Test Scenarios
@@ -303,7 +303,7 @@ export COPILOT_W_KR_RW_SECRET="your_api_secret"
 
 **To bypass**: Use pytest directly:
 ```bash
-uv run pytest test_kraken_api_live.py -v -s
+uv run pytest tests/test_kraken_api_live.py -v -s
 ```
 
 ## Best Practices
@@ -402,10 +402,10 @@ jobs:
 
 To add new test scenarios:
 
-1. **Follow the naming convention**: `test_XX_live_description`
+1. **Follow the naming convention**: `tests/test_XX_live_description`
 2. **Use varying volumes**: Call `self.get_next_volume(iteration)` with unique iteration numbers
 3. **Use unreasonable prices**: Call `get_unreasonable_buy_price()` or `get_unreasonable_sell_price()`
-4. **Log all operations**: Use `test_logger.log_operation()`
+4. **Log all operations**: Use `tests/test_logger.log_operation()`
 5. **Clean up**: Always cancel orders at the end
 6. **Verify cleanup**: Query to confirm orders are cancelled
 

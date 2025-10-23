@@ -121,7 +121,7 @@ for attempt in range(max_retries):
 
 ## Testing
 
-### Unit Tests (`test_config_race_conditions.py`)
+### Unit Tests (`tests/test_config_race_conditions.py`)
 
 11 comprehensive tests covering:
 - ✅ Atomic writes preserve all lines
@@ -133,7 +133,7 @@ for attempt in range(max_retries):
 - ✅ New columns don't cause line loss
 - ✅ Non-existent configs don't corrupt file
 
-### Integration Tests (`test_editor_integration.py`)
+### Integration Tests (`tests/test_editor_integration.py`)
 
 3 real-world scenario tests:
 - ✅ Editor adds lines while ttslo runs continuously
