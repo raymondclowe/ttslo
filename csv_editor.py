@@ -20,6 +20,7 @@ with the running TTSLO service.
 Key Bindings:
     Ctrl+S: Save the CSV file
     Ctrl+Q: Quit the application
+    ESC: Quit the application
     Ctrl+N: Add a new row
     Ctrl+D: Delete the current row
     Enter: Edit the selected cell
@@ -724,6 +725,7 @@ class HelpScreen(ModalScreen):
 [bold yellow]File Operations:[/bold yellow]
   Ctrl+S           Save CSV file
   Ctrl+Q           Quit editor
+  ESC              Quit editor
 
 [bold yellow]Help:[/bold yellow]
   ?                Show this help screen
@@ -850,6 +852,7 @@ class CSVEditor(App):
     BINDINGS = [
         Binding("ctrl+s", "save_csv", "Save CSV"),
         Binding("ctrl+q", "quit", "Quit"),
+        Binding("escape", "quit", "Quit"),
         Binding("ctrl+n", "add_row", "Add Row"),
         Binding("ctrl+d", "delete_row", "Delete Row"),
         Binding("ctrl+shift+d", "duplicate_row", "Duplicate Row"),
@@ -1281,15 +1284,15 @@ class CSVEditor(App):
                     # Save and quit
                     self.action_save_csv()
                     # Wait a moment for save to complete, then quit
-                    self.set_timer(0.5, lambda: super(CSVEditor, self).action_quit())
+                    self.set_timer(0.5, lambda: self.exit())
                 else:
                     # Quit without saving
-                    super(CSVEditor, self).action_quit()
+                    self.exit()
             
             self.push_screen(ConfirmQuitScreen(), handle_quit_response)
         else:
             # No unsaved changes, quit immediately
-            super(CSVEditor, self).action_quit()
+            self.exit()
     
     def action_edit_cell(self) -> None:
         """Edit the currently selected cell."""
