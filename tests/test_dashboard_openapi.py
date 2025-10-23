@@ -229,3 +229,12 @@ def test_health_details_page(client):
     assert response.status_code == 200
     assert b'Health Status' in response.data
     assert b'System Health and Configuration Details' in response.data
+
+
+def test_test_notification_endpoint_when_disabled(client):
+    """Test that /api/test-notification returns error when notifications disabled."""
+    response = client.post('/api/test-notification')
+    assert response.status_code == 503
+    data = response.get_json()
+    assert data['success'] is False
+    assert 'error' in data

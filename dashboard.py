@@ -471,8 +471,18 @@ def health():
     """Health check endpoint for monitoring."""
     checks = {
         'config_file': os.path.exists(CONFIG_FILE),
-        'kraken_api': kraken_api is not None
+        'kraken_api': kraken_api is not None,
+        'telegram_notifications': True  # Default to True if not enabled
     }
+    
+    # Check notification status if enabled
+    if notification_manager and notification_manager.enabled:
+        # If last notification failed, mark as unhealthy
+        if notification_manager.last_notification_success is False:
+            checks['telegram_notifications'] = False
+        # If queue has items, notifications are failing
+        elif notification_manager.notification_queue:
+            checks['telegram_notifications'] = False
     
     is_healthy = all(checks.values())
     
@@ -487,6 +497,48 @@ def health():
 def health_details():
     """Detailed health status page."""
     return render_template('health_details.html')
+
+
+@app.route('/api/test-notification', methods=['POST'])
+def test_notification():
+    """Send a test notification with health information."""
+    if not notification_manager or not notification_manager.enabled:
+        return jsonify({
+            'success': False,
+            'error': 'Notifications not enabled',
+            'details': {
+                'token_present': bool(notification_manager.telegram_token) if notification_manager else False,
+                'recipients_count': len(notification_manager.recipients) if notification_manager else 0
+            }
+        }), 503
+    
+    # Get current health info
+    health_checks = {
+        'config_file': os.path.exists(CONFIG_FILE),
+        'kraken_api': kraken_api is not None,
+        'telegram_notifications': notification_manager.last_notification_success is not False
+    }
+    
+    # Get system info
+    system_info = {
+        'config_file': CONFIG_FILE,
+        'state_file': STATE_FILE,
+        'config_exists': os.path.exists(CONFIG_FILE),
+        'state_exists': os.path.exists(STATE_FILE),
+        'kraken_api_available': kraken_api is not None
+    }
+    
+    health_info = {
+        'status': 'healthy' if all(health_checks.values()) else 'unhealthy',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': health_checks,
+        'system_info': system_info
+    }
+    
+    # Send test notification
+    result = notification_manager.send_test_notification(health_info)
+    
+    return jsonify(result), 200 if result['success'] else 500
 
 
 @app.route('/backup')

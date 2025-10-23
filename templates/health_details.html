@@ -251,12 +251,72 @@
             </div>
         </div>
 
-        <div style="text-align: center;">
-            <button onclick="refreshHealth()">Refresh Health Status</button>
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="refreshHealth()" style="margin-right: 10px;">Refresh Health Status</button>
+            <button onclick="sendTestNotification()" id="test-notification-btn" style="background-color: #9b59b6;">Send Test Notification</button>
         </div>
+        
+        <div id="notification-result" style="margin-top: 20px; padding: 15px; border-radius: 8px; display: none;"></div>
     </div>
 
     <script>
+        async function sendTestNotification() {
+            const btn = document.getElementById('test-notification-btn');
+            const resultDiv = document.getElementById('notification-result');
+            
+            // Disable button and show loading
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            resultDiv.style.display = 'block';
+            resultDiv.style.backgroundColor = '#f8f9fa';
+            resultDiv.style.color = '#2c3e50';
+            resultDiv.innerHTML = '⏳ Sending test notification...';
+            
+            try {
+                const response = await fetch('/api/test-notification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.style.backgroundColor = '#d4edda';
+                    resultDiv.style.color = '#155724';
+                    resultDiv.innerHTML = `
+                        ✅ Test notification sent successfully!<br>
+                        <small>Recipients: ${Object.keys(result.recipients || {}).join(', ')}</small>
+                    `;
+                    
+                    // Refresh health status after successful send
+                    setTimeout(refreshHealth, 1000);
+                } else {
+                    resultDiv.style.backgroundColor = '#f8d7da';
+                    resultDiv.style.color = '#721c24';
+                    resultDiv.innerHTML = `
+                        ❌ Failed to send notification<br>
+                        <small>Error: ${result.error || 'Unknown error'}</small>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.style.backgroundColor = '#f8d7da';
+                resultDiv.style.color = '#721c24';
+                resultDiv.innerHTML = `
+                    ❌ Error: ${error.message}
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Test Notification';
+                
+                // Hide result after 10 seconds
+                setTimeout(() => {
+                    resultDiv.style.display = 'none';
+                }, 10000);
+            }
+        }
+        
         async function fetchHealthStatus() {
             try {
                 const [healthResponse, statusResponse] = await Promise.all([
@@ -300,6 +360,11 @@
                     label: 'Kraken API Connection',
                     key: 'kraken_api',
                     description: health.checks.kraken_api ? 'Connected and available' : 'Not available'
+                },
+                {
+                    label: 'Telegram Notifications',
+                    key: 'telegram_notifications',
+                    description: health.checks.telegram_notifications ? 'Last notification successful' : 'Last notification failed or queued'
                 }
             ];
 
