@@ -19,6 +19,7 @@ The Kraken.com exchange allows for Trailing Stop Loss (TSL) orders, but you can 
 ## Features
 
 - **Real-Time WebSocket Price Monitoring**: Get instant price updates via Kraken's WebSocket API (90,000x faster than REST!)
+- **Find Profitable Candidates**: Analyze volatility to identify bracketing opportunities (NEW!)
 - **Fail-Safe Order Logic**: Never creates incorrect orders under any circumstances
 - **Robust Error Handling**: Comprehensive error detection and recovery for API failures (timeouts, connection issues, server errors)
 - **Price Threshold Triggers**: Set price levels (above/below) that trigger TSL order creation
@@ -308,6 +309,42 @@ sudo iptables -A INPUT -p tcp --dport 5000 -j DROP
 ```
 
 The systemd service uses `--host 0.0.0.0` for network access while remaining protected by the system firewall.
+
+## Tools
+
+### Find Profitable Candidates
+
+A tool to analyze volatility and identify profitable bracketing opportunities.
+
+```bash
+# Analyze default pairs
+uv run python tools/find_profitable_candidates.py
+
+# Custom analysis
+uv run python tools/find_profitable_candidates.py \
+  --pairs XXBTZUSD XETHZUSD SOLUSD \
+  --hours 48 \
+  --target-profit 5.0 \
+  --top 3
+
+# Interactive mode (dry-run)
+uv run python tools/find_profitable_candidates.py \
+  --interactive --dry-run
+```
+
+The tool:
+- Fetches hourly OHLC data (default: 48 hours)
+- Calculates volatility metrics and oscillation patterns
+- Estimates probability of hitting profit targets
+- Ranks candidates by profitability
+- Creates bracketing orders (buy low, sell high)
+
+**Example Output**:
+```
+Pair: BTC/USD has a 30% probability of making a 5% profit in ~24 hours
+```
+
+See [FIND_PROFITABLE_CANDIDATES.md](docs/FIND_PROFITABLE_CANDIDATES.md) for detailed documentation.
 
 ## Safety and Security
 

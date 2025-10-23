@@ -20,6 +20,119 @@ from kraken_api import KrakenAPI
 from creds import load_env
 
 
+class OrderCreator:
+    """Creates bracketing orders for profitable candidates."""
+    
+    def __init__(self, api_readwrite):
+        """
+        Initialize order creator.
+        
+        Args:
+            api_readwrite: KrakenAPI instance with read-write credentials
+        """
+        self.api = api_readwrite
+    
+    def create_bracket_orders(self, pair, current_price, volume, target_profit_pct, 
+                             stop_loss_pct=None, dry_run=False):
+        """
+        Create a pair of bracketing orders (buy low, sell high or vice versa).
+        
+        Args:
+            pair: Trading pair (e.g., 'XXBTZUSD')
+            current_price: Current market price
+            volume: Volume to trade
+            target_profit_pct: Target profit percentage
+            stop_loss_pct: Stop loss percentage (optional)
+            dry_run: If True, only print what would be done
+            
+        Returns:
+            dict with order results or None on error
+        """
+        # Calculate bracket prices
+        buy_price = current_price * (1 - target_profit_pct / 100)
+        sell_price = current_price * (1 + target_profit_pct / 100)
+        
+        print(f"\n{'='*70}")
+        print(f"Creating Bracket Orders for {pair}")
+        print(f"{'='*70}")
+        print(f"Current Price: ${current_price:,.2f}")
+        print(f"Buy Order: ${buy_price:,.2f} (when price drops {target_profit_pct}%)")
+        print(f"Sell Order: ${sell_price:,.2f} (when price rises {target_profit_pct}%)")
+        print(f"Volume: {volume}")
+        
+        if stop_loss_pct:
+            print(f"Stop Loss: {stop_loss_pct}%")
+        
+        if dry_run:
+            print(f"\n⚠️  DRY RUN MODE - No orders will be created")
+            return {
+                'buy_order': {'dry_run': True, 'price': buy_price},
+                'sell_order': {'dry_run': True, 'price': sell_price}
+            }
+        
+        try:
+            # Create buy limit order
+            print(f"\n📊 Creating BUY limit order...")
+            buy_result = self.api.add_order(
+                pair=pair,
+                order_type='limit',
+                direction='buy',
+                volume=volume,
+                price=str(buy_price)
+            )
+            print(f"✅ Buy order created: {buy_result}")
+            
+            # Create sell limit order
+            print(f"\n📊 Creating SELL limit order...")
+            sell_result = self.api.add_order(
+                pair=pair,
+                order_type='limit',
+                direction='sell',
+                volume=volume,
+                price=str(sell_price)
+            )
+            print(f"✅ Sell order created: {sell_result}")
+            
+            # Optionally create stop loss orders
+            if stop_loss_pct:
+                print(f"\n📊 Creating stop loss orders...")
+                # TODO: Implement stop loss orders
+                print(f"⚠️  Stop loss orders not yet implemented")
+            
+            return {
+                'buy_order': buy_result,
+                'sell_order': sell_result
+            }
+            
+        except Exception as e:
+            print(f"\n❌ Error creating orders: {e}")
+            return None
+    
+    def estimate_balance_needed(self, pair, current_price, volume, target_profit_pct):
+        """
+        Estimate how much balance is needed for bracketing orders.
+        
+        Args:
+            pair: Trading pair
+            current_price: Current market price
+            volume: Volume to trade
+            target_profit_pct: Target profit percentage
+            
+        Returns:
+            dict with balance estimates
+        """
+        buy_price = current_price * (1 - target_profit_pct / 100)
+        buy_cost = buy_price * volume
+        
+        sell_volume_value = current_price * volume
+        
+        return {
+            'buy_cost': buy_cost,
+            'sell_volume_needed': volume,
+            'sell_volume_value': sell_volume_value
+        }
+
+
 class CandidateAnalyzer:
     """Analyzes trading pairs for profitable bracketing opportunities."""
     
@@ -317,6 +430,16 @@ def main():
         default=None,
         help='Show only top N candidates (default: all)'
     )
+    parser.add_argument(
+        '--interactive',
+        action='store_true',
+        help='Interactive mode - select candidate and create orders'
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Dry run mode - show what would be done without creating orders'
+    )
     
     args = parser.parse_args()
     
@@ -385,6 +508,95 @@ def main():
         profit = top['target_profit_pct']
         hours = top['probability']['expected_time_hours']
         print(f"   {pair} has a {prob:.1f}% probability of making a {profit}% profit in ~{hours:.0f} hours")
+    
+    # Interactive mode
+    if args.interactive and results:
+        print(f"\n\n{'='*70}")
+        print(f"INTERACTIVE MODE")
+        print(f"{'='*70}")
+        
+        # Show numbered list of candidates
+        print("\nCandidates:")
+        for i, analysis in enumerate(results, 1):
+            pair = analyzer.format_pair_name(analysis['pair'])
+            prob = analysis['probability']['probability'] * 100
+            print(f"{i}. {pair} - {prob:.1f}% probability")
+        
+        # Get user selection
+        print("\nSelect a candidate to create bracketing orders (or 0 to exit):")
+        try:
+            choice = int(input("Enter number: "))
+            if choice == 0:
+                print("Exiting.")
+                return 0
+            if choice < 1 or choice > len(results):
+                print("❌ Invalid selection.")
+                return 1
+            
+            selected = results[choice - 1]
+            pair = selected['pair']
+            current_price = selected['stats']['current_price']
+            target_profit = selected['target_profit_pct']
+            
+            # Get volume
+            print(f"\nEnter volume to trade (in base currency):")
+            volume = float(input("Volume: "))
+            
+            # Confirm
+            print(f"\n{'='*70}")
+            print(f"Order Preview")
+            print(f"{'='*70}")
+            print(f"Pair: {analyzer.format_pair_name(pair)}")
+            print(f"Current Price: ${current_price:,.2f}")
+            print(f"Volume: {volume}")
+            print(f"Target Profit: {target_profit}%")
+            
+            # Calculate order details
+            buy_price = current_price * (1 - target_profit / 100)
+            sell_price = current_price * (1 + target_profit / 100)
+            print(f"\nBuy Limit Order: ${buy_price:,.2f}")
+            print(f"Sell Limit Order: ${sell_price:,.2f}")
+            
+            if args.dry_run:
+                print(f"\n⚠️  DRY RUN MODE - No orders will be created")
+            
+            confirm = input("\nCreate these orders? (yes/no): ").lower()
+            if confirm not in ['yes', 'y']:
+                print("Cancelled.")
+                return 0
+            
+            # Create orders
+            if not args.dry_run:
+                try:
+                    api_rw = KrakenAPI.from_env(readwrite=True)
+                    order_creator = OrderCreator(api_rw)
+                except Exception as e:
+                    print(f"❌ Error loading read-write API credentials: {e}")
+                    print("   Make sure KRAKEN_API_KEY_RW and KRAKEN_API_SECRET_RW are set.")
+                    return 1
+            else:
+                order_creator = OrderCreator(api)  # Use read-only for dry-run
+            
+            result = order_creator.create_bracket_orders(
+                pair=pair,
+                current_price=current_price,
+                volume=volume,
+                target_profit_pct=target_profit,
+                dry_run=args.dry_run
+            )
+            
+            if result:
+                print(f"\n✅ Orders created successfully!")
+            else:
+                print(f"\n❌ Failed to create orders.")
+                return 1
+            
+        except ValueError as e:
+            print(f"❌ Invalid input: {e}")
+            return 1
+        except KeyboardInterrupt:
+            print("\n\nCancelled.")
+            return 0
     
     return 0
 
