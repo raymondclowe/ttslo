@@ -221,7 +221,4 @@ notification_queue.json
 notifications.ini
 
 # Generated graphs and analysis output
-graphs/
-*.png
-!docs/*.png
-deliverables_48h/
+# Note: Keeping graphs and deliverables in git for documentation purposes
