@@ -12,9 +12,12 @@ import os
 import sys
 import signal
 import time
+import json
+import zipfile
+import io
 from datetime import datetime, timezone
 from functools import wraps
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, send_file
 from config import ConfigManager
 from kraken_api import KrakenAPI
 from creds import load_env
@@ -461,6 +464,147 @@ def api_status():
         'kraken_api_available': kraken_api is not None,
         'timestamp': datetime.now(timezone.utc).isoformat()
     })
+
+
+@app.route('/health')
+def health():
+    """Health check endpoint for monitoring."""
+    checks = {
+        'config_file': os.path.exists(CONFIG_FILE),
+        'kraken_api': kraken_api is not None,
+        'telegram_notifications': True  # Default to True if not enabled
+    }
+    
+    # Check notification status if enabled
+    if notification_manager and notification_manager.enabled:
+        # If last notification failed, mark as unhealthy
+        if notification_manager.last_notification_success is False:
+            checks['telegram_notifications'] = False
+        # If queue has items, notifications are failing
+        elif notification_manager.notification_queue:
+            checks['telegram_notifications'] = False
+    
+    is_healthy = all(checks.values())
+    
+    return jsonify({
+        'status': 'healthy' if is_healthy else 'unhealthy',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': checks
+    }), 200 if is_healthy else 503
+
+
+@app.route('/health-details')
+def health_details():
+    """Detailed health status page."""
+    return render_template('health_details.html')
+
+
+@app.route('/api/test-notification', methods=['POST'])
+def test_notification():
+    """Send a test notification with health information."""
+    if not notification_manager or not notification_manager.enabled:
+        return jsonify({
+            'success': False,
+            'error': 'Notifications not enabled',
+            'details': {
+                'token_present': bool(notification_manager.telegram_token) if notification_manager else False,
+                'recipients_count': len(notification_manager.recipients) if notification_manager else 0
+            }
+        }), 503
+    
+    # Get current health info
+    health_checks = {
+        'config_file': os.path.exists(CONFIG_FILE),
+        'kraken_api': kraken_api is not None,
+        'telegram_notifications': notification_manager.last_notification_success is not False
+    }
+    
+    # Get system info
+    system_info = {
+        'config_file': CONFIG_FILE,
+        'state_file': STATE_FILE,
+        'config_exists': os.path.exists(CONFIG_FILE),
+        'state_exists': os.path.exists(STATE_FILE),
+        'kraken_api_available': kraken_api is not None
+    }
+    
+    health_info = {
+        'status': 'healthy' if all(health_checks.values()) else 'unhealthy',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': health_checks,
+        'system_info': system_info
+    }
+    
+    # Send test notification
+    result = notification_manager.send_test_notification(health_info)
+    
+    return jsonify(result), 200 if result['success'] else 500
+
+
+@app.route('/backup')
+def backup():
+    """Create and download a backup zip file with all config and data files."""
+    # Create an in-memory zip file
+    memory_file = io.BytesIO()
+    
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add config file if it exists
+        if os.path.exists(CONFIG_FILE):
+            zf.write(CONFIG_FILE, os.path.basename(CONFIG_FILE))
+        
+        # Add state file if it exists
+        if os.path.exists(STATE_FILE):
+            zf.write(STATE_FILE, os.path.basename(STATE_FILE))
+        
+        # Add log file if it exists
+        if os.path.exists(LOG_FILE):
+            zf.write(LOG_FILE, os.path.basename(LOG_FILE))
+        
+        # Add .env file if it exists (contains credentials)
+        env_file = os.getenv('TTSLO_ENV_FILE', '.env')
+        if os.path.exists(env_file):
+            zf.write(env_file, os.path.basename(env_file))
+        
+        # Add notifications config if it exists
+        notifications_ini_paths = [
+            'notifications.ini',
+            '/var/lib/ttslo/notifications.ini',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'notifications.ini')
+        ]
+        for notif_path in notifications_ini_paths:
+            if os.path.exists(notif_path):
+                zf.write(notif_path, 'notifications.ini')
+                break
+        
+        # Add a manifest with backup metadata
+        manifest = {
+            'backup_time': datetime.now(timezone.utc).isoformat(),
+            'files_included': zf.namelist()
+        }
+        zf.writestr('backup_manifest.json', json.dumps(manifest, indent=2))
+    
+    # Seek to beginning of BytesIO buffer
+    memory_file.seek(0)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')
+    filename = f'ttslo-backup-{timestamp}.zip'
+    
+    return send_file(
+        memory_file,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@app.route('/openapi.json')
+def openapi_spec():
+    """Serve the OpenAPI specification."""
+    spec_path = os.path.join(os.path.dirname(__file__), 'openapi.json')
+    with open(spec_path, 'r') as f:
+        spec = json.load(f)
+    return jsonify(spec)
 
 
 if __name__ == '__main__':

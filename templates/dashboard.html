@@ -267,6 +267,46 @@
             z-index: 10;
         }
 
+        .footer {
+            background-color: white;
+            border-top: 1px solid #ddd;
+            padding: 20px;
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            color: #3498db;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .footer-link:hover {
+            background-color: #ecf0f1;
+            text-decoration: underline;
+        }
+
+        .footer-link.backup {
+            background-color: #3498db;
+            color: white;
+            font-weight: 500;
+        }
+
+        .footer-link.backup:hover {
+            background-color: #2980b9;
+            text-decoration: none;
+        }
+
         @media (max-width: 768px) {
             .container {
                 grid-template-columns: 1fr;
@@ -286,8 +326,10 @@
 
     <div class="controls">
         <div class="status">
-            <span class="indicator" id="status-indicator"></span>
-            <span id="status-text">Connecting...</span>
+            <a href="/health-details" style="text-decoration: none; color: inherit; display: flex; align-items: center;" title="Click for detailed health status">
+                <span class="indicator" id="status-indicator"></span>
+                <span id="status-text">Connecting...</span>
+            </a>
         </div>
         <button onclick="refreshData()">Refresh Data</button>
     </div>
@@ -324,6 +366,14 @@
             <div class="pane-content" id="completed-content">
                 <div class="loading">Loading...</div>
             </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-links">
+            <a href="/health-details" class="footer-link">Health Status</a>
+            <a href="/openapi.json" class="footer-link">API Documentation</a>
+            <a href="/backup" class="footer-link backup" download>📦 Download Backup</a>
         </div>
     </div>
 
@@ -737,21 +787,21 @@
             }
         }
 
-        // Check system status
+        // Check system status and health
         async function checkStatus() {
             try {
-                const response = await fetch('/api/status');
-                const status = await response.json();
+                const response = await fetch('/health');
+                const health = await response.json();
                 
                 const indicator = document.getElementById('status-indicator');
                 const text = document.getElementById('status-text');
                 
-                if (status.config_exists && status.state_exists) {
+                if (health.status === 'healthy') {
                     indicator.className = 'indicator online';
-                    text.textContent = `Online • Kraken API: ${status.kraken_api_available ? 'Connected' : 'Unavailable'}`;
+                    text.textContent = 'System Healthy';
                 } else {
                     indicator.className = 'indicator offline';
-                    text.textContent = 'Config or state files missing';
+                    text.textContent = 'System Unhealthy';
                 }
             } catch (error) {
                 const indicator = document.getElementById('status-indicator');

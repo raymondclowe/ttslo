@@ -287,6 +287,9 @@ The dashboard exposes REST API endpoints for integration:
 - `GET /api/pending` - List of pending orders
 - `GET /api/active` - List of active TSL orders
 - `GET /api/completed` - List of completed orders
+- `GET /health` - Health check endpoint (returns 200 if healthy, 503 if unhealthy)
+- `GET /backup` - Download backup zip file with all config, state, and log files
+- `GET /openapi.json` - OpenAPI 3.0 specification for API discovery
 
 ### Security Note
 

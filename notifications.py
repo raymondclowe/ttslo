@@ -35,6 +35,11 @@ class NotificationManager:
         self.telegram_unreachable_since = None  # Track when Telegram became unreachable
         self.telegram_was_unreachable = False  # Track if we need to send recovery notification
         
+        # Track last notification status for health monitoring
+        self.last_notification_success = None  # True/False/None
+        self.last_notification_time = None
+        self.last_notification_error = None
+        
         if os.path.exists(config_file):
             self._load_config()
         
@@ -209,12 +214,28 @@ class NotificationManager:
             if response.status_code == 200:
                 result = response.json()
                 if result.get('ok'):
+                    # Track success
+                    self.last_notification_success = True
+                    self.last_notification_time = datetime.now(timezone.utc)
+                    self.last_notification_error = None
                     return True
+            # Track failure
+            self.last_notification_success = False
+            self.last_notification_time = datetime.now(timezone.utc)
+            self.last_notification_error = f"HTTP {response.status_code}"
             return False
                 
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            # Track failure
+            self.last_notification_success = False
+            self.last_notification_time = datetime.now(timezone.utc)
+            self.last_notification_error = str(type(e).__name__)
             return False
-        except Exception:
+        except Exception as e:
+            # Track failure
+            self.last_notification_success = False
+            self.last_notification_time = datetime.now(timezone.utc)
+            self.last_notification_error = str(e)
             return False
     
     def send_message(self, username: str, message: str) -> bool:
@@ -611,6 +632,65 @@ class NotificationManager:
             message += "\n⚠️ API rate limit exceeded. TTSLO will retry with backoff."
         
         self.notify_event('api_error', message)
+    
+    def send_test_notification(self, health_info: dict) -> dict:
+        """
+        Send a test notification with health information to all recipients.
+        
+        Args:
+            health_info: Dictionary containing health check information
+            
+        Returns:
+            Dictionary with success status and details for each recipient
+        """
+        results = {}
+        
+        # Build health message
+        health_status = health_info.get('status', 'unknown')
+        checks = health_info.get('checks', {})
+        timestamp = health_info.get('timestamp', datetime.now(timezone.utc).isoformat())
+        
+        status_icon = "✅" if health_status == 'healthy' else "⚠️"
+        
+        message = (
+            f"{status_icon} TTSLO Health Test Notification\n\n"
+            f"Status: {health_status.upper()}\n"
+            f"Timestamp: {timestamp}\n\n"
+            f"Health Checks:\n"
+        )
+        
+        for check_name, check_status in checks.items():
+            check_icon = "✓" if check_status else "✗"
+            message += f"  {check_icon} {check_name.replace('_', ' ').title()}: {'OK' if check_status else 'FAILED'}\n"
+        
+        # Add system info if available
+        if 'system_info' in health_info:
+            message += f"\nSystem Information:\n"
+            for key, value in health_info['system_info'].items():
+                message += f"  • {key.replace('_', ' ').title()}: {value}\n"
+        
+        message += f"\nThis is a test notification from TTSLO Dashboard."
+        
+        # Send to all recipients
+        if not self.enabled:
+            return {
+                'success': False,
+                'error': 'Notifications not enabled',
+                'details': {}
+            }
+        
+        for username in self.recipients.keys():
+            success = self.send_message(username, message)
+            results[username] = {
+                'success': success,
+                'chat_id': self.recipients[username]
+            }
+        
+        return {
+            'success': any(r['success'] for r in results.values()),
+            'recipients': results,
+            'message': message
+        }
 
 
 def create_sample_notifications_config(filename: str = 'notifications.ini.example'):
