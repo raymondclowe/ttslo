@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Status - TTSLO Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            color: #ecf0f1;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            margin: 20px;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .status-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            flex-shrink: 0;
+        }
+
+        .status-icon.healthy {
+            background-color: #d4edda;
+            color: #27ae60;
+        }
+
+        .status-icon.unhealthy {
+            background-color: #f8d7da;
+            color: #e74c3c;
+        }
+
+        .status-info h2 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .status-info .timestamp {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .checks-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #ddd;
+        }
+
+        .check-item.pass {
+            border-left-color: #27ae60;
+            background-color: #d4edda;
+        }
+
+        .check-item.fail {
+            border-left-color: #e74c3c;
+            background-color: #f8d7da;
+        }
+
+        .check-label {
+            font-weight: 500;
+            font-size: 16px;
+        }
+
+        .check-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .check-status .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .check-status .badge.pass {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .check-status .badge.fail {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .info-section h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            padding: 12px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 500;
+            color: #2c3e50;
+            word-break: break-all;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Health Status</h1>
+        <div class="subtitle">System Health and Configuration Details</div>
+    </div>
+
+    <a href="/" class="back-link">← Back to Dashboard</a>
+
+    <div class="container">
+        <div class="status-card">
+            <div class="status-header">
+                <div class="status-icon" id="status-icon">
+                    <span id="status-emoji">⏳</span>
+                </div>
+                <div class="status-info">
+                    <h2 id="status-title">Checking system health...</h2>
+                    <div class="timestamp" id="status-timestamp"></div>
+                </div>
+            </div>
+
+            <div class="checks-grid" id="checks-grid">
+                <div class="loading">Loading health checks...</div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>System Information</h3>
+            <div class="info-grid" id="system-info">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <button onclick="refreshHealth()">Refresh Health Status</button>
+        </div>
+    </div>
+
+    <script>
+        async function fetchHealthStatus() {
+            try {
+                const [healthResponse, statusResponse] = await Promise.all([
+                    fetch('/health'),
+                    fetch('/api/status')
+                ]);
+
+                const health = await healthResponse.json();
+                const status = await statusResponse.json();
+
+                return { health, status };
+            } catch (error) {
+                console.error('Error fetching health status:', error);
+                throw error;
+            }
+        }
+
+        function updateHealthDisplay(health, status) {
+            // Update status header
+            const statusIcon = document.getElementById('status-icon');
+            const statusEmoji = document.getElementById('status-emoji');
+            const statusTitle = document.getElementById('status-title');
+            const statusTimestamp = document.getElementById('status-timestamp');
+
+            const isHealthy = health.status === 'healthy';
+            
+            statusIcon.className = 'status-icon ' + (isHealthy ? 'healthy' : 'unhealthy');
+            statusEmoji.textContent = isHealthy ? '✓' : '✗';
+            statusTitle.textContent = isHealthy ? 'System Healthy' : 'System Unhealthy';
+            statusTimestamp.textContent = 'Last checked: ' + new Date(health.timestamp).toLocaleString();
+
+            // Update checks grid
+            const checksGrid = document.getElementById('checks-grid');
+            const checks = [
+                {
+                    label: 'Configuration File',
+                    key: 'config_file',
+                    description: status.config_file || 'config.csv'
+                },
+                {
+                    label: 'Kraken API Connection',
+                    key: 'kraken_api',
+                    description: health.checks.kraken_api ? 'Connected and available' : 'Not available'
+                }
+            ];
+
+            checksGrid.innerHTML = checks.map(check => {
+                const passed = health.checks[check.key];
+                return `
+                    <div class="check-item ${passed ? 'pass' : 'fail'}">
+                        <div>
+                            <div class="check-label">${check.label}</div>
+                            <div style="font-size: 14px; color: #7f8c8d; margin-top: 4px;">${check.description}</div>
+                        </div>
+                        <div class="check-status">
+                            <span class="badge ${passed ? 'pass' : 'fail'}">
+                                ${passed ? 'Pass' : 'Fail'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Update system info
+            const systemInfo = document.getElementById('system-info');
+            systemInfo.innerHTML = `
+                <div class="info-item">
+                    <div class="info-label">Config File</div>
+                    <div class="info-value">${status.config_file || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">State File</div>
+                    <div class="info-value">${status.state_file || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Config Exists</div>
+                    <div class="info-value">${status.config_exists ? 'Yes' : 'No'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">State Exists</div>
+                    <div class="info-value">${status.state_exists ? 'Yes' : 'No'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Kraken API</div>
+                    <div class="info-value">${status.kraken_api_available ? 'Available' : 'Unavailable'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Last Updated</div>
+                    <div class="info-value">${new Date(status.timestamp).toLocaleString()}</div>
+                </div>
+            `;
+        }
+
+        async function refreshHealth() {
+            try {
+                const { health, status } = await fetchHealthStatus();
+                updateHealthDisplay(health, status);
+            } catch (error) {
+                const statusTitle = document.getElementById('status-title');
+                const checksGrid = document.getElementById('checks-grid');
+                
+                statusTitle.textContent = 'Error loading health status';
+                checksGrid.innerHTML = `
+                    <div class="check-item fail">
+                        <div class="check-label">Connection Error</div>
+                        <div class="check-status">
+                            <span class="badge fail">Error</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', refreshHealth);
+
+        // Auto-refresh every 30 seconds
+        setInterval(refreshHealth, 30000);
+    </script>
+</body>
+</html>

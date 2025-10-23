@@ -13,6 +13,10 @@
     {
       "url": "http://localhost:5000",
       "description": "Local development server"
+    },
+    {
+      "url": "http://192.168.0.142:5000",
+      "description": "Production local server"
     }
   ],
   "tags": [

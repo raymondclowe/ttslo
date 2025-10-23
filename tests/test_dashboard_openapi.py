@@ -221,3 +221,11 @@ def test_status_response_matches_openapi_schema(client):
     # Verify all required properties are present
     for prop in status_schema['properties'].keys():
         assert prop in data, f"Missing property: {prop}"
+
+
+def test_health_details_page(client):
+    """Test that /health-details page loads correctly."""
+    response = client.get('/health-details')
+    assert response.status_code == 200
+    assert b'Health Status' in response.data
+    assert b'System Health and Configuration Details' in response.data

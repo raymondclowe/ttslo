@@ -483,6 +483,12 @@ def health():
     }), 200 if is_healthy else 503
 
 
+@app.route('/health-details')
+def health_details():
+    """Detailed health status page."""
+    return render_template('health_details.html')
+
+
 @app.route('/backup')
 def backup():
     """Create and download a backup zip file with all config and data files."""
