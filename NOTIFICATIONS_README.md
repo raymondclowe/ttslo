@@ -297,6 +297,44 @@ def monitor_ttslo():
 4. **Check verbose output**: Run with `--verbose` to see if notifications are enabled
 5. **Check permissions**: Ensure the bot can send messages to your chat
 
+### Network Outage Scenario
+
+**Important Limitation**: During a complete network outage, Telegram notifications cannot be sent.
+
+**What happens**:
+- TTSLO detects Kraken API is unreachable (connection error)
+- TTSLO logs the error to `logs.csv`
+- TTSLO attempts to send Telegram notification
+- Telegram notification fails (cannot reach Telegram API either)
+- Error message printed to console: `✗ Cannot reach Telegram API (network may be down)`
+- Processing continues on next cycle
+
+**What you'll see in logs**:
+```
+[2025-10-23 12:00:00] ERROR: Kraken API error getting current price for XXBTZUSD: Failed to connect to Kraken API (type: connection)
+✗ Cannot reach Telegram API (network may be down): [Errno -2] Name or service not known
+```
+
+**Recommendations**:
+1. **Always check logs.csv**: All errors are logged regardless of notification status
+2. **Monitor log files**: Set up log monitoring/aggregation (e.g., tail -f, logwatch)
+3. **Use systemd**: Run as systemd service to see console output in journalctl
+4. **Redundant networking**: Run on server with redundant network connections
+5. **External monitoring**: Use external monitoring service to detect when TTSLO server is unreachable
+
+**Recovery**:
+- When network is restored, TTSLO automatically resumes normal operation
+- New Telegram notifications will work once network is back
+- Review logs.csv to see what happened during the outage
+
+### Notifications Not Working
+
+1. **Check bot token**: Ensure `TELEGRAM_BOT_TOKEN` is set correctly in `.env`
+2. **Verify chat ID**: Make sure your chat ID is correct in `notifications.ini`
+3. **Test bot**: Message your bot directly to verify it's active
+4. **Check verbose output**: Run with `--verbose` to see if notifications are enabled
+5. **Check permissions**: Ensure the bot can send messages to your chat
+
 ### Getting Chat ID
 
 If @userinfobot doesn't work:

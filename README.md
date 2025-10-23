@@ -455,9 +455,11 @@ When an API error occurs:
 
 **Network Outage**: If your internet connection drops, TTSLO will:
 - Log connection errors for each failed API call
-- Send notifications about connection issues
+- **Attempt** to send notifications about connection issues
+- **Note**: If network is completely down, Telegram notifications will also fail (can't reach Telegram API either)
+- All errors are still logged locally in logs.csv
 - Continue trying on next monitoring cycle
-- Resume normal operation when connection is restored
+- Resume normal operation and send queued notifications when connection is restored
 
 **Kraken Maintenance**: If Kraken API returns 503 (Service Unavailable):
 - Log server error with status code
@@ -480,6 +482,27 @@ users = alice
 ```
 
 This ensures you're immediately notified of any API issues so you can take action if needed.
+
+### Limitations of Telegram Notifications
+
+**Important**: Telegram notifications have a known limitation during complete network outages:
+
+- If your local network is completely down, TTSLO cannot reach either Kraken API **or** Telegram API
+- In this case, notifications will fail silently (timeout/connection error)
+- **All errors are still logged locally** in `logs.csv` regardless of notification status
+- When network is restored, you can review `logs.csv` to see what happened during the outage
+- Future notifications will resume working once network is back
+
+**Best Practices**:
+1. Always monitor `logs.csv` for complete error history
+2. Set up monitoring on the log file itself (e.g., log aggregation tools)
+3. Consider running TTSLO on a server with redundant network connections
+4. Use `--verbose` mode to see real-time console output
+
+**What Gets Logged vs Notified**:
+- ✅ **Always logged**: All API errors, with full details and timestamps
+- ⚠️ **Notification attempted**: Telegram message is attempted but may fail during network outage
+- ✅ **Console output**: Error messages printed to stdout/stderr (visible in systemd logs)
 
 ## Command Line Options
 

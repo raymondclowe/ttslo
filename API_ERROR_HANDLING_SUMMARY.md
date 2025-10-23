@@ -178,10 +178,28 @@ Created `demo_api_error_handling.py` to demonstrate:
 1. **Error Detection**: Exception caught at API call site
 2. **Classification**: Error type determined (timeout, connection, server, rate limit)
 3. **Logging**: Error logged with type, endpoint, and details
-4. **Notification**: Telegram message sent (if configured)
+4. **Notification**: Telegram message **attempted** (may fail during network outage)
 5. **Safe Abort**: Operation cancelled without creating orders
 6. **Continue**: System continues monitoring
 7. **Retry**: Automatic retry on next monitoring cycle
+
+### Known Limitation: Network Outages
+
+**Important**: During a complete network outage:
+- Kraken API calls fail (connection error)
+- Telegram notification attempts also fail (cannot reach Telegram API)
+- **All errors are still logged to logs.csv**
+- Console output shows: `✗ Cannot reach Telegram API (network may be down)`
+- System continues running and monitoring
+
+**Why this happens**: If you can't reach Kraken's servers, you likely can't reach Telegram's servers either (same network outage).
+
+**Mitigation strategies**:
+1. Always check `logs.csv` for complete error history
+2. Monitor log files with external tools (log aggregation, alerts on log patterns)
+3. Run TTSLO as systemd service to capture console output in journalctl
+4. Use redundant network connections for the TTSLO server
+5. Set up external monitoring to detect when TTSLO server is unreachable
 
 ### Error Messages
 

@@ -68,6 +68,12 @@ class NotificationManager:
             
         Returns:
             True if message sent successfully, False otherwise
+            
+        Note:
+            If there's a local network outage, this will fail and return False.
+            The failure will be logged but the notification cannot be sent until
+            network connectivity is restored. This is a known limitation - if you
+            can't reach the Kraken API, you likely can't reach Telegram API either.
         """
         if not self.enabled:
             print(f"Warning: Notifications not enabled. Token present: {bool(self.telegram_token)}, Recipients: {len(self.recipients)}")
@@ -99,6 +105,12 @@ class NotificationManager:
                 print(f"✗ Failed to send Telegram message (HTTP {response.status_code}): {response.text}")
                 return False
                 
+        except requests.exceptions.Timeout:
+            print(f"✗ Timeout sending Telegram message to {username} (network may be slow or down)")
+            return False
+        except requests.exceptions.ConnectionError as e:
+            print(f"✗ Cannot reach Telegram API (network may be down): {e}")
+            return False
         except Exception as e:
             print(f"✗ Exception sending Telegram message: {e}")
             import traceback
