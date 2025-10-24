@@ -6,11 +6,11 @@ credentials from multiple locations with a clear precedence:
 
 1. Explicit environment variables (e.g., KRAKEN_API_KEY)
 2. Variables loaded from a .env file
-3. Copilot-style or CI secrets (copilot_ prefix or COPILOT_W_*)
+3. Copilot-style or CI secrets (copilot_ prefix, COPILOT_W_*, or COPILOT_KRAKEN_*)
 
 Functions:
 - load_env(env_file='.env') -> loads .env into os.environ if not present
-- get_env_var(name) -> checks name, copilot_ prefixed, and COPILOT_W_* variants
+ - get_env_var(name) -> checks name, copilot_ prefixed, COPILOT_W_*, and COPILOT_KRAKEN_* variants
 - find_kraken_credentials(readwrite=False) -> returns (key, secret) tuple
 """
 from __future__ import annotations
@@ -71,7 +71,8 @@ def get_env_var(name: str) -> Optional[str]:
       1. Exact name in os.environ
       2. 'COPILOT_' prefixed name in os.environ (uppercase)
       3. 'copilot_' prefixed name in os.environ (lowercase)
-      4. COPILOT_W_ prefixed variants (best-effort mapping)
+    4. COPILOT_W_ prefixed variants (best-effort mapping)
+    5. COPILOT_KRAKEN_* fallbacks (legacy/alternate secrets)
     """
     # Exact match
     val = os.environ.get(name)
@@ -97,9 +98,17 @@ def get_env_var(name: str) -> Optional[str]:
     if name == 'KRAKEN_API_SECRET_RW':
         return os.environ.get('COPILOT_W_KR_RW_SECRET') or os.environ.get('COPILOT_W_KR_RW_SECRET_KEY')
     if name == 'KRAKEN_API_KEY':
-        return os.environ.get('COPILOT_W_KR_RO_PUBLIC') or os.environ.get('COPILOT_W_KR_PUBLIC')
+        return (
+            os.environ.get('COPILOT_W_KR_RO_PUBLIC')
+            or os.environ.get('COPILOT_W_KR_PUBLIC')
+            or os.environ.get('COPILOT_KRAKEN_API_KEY')
+        )
     if name == 'KRAKEN_API_SECRET':
-        return os.environ.get('COPILOT_W_KR_RO_SECRET') or os.environ.get('COPILOT_W_KR_SECRET')
+        return (
+            os.environ.get('COPILOT_W_KR_RO_SECRET')
+            or os.environ.get('COPILOT_W_KR_SECRET')
+            or os.environ.get('COPILOT_KRAKEN_API_SECRET')
+        )
 
     return None
 
