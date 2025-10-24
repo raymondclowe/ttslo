@@ -2,6 +2,46 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Active TSL Orders Display - Manual Order Data Extraction
+
+**Date**: 2025-10-24
+
+**Problem**: Active TSL Orders pane showed inconsistent data:
+- Service-created orders: Human-readable ID, trailing offset (1.00%), trigger time ✓
+- Manual orders (from Kraken): Kraken order IDs, NO trailing offset or trigger time ✗
+
+**Root Causes**:
+1. Manual orders have trailing offset in Kraken's `price` field (format: `"+1.5000%"` or `"-2.0000%"`)
+2. Dashboard wasn't extracting this value, left it as `None`
+3. Missing MANUAL badge in Active pane (existed in Pending/Completed)
+
+**Solution**:
+```python
+# Extract trailing offset from price field for manual orders
+price_str = descr.get('price', '')
+trailing_offset_percent = None
+if price_str:
+    # Remove '+', '-', and '%' to get the numeric value
+    trailing_offset_percent = price_str.replace('+', '').replace('-', '').replace('%', '').strip()
+```
+
+**Key Insight**: Kraken API returns different data structures for:
+- Orders created via API (have state.csv entry) → Full data available
+- Manual orders (created in Kraken UI) → Must extract from alternative fields
+
+**Best Practice**: Always check alternative data sources in API responses:
+- Trailing offset may be in `price` field for trailing-stop orders
+- Direction may be in different location for manual vs API orders
+- Always add visual indicators (MANUAL badge) to distinguish data sources
+
+**Related Files**:
+- `dashboard.py`: Lines 313-320 (extraction logic)
+- `templates/dashboard.html`: Line 639 (MANUAL badge)
+- `extract_open_orders.py`: Lines 54-60 (same pattern, already implemented)
+- `tests/test_dashboard.py`: test_manual_order_trailing_offset_extraction
+
+---
+
 ## Dashboard Performance & Caching
 
 **Date**: 2025-10-24
