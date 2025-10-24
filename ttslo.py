@@ -233,10 +233,10 @@ class TTSLO:
         Extract the base asset from a trading pair.
         
         Args:
-            pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD')
+            pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD', 'DYDXUSD')
             
         Returns:
-            Base asset code (e.g., 'XXBT', 'XETH') or empty string if can't determine
+            Base asset code (e.g., 'XXBT', 'XETH', 'DYDX') or empty string if can't determine
         """
         # Known mappings for common pairs
         pair_mappings = {
@@ -262,7 +262,8 @@ class TTSLO:
             return pair_mappings[pair]
         
         # Try to extract from pattern
-        for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY']:
+        # Note: Order matters - check longer suffixes first (e.g., USDT before USD)
+        for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
             if pair.endswith(quote):
                 base = pair[:-len(quote)]
                 if base:

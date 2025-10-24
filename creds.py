@@ -69,16 +69,24 @@ def get_env_var(name: str) -> Optional[str]:
 
     Order of precedence:
       1. Exact name in os.environ
-      2. 'copilot_' prefixed name in os.environ
-      3. COPILOT_W_ prefixed variants (best-effort mapping)
+      2. 'COPILOT_' prefixed name in os.environ (uppercase)
+      3. 'copilot_' prefixed name in os.environ (lowercase)
+      4. COPILOT_W_ prefixed variants (best-effort mapping)
     """
-    # Exact and copilot_ prefix
+    # Exact match
     val = os.environ.get(name)
     if val:
         return val
 
-    copilot_name = f"copilot_{name}"
-    val = os.environ.get(copilot_name)
+    # Try uppercase COPILOT_ prefix (GitHub Copilot agent style)
+    copilot_upper_name = f"COPILOT_{name}"
+    val = os.environ.get(copilot_upper_name)
+    if val:
+        return val
+
+    # Try lowercase copilot_ prefix (legacy style)
+    copilot_lower_name = f"copilot_{name}"
+    val = os.environ.get(copilot_lower_name)
     if val:
         return val
 
