@@ -4,8 +4,8 @@
 [Unit]
 Description=TTSLO Dashboard (Flask) - localhost only
 Documentation=https://github.com/raymondclowe/ttslo
-After=network-online.target
-Wants=network-online.target
+After=network-online.target ttslo.service
+Wants=network-online.target ttslo.service
 StartLimitIntervalSec=0
 
 [Service]
