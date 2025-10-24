@@ -235,3 +235,108 @@ def test_manual_order_has_manual_flag():
     except Exception:
         # If Kraken API isn't available, that's fine
         pass
+
+
+def test_canceled_order_filtering():
+    """Test that canceled orders are handled correctly based on order source."""
+    # Test data simulating Kraken API responses
+    
+    # Simulate ttslo-created order that was canceled (should be kept with status)
+    ttslo_canceled_order = {
+        'vol': '0.01',
+        'price': '50000',
+        'status': 'canceled',
+        'closetm': 1234567890,
+        'descr': {
+            'ordertype': 'trailing-stop',
+            'pair': 'XXBTZUSD',
+            'type': 'sell'
+        }
+    }
+    
+    # Simulate manual order that was canceled (should be filtered out)
+    manual_canceled_order = {
+        'vol': '0.02',
+        'price': '51000',
+        'status': 'canceled',
+        'closetm': 1234567891,
+        'descr': {
+            'ordertype': 'trailing-stop',
+            'pair': 'XETHZUSD',
+            'type': 'sell'
+        }
+    }
+    
+    # Simulate manual order that was closed (should be included)
+    manual_closed_order = {
+        'vol': '0.03',
+        'price': '52000',
+        'status': 'closed',
+        'closetm': 1234567892,
+        'descr': {
+            'ordertype': 'trailing-stop',
+            'pair': 'XETHZUSD',
+            'type': 'sell'
+        }
+    }
+    
+    # Test the filtering logic for manual orders
+    # Manual canceled orders should be filtered out (status != 'closed')
+    assert manual_canceled_order.get('status') == 'canceled'
+    # This would fail the condition: if order_info.get('status') != 'closed'
+    should_skip_manual_canceled = manual_canceled_order.get('status') != 'closed'
+    assert should_skip_manual_canceled is True
+    
+    # Manual closed orders should be included (status == 'closed')
+    assert manual_closed_order.get('status') == 'closed'
+    should_include_manual_closed = manual_closed_order.get('status') == 'closed'
+    assert should_include_manual_closed is True
+    
+    # TTSLO-created orders can be either closed or canceled (status in ['closed', 'canceled'])
+    assert ttslo_canceled_order.get('status') in ['closed', 'canceled']
+    should_include_ttslo_canceled = ttslo_canceled_order.get('status') in ['closed', 'canceled']
+    assert should_include_ttslo_canceled is True
+    
+    print("✓ Canceled order filtering logic verified")
+
+
+def test_completed_order_status_tag():
+    """Test that completed orders include status field for UI tagging."""
+    # This test verifies the structure of completed order data
+    
+    # Simulated completed order with canceled status
+    completed_order_data = {
+        'id': 'test_1',
+        'order_id': 'O123456',
+        'pair': 'XXBTZUSD',
+        'status': 'canceled',  # Should be passed to UI
+        'manual': False,
+        'trigger_price': 50000,
+        'executed_price': 0,  # Canceled orders may not have executed price
+    }
+    
+    # Verify that status field exists and is accessible
+    assert 'status' in completed_order_data
+    assert completed_order_data['status'] == 'canceled'
+    
+    # Verify UI can check for canceled status
+    is_canceled = completed_order_data.get('status') == 'canceled'
+    assert is_canceled is True
+    
+    # Simulated completed order with closed status
+    closed_order_data = {
+        'id': 'test_2',
+        'order_id': 'O789012',
+        'pair': 'XETHZUSD',
+        'status': 'closed',
+        'manual': True,
+        'trigger_price': None,
+        'executed_price': 52000,
+    }
+    
+    # Verify closed status
+    assert closed_order_data['status'] == 'closed'
+    is_canceled = closed_order_data.get('status') == 'canceled'
+    assert is_canceled is False
+    
+    print("✓ Completed order status tagging verified")

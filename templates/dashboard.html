@@ -734,11 +734,20 @@
                             const benefitSign = order.benefit >= 0 ? '+' : '';
                             benefitHTML = `${benefitSign}$${Math.abs(order.benefit).toFixed(2)} (${benefitSign}${order.benefit_percent.toFixed(2)}%)`;
                         }
+                        
+                        // Build status tags
+                        let statusTags = '';
+                        if (order.manual) {
+                            statusTags += '<span style="font-size:12px;color:#fff;background:#e67e22;padding:2px 6px;border-radius:10px;margin-left:8px;font-weight:600;">MANUAL</span>';
+                        }
+                        if (order.status === 'canceled') {
+                            statusTags += '<span style="font-size:12px;color:#fff;background:#e74c3c;padding:2px 6px;border-radius:10px;margin-left:8px;font-weight:600;">CANCELED</span>';
+                        }
 
                         return `
                             <div class="order-card">
                                 <div class="order-header">
-                                    <div class="order-id">${order.id} ${order.manual ? '<span style="font-size:12px;color:#fff;background:#e67e22;padding:2px 6px;border-radius:10px;margin-left:8px;font-weight:600;">MANUAL</span>' : ''}</div>
+                                    <div class="order-id">${order.id} ${statusTags}</div>
                                     <div class="order-pair">${order.pair || 'N/A'}</div>
                                 </div>
                                 <div class="order-details">
