@@ -86,7 +86,7 @@ for svc in "${SERVICES[@]}"; do
 done
 
 # check that the /var/lib/config.csv has the correct 660 permissions
-CONFIG_FILE="/var/lib/ttlso/config.csv"
+CONFIG_FILE="/var/lib/ttslo/config.csv"
 if [ -f "$CONFIG_FILE" ]; then
     PERMS=$(stat -c "%a" "$CONFIG_FILE")
     if [ "$PERMS" != "660" ]; then
