@@ -464,8 +464,9 @@ def get_completed_orders():
                 if ordertype != 'trailing-stop':
                     continue
                     
-                # Only include closed/canceled orders
-                if order_info.get('status') not in ['closed', 'canceled']:
+                # For manual orders (not in state), only show closed orders
+                # Canceled manual orders are not relevant
+                if order_info.get('status') != 'closed':
                     continue
                 
                 # Add as manual completed order

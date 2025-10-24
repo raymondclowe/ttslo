@@ -2,6 +2,56 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Completed Orders - Canceled Order Filtering
+
+**Date**: 2025-10-24
+
+**Problem**: Dashboard Completed Orders pane showed ALL canceled orders from Kraken, including manual orders that users canceled. This cluttered the view with irrelevant data.
+
+**Requirements**:
+1. For **TTSLO-created orders** (tracked in state.csv): Show canceled orders WITH a "CANCELED" tag
+   - Users need to see these because they track orders the service created
+2. For **Manual orders** (NOT in state.csv): Filter out canceled orders completely
+   - These are irrelevant - user canceled them manually in Kraken UI
+
+**Root Cause**:
+- Line 468 in `dashboard.py`: `if order_info.get('status') not in ['closed', 'canceled']`
+- This included canceled manual orders in the completed list
+
+**Solution**:
+```python
+# dashboard.py - Lines 467-469
+# For manual orders (not in state), only show closed orders
+# Canceled manual orders are not relevant
+if order_info.get('status') != 'closed':
+    continue
+```
+
+**UI Enhancement**:
+```javascript
+// templates/dashboard.html - Added CANCELED tag
+if (order.status === 'canceled') {
+    statusTags += '<span style="...background:#e74c3c...">CANCELED</span>';
+}
+```
+
+**Key Distinctions**:
+1. **TTSLO orders** (lines 412-450): Accept both 'closed' and 'canceled', pass status to UI
+2. **Manual orders** (lines 452-494): Only accept 'closed', filter out 'canceled'
+
+**Visual Indicators**:
+- MANUAL tag: Orange (#e67e22) - indicates order not created by TTSLO
+- CANCELED tag: Red (#e74c3c) - indicates TTSLO order was canceled
+
+**Testing**:
+- `test_canceled_order_filtering()`: Validates filtering logic for both order types
+- `test_completed_order_status_tag()`: Validates status field structure for UI
+
+**Related Files**:
+- `dashboard.py`: Lines 467-469 (manual order filtering)
+- `dashboard.py`: Line 445 (status field passed to UI)
+- `templates/dashboard.html`: Lines 737-745 (status tag display)
+- `tests/test_dashboard.py`: Added 2 new tests
 ## State.csv Reconciliation - Handling Order Creation Failures
 
 **Date**: 2025-10-24
