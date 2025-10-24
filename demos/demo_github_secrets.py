@@ -4,6 +4,10 @@ Demo script to show how creds.py now supports GitHub environment secrets.
 
 This demonstrates that COPILOT_KRAKEN_API_KEY and COPILOT_KRAKEN_API_SECRET
 can be used for read-only tests.
+
+NOTE: This demo uses fake/example credentials for demonstration purposes only.
+The CodeQL alerts about logging sensitive data are expected here as we're
+showing how the credential lookup works with example values.
 """
 import os
 import sys
