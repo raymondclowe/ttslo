@@ -322,6 +322,7 @@ def get_active_orders():
                     'status': order_info.get('status'),
                     'order_type': ordertype,
                     'price': descr.get('price'),
+                    'trailing_offset_percent': None,
                     'manual': True,
                     'source': 'kraken'
                 })
