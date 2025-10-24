@@ -310,6 +310,13 @@ def get_active_orders():
                 # Only include trailing-stop orders (TSL)
                 if ordertype != 'trailing-stop':
                     continue
+                # Extract trailing offset from price field
+                # Format is like "+5.0000%" or "-5.0000%"
+                price_str = descr.get('price', '')
+                trailing_offset_percent = None
+                if price_str:
+                    # Remove '+', '-', and '%' to get the numeric value
+                    trailing_offset_percent = price_str.replace('+', '').replace('-', '').replace('%', '').strip()
                 # Add as manual/open order
                 active.append({
                     'id': order_id,
@@ -322,7 +329,7 @@ def get_active_orders():
                     'status': order_info.get('status'),
                     'order_type': ordertype,
                     'price': descr.get('price'),
-                    'trailing_offset_percent': None,
+                    'trailing_offset_percent': trailing_offset_percent,
                     'manual': True,
                     'source': 'kraken'
                 })
