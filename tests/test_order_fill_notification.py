@@ -93,10 +93,12 @@ def test_check_order_filled_when_not_filled():
         )
         
         # Check order filled
-        is_filled, fill_price = ttslo.check_order_filled('test1', 'ORDER123')
+        is_filled, fill_price, api_pair, filled_volume = ttslo.check_order_filled('test1', 'ORDER123')
         
         assert is_filled == False, "Order should not be marked as filled"
         assert fill_price is None, "Fill price should be None"
+        assert api_pair is None, "API pair should be None"
+        assert filled_volume is None, "Filled volume should be None"
         
         print("✓ Check order not filled test passed")
 
@@ -129,10 +131,12 @@ def test_check_order_filled_dry_run():
         )
         
         # Check dry-run order
-        is_filled, fill_price = ttslo.check_order_filled('test1', 'DRY_RUN_ORDER_ID')
+        is_filled, fill_price, api_pair, filled_volume = ttslo.check_order_filled('test1', 'DRY_RUN_ORDER_ID')
         
         assert is_filled == False, "Dry-run order should never be filled"
         assert fill_price is None, "Dry-run order should have no fill price"
+        assert api_pair is None, "Dry-run order should have no API pair"
+        assert filled_volume is None, "Dry-run order should have no filled volume"
         assert not mock_api_rw.query_closed_orders.called, "Should not query API for dry-run orders"
         
         print("✓ Dry-run order check test passed")
