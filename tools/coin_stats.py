@@ -199,20 +199,24 @@ class CoinStatsAnalyzer:
         
         return result
     
-    def calculate_probability_threshold(self, stats, probability=0.95):
+    def calculate_probability_threshold(self, stats, probability=0.95, time_horizon_minutes=1440):
         """
-        Calculate price threshold for a given probability.
+        Calculate price threshold for a given probability over a time horizon.
         
-        Using normal distribution assumption, calculate the price change
-        that has X% probability of being exceeded within 24 hours.
+        Uses random walk theory: cumulative volatility over n steps = σ_minute × sqrt(n)
+        For 24 hours (1440 minutes): σ_24h = σ_minute × sqrt(1440) ≈ σ_minute × 37.95
+        
+        This correctly models how minute-to-minute changes accumulate over time to
+        produce larger daily price movements.
         
         Args:
             stats: Statistics from calculate_statistics
             probability: Desired probability (0.95 = 95%)
+            time_horizon_minutes: Time horizon in minutes (default 1440 = 24 hours)
             
         Returns:
             dict with threshold information:
-            - threshold_pct: Percentage change threshold
+            - threshold_pct: Percentage change threshold over time horizon
             - threshold_price_up: Upper price threshold
             - threshold_price_down: Lower price threshold
             - confidence: Confidence in calculation
@@ -225,22 +229,23 @@ class CoinStatsAnalyzer:
             return None
         
         pct_mean = stats.get('pct_mean', 0)
-        pct_stdev = stats.get('pct_stdev', 0)
+        pct_stdev_minute = stats.get('pct_stdev', 0)
         
-        if pct_stdev == 0:
+        if pct_stdev_minute == 0:
             return None
         
-        # For normal distribution, 95% of values are within ~1.96 standard deviations
-        # But we want to know what threshold will be exceeded
-        # Use inverse CDF (ppf - percent point function)
+        # Calculate cumulative volatility over time horizon using random walk
+        # σ_total = σ_minute × sqrt(n)
+        import math
+        pct_stdev_horizon = pct_stdev_minute * math.sqrt(time_horizon_minutes)
         
         # Calculate z-score for the probability
         # For 95% probability of exceeding, we want the 5th percentile (lower tail)
         z_score = scipy_stats.norm.ppf(1 - probability)
         
         # Calculate threshold (absolute value)
-        # We're interested in the magnitude of movement
-        threshold_pct = abs(z_score * pct_stdev)
+        # We're interested in the magnitude of movement from starting point
+        threshold_pct = abs(z_score * pct_stdev_horizon)
         
         # Calculate actual price thresholds
         current_mean = stats['mean']
@@ -263,7 +268,9 @@ class CoinStatsAnalyzer:
             'threshold_price_down': threshold_price_down,
             'confidence': confidence,
             'z_score': z_score,
-            'pct_stdev': pct_stdev
+            'pct_stdev_minute': pct_stdev_minute,
+            'pct_stdev_horizon': pct_stdev_horizon,
+            'time_horizon_minutes': time_horizon_minutes
         }
     
     def generate_distribution_graph(self, pair, stats, output_dir='./graphs'):
@@ -748,15 +755,14 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     if not valid_results:
         return None
     
-    # Use lower probability threshold for portfolio approach  
-    # Need low enough probability to get thresholds > 1% for practical use
-    # With 3% per entry: threshold ~2-3% for typical crypto
-    # Portfolio prob of at least one: 1 - (1-0.03)^n
-    # For 30 pairs: 1 - 0.97^30 ≈ 60% chance of at least one trigger
-    # For 20 pairs: 1 - 0.97^20 ≈ 46% chance
-    # But with wider thresholds, more likely to actually trigger
+    # Use portfolio-level probability approach
+    # With random walk correction, thresholds are now realistic (1-10%)
+    # Use 10% per entry: reasonable chance of trigger, manageable portfolio size
+    # Portfolio prob of at least one: 1 - (1-0.10)^n
+    # For 30 pairs: 1 - 0.90^30 ≈ 96% chance of at least one trigger
+    # For 10 pairs: 1 - 0.90^10 ≈ 65% chance
     n_pairs = len(valid_results)
-    per_entry_probability = 0.03  # 3% per entry for wider thresholds that pass filter
+    per_entry_probability = 0.10  # 10% per entry gives realistic thresholds
     
     with open(output_file, 'w', newline='') as csvfile:
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
@@ -783,19 +789,21 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             upper_threshold = threshold['threshold_price_up']
             lower_threshold = threshold['threshold_price_down']
             
-            # Use a conservative trailing offset based on volatility
-            # For practical use, trailing offset should be less than threshold distance
-            # Calculate trailing as half of threshold, but cap at reasonable values
-            if threshold_pct >= 2.0:
-                # For larger thresholds (>2%), use half as trailing offset
-                trailing_offset = threshold_pct / 2
-            elif threshold_pct >= 0.5:
-                # For medium thresholds (0.5-2%), use 1% trailing or less
-                trailing_offset = min(1.0, threshold_pct * 0.6)
-            else:
-                # For very small thresholds (<0.5%), skip - too close to be practical
-                # Would trigger immediately even with smallest trailing offset
+            # Filter out entries where threshold is too small for practical use
+            # TTSLO requires minimum 1% trailing offset, so threshold should be > 1.5%
+            # to allow room for the trailing stop to work without immediate trigger
+            min_practical_threshold = 1.5  # 1.5% minimum
+            if threshold_pct < min_practical_threshold:
                 continue
+            
+            # Use a conservative trailing offset based on volatility
+            # Calculate trailing as fraction of threshold
+            if threshold_pct >= 4.0:
+                # For larger thresholds (>4%), use half as trailing offset
+                trailing_offset = threshold_pct / 2
+            else:
+                # For smaller thresholds (1.5-4%), use fixed 1% trailing
+                trailing_offset = 1.0
             
             # Determine decimal places based on price magnitude
             if current_price >= 1000:
@@ -983,7 +991,8 @@ def main():
         # Calculate portfolio probability for display
         valid_results = [r for r in results if r.get('threshold_95')]
         n_pairs = len(valid_results) if valid_results else len(results)
-        portfolio_prob = (1 - (0.70 ** n_pairs)) * 100
+        per_entry_prob = 0.10  # Same as used in generate_config_suggestions
+        portfolio_prob = (1 - ((1 - per_entry_prob) ** n_pairs)) * 100
         
         print(f"\n{'='*70}")
         print(f"SUGGESTED CONFIG FOR HIGH-PROBABILITY PORTFOLIO TRIGGERS")
@@ -991,13 +1000,12 @@ def main():
         print(f"\nIn order to create items that have a high chance of triggering")
         print(f"in the next 24 hours, add these lines to your config.csv:")
         print(f"\n✓ Suggested config saved to {config_path}")
-        # Calculate portfolio probability with 3% per entry
-        portfolio_prob_3pct = (1 - (0.97 ** n_pairs)) * 100
         
         print(f"\nThese entries use portfolio-level optimization:")
-        print(f"  - Individual entries use 3% probability for wider thresholds (>1%)")
-        print(f"  - With {n_pairs} pairs, portfolio has ~{portfolio_prob_3pct:.1f}% chance at least one triggers")
-        print(f"  - Filtered to exclude entries where threshold < 0.5% (would trigger immediately)")
+        print(f"  - Individual entries use 10% probability (90% chance of exceeding threshold)")
+        print(f"  - With {n_pairs} pairs, portfolio has ~{portfolio_prob:.1f}% chance at least one triggers")
+        print(f"  - Uses random walk model: 24h volatility = minute volatility × sqrt(1440)")
+        print(f"  - Filtered to exclude entries where threshold < 1.5% (would trigger immediately)")
         print(f"  - Decimal places adjusted based on coin value (more for low-value coins)")
         print(f"  - Each pair has up to two entries (above/below thresholds)")
         print(f"\n⚠️  WARNING: These are suggestions based on statistical analysis.")
