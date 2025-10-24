@@ -812,6 +812,68 @@ python3 tools/coin_stats.py --hours 48 --json-output results.json
 
 ---
 
+## GitHub Environment Secrets Support (2025-10-24)
+
+**Implementation Date**: October 2025
+
+### Problem
+Need to enable read-only live API tests in GitHub Actions CI/CD using repository secrets without hardcoding credentials or using complex secret name patterns.
+
+### Solution
+Extended `creds.py` to support `COPILOT_KRAKEN_API_KEY` and `COPILOT_KRAKEN_API_SECRET` as fallback options for read-only Kraken API credentials.
+
+### Implementation Details
+
+**Precedence Order** (for `KRAKEN_API_KEY` and `KRAKEN_API_SECRET`):
+1. Exact environment variable name (e.g., `KRAKEN_API_KEY`)
+2. Copilot-prefixed name (e.g., `copilot_KRAKEN_API_KEY`)
+3. COPILOT_W_KR_RO_PUBLIC / COPILOT_W_KR_RO_SECRET (existing pattern)
+4. COPILOT_W_KR_PUBLIC / COPILOT_W_KR_SECRET (existing fallback)
+5. **NEW**: `COPILOT_KRAKEN_API_KEY` / `COPILOT_KRAKEN_API_SECRET` (GitHub secrets)
+
+**Code Changes**:
+- Modified `get_env_var()` in `creds.py` to add new fallback options
+- Only 6 lines of code changed (surgical modification)
+- Maintained backward compatibility with all existing patterns
+
+**Testing**:
+- Created 18 new tests in `tests/test_creds.py`
+- All tests pass, no regressions
+- Comprehensive coverage of precedence rules and fallback behavior
+
+**Documentation**:
+- Updated `.env.example` with explanation of all supported patterns
+- Updated `README.md` to document multiple credential sources
+- Updated `tests/test_kraken_api_live.py` docstring
+- Created `demos/demo_github_secrets.py` to demonstrate functionality
+
+### Usage in GitHub Actions
+
+Set repository secrets in GitHub:
+```yaml
+secrets:
+  COPILOT_KRAKEN_API_KEY: ${{ secrets.COPILOT_KRAKEN_API_KEY }}
+  COPILOT_KRAKEN_API_SECRET: ${{ secrets.COPILOT_KRAKEN_API_SECRET }}
+```
+
+The application will automatically pick these up for read-only operations without code changes.
+
+### Key Benefits
+
+1. **Zero Code Changes**: Existing code automatically works with GitHub secrets
+2. **Flexible Deployment**: Supports dev (.env), CI/CD (GitHub secrets), and production (env vars)
+3. **Secure by Default**: Secrets never committed to repository
+4. **Clear Precedence**: Standard names always take priority over secret patterns
+
+### Related Files
+- `creds.py`: Lines 92-99 (implementation)
+- `tests/test_creds.py`: Complete test suite (18 tests)
+- `demos/demo_github_secrets.py`: Demonstration script
+- `.env.example`: Updated documentation
+- `README.md`: Updated credential documentation
+
+---
+
 ## Merge & Test Learnings (2025-10-24)
 
 - Resolved merge conflicts on branch `copilot/fix-tslo-index-error` keeping both behaviors:
