@@ -779,24 +779,24 @@ class TTSLO:
         """
         if not order_id or order_id == 'DRY_RUN_ORDER_ID':
             # Dry-run orders are never filled
-            return False, None
-        
+            return False, None, None, None
+
         if not self.kraken_api_readwrite:
             self.log('WARNING', 'Cannot check order status: No read-write API credentials',
                     config_id=config_id, order_id=order_id)
-            return False, None
-        
+            return False, None, None, None
+
         try:
             # Query closed orders to see if this order is filled
             closed_orders = self.kraken_api_readwrite.query_closed_orders()
-            
+
             if not closed_orders or 'closed' not in closed_orders:
                 # No closed orders found
-                return False, None
+                return False, None, None, None
         except KrakenAPIError as e:
             self.log('ERROR', f'Kraken API error checking order status: {str(e)} (type: {e.error_type})',
                     config_id=config_id, order_id=order_id, error=str(e), error_type=e.error_type)
-            
+
             # Send notification about API error
             if self.notification_manager:
                 self.notification_manager.notify_api_error(
@@ -805,24 +805,24 @@ class TTSLO:
                     error_message=str(e),
                     details=e.details
                 )
-            
-            return False, None
+
+            return False, None, None, None
         except Exception as e:
             self.log('ERROR', f'Unexpected error checking order status: {str(e)}',
                     config_id=config_id, order_id=order_id, error=str(e))
-            return False, None
-        
+            return False, None, None, None
+
         try:
-            
+
             # Check if our order is in the closed orders
             if order_id in closed_orders['closed']:
                 order_info = closed_orders['closed'][order_id]
                 status = order_info.get('status', '')
-                
+
                 # Order is filled/closed
                 self.log('INFO', f'Order {order_id} status: {status}',
                         config_id=config_id, order_id=order_id)
-                
+
                 # Try to get the fill price and other useful metadata from the
                 # closed order record so notifications can be informative.
                 fill_price = None
@@ -860,14 +860,14 @@ class TTSLO:
                 is_filled = status == 'closed'
                 # Return pair and volume so caller can include them in notifications
                 return is_filled, fill_price, api_pair, filled_volume
-            
+
             # Order not in closed orders yet
-            return False, None
-            
+            return False, None, None, None
+
         except Exception as e:
             self.log('WARNING', f'Error checking order status: {str(e)}',
                     config_id=config_id, order_id=order_id, error=str(e))
-            return False, None
+            return False, None, None, None
     
     def check_triggered_orders(self):
         """
