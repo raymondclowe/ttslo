@@ -244,6 +244,7 @@ def get_pending_orders():
     return pending
 
 
+@ttl_cache(seconds=5)
 def get_active_orders():
     """Get orders that have triggered and are active on Kraken."""
     start_time = time.time()
@@ -334,6 +335,7 @@ def get_active_orders():
     return active
 
 
+@ttl_cache(seconds=5)
 def get_completed_orders():
     """Get orders that have executed."""
     start_time = time.time()
@@ -379,8 +381,21 @@ def get_completed_orders():
             closed_orders = kraken_api.query_orders(order_ids)
             query_elapsed = time.time() - query_start
             print(f"[PERF] Queried {len(order_ids)} specific orders in {query_elapsed:.3f}s, got {len(closed_orders)} results")
+            
+            # Check if query_orders returned all expected orders
+            missing_orders = set(order_ids) - set(closed_orders.keys())
+            if missing_orders:
+                print(f"[PERF] WARNING: query_orders missing {len(missing_orders)} orders: {list(missing_orders)[:3]}...")
+                # Query closed orders to find missing ones
+                all_closed = get_cached_closed_orders()
+                for oid in missing_orders:
+                    if oid in all_closed:
+                        closed_orders[oid] = all_closed[oid]
+                        print(f"[PERF] Found missing order {oid[:12]}... in closed orders")
         except Exception as e:
-            print(f"[PERF] Error querying specific orders: {e}")
+            print(f"[PERF] Error querying specific orders: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
             # Fallback to the old method if query_orders fails
             closed_orders = get_cached_closed_orders()
             print(f"[PERF] Fallback: using cached closed orders, got {len(closed_orders)} orders")
@@ -389,6 +404,8 @@ def get_completed_orders():
         for order_id, order_info in closed_orders.items():
             config_id = config_id_by_order.get(order_id)
             if not config_id:
+                # This is a manual order not tracked in state
+                # Skip for now - only show orders we created
                 continue
                 
             if order_info and order_info.get('status') in ['closed', 'canceled']:
@@ -423,6 +440,50 @@ def get_completed_orders():
                     'benefit_percent': benefit_percent,
                     'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
+        
+        # Include manual closed trailing-stop orders from Kraken not in state
+        try:
+            all_closed = get_cached_closed_orders()
+            for order_id, order_info in all_closed.items():
+                # Skip if already included
+                if any(c.get('order_id') == order_id for c in completed):
+                    continue
+                    
+                descr = order_info.get('descr', {}) or {}
+                ordertype = descr.get('ordertype')
+                
+                # Only include trailing-stop orders
+                if ordertype != 'trailing-stop':
+                    continue
+                    
+                # Only include closed/canceled orders
+                if order_info.get('status') not in ['closed', 'canceled']:
+                    continue
+                
+                # Add as manual completed order
+                executed_price = float(order_info.get('price', 0))
+                completed.append({
+                    'id': order_id,
+                    'order_id': order_id,
+                    'pair': descr.get('pair'),
+                    'trigger_price': None,
+                    'executed_price': executed_price,
+                    'trigger_time': None,
+                    'close_time': datetime.fromtimestamp(
+                        order_info.get('closetm', 0), tz=timezone.utc
+                    ).isoformat() if order_info.get('closetm') else None,
+                    'volume': order_info.get('vol'),
+                    'status': order_info.get('status'),
+                    'direction': descr.get('type'),  # 'buy' or 'sell'
+                    'benefit': None,
+                    'benefit_percent': None,
+                    'trailing_offset_percent': None,
+                    'manual': True,
+                    'source': 'kraken'
+                })
+        except Exception as e:
+            print(f"[PERF] Error adding manual completed orders: {e}")
+        
         filter_elapsed = time.time() - filter_start
         print(f"[PERF] Filtering/matching {len(closed_orders)} orders took {filter_elapsed:.3f}s")
     except Exception as e:
