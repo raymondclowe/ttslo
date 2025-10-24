@@ -805,9 +805,66 @@ python3 tools/coin_stats.py --hours 48 --json-output results.json
 6. **Machine Learning**: LSTM/ARIMA for time series prediction
 7. **Real-time Updates**: Stream data and update statistics live
 8. **Alert Integration**: Notify when volatility exceeds thresholds
->>>>>>> origin/main
 
 ---
 
 *Add new learnings here as we discover them*
 
+---
+
+## Merge & Test Learnings (2025-10-24)
+
+- Resolved merge conflicts on branch `copilot/fix-tslo-index-error` keeping both behaviors:
+  - Automatic fallback from `trigger='index'` to `trigger='last'` when Kraken returns "Index unavailable".
+  - Preserve `KrakenAPIError`-specific logging, notifications and state updates from `origin/main`.
+
+- Fixes made:
+  - `ttslo.create_tsl_order()` now:
+    - retries with `trigger='last'` when index is unavailable and uses the retry result instead of falling through to generic error handling;
+    - notifies via `NotificationManager.notify_insufficient_balance` when balance check fails (even if no state entry exists yet);
+    - preserves existing state-based `_handle_order_error_state()` updates when state entry exists.
+  - `config.ConfigManager.save_state()` and `initialize_state_file()` updated to include `last_error` and `error_notified` in CSV headers so saving state won't raise a fields mismatch.
+
+- Validation:
+  - Created a local venv and ran the full pytest suite inside it.
+  - Test results: 297 passed, 6 skipped.
+
+- Git/PR status:
+  - Branch `copilot/fix-tslo-index-error` contains the merge resolution and tests-green changes.
+  - After this commit I'll push the LEARNINGS update and check the existing PR for mergeability.
+
+- Notes / follow-ups:
+  - PR: "Fix: Add automatic fallback to last price when index price unavailable" (active PR in this repo) — verify CI/branch protection in GitHub before merging.
+  - Consider adding a tiny unit test to assert that `NotificationManager.notify_insufficient_balance` is called when balance is insufficient (already covered by existing tests, but worth an explicit assertion in integration tests).
+
+
+
+---
+
+## Merge & Test Learnings (2025-10-24)
+
+- Resolved merge conflicts on branch `copilot/fix-tslo-index-error` keeping both behaviors:
+  - Automatic fallback from `trigger='index'` to `trigger='last'` when Kraken returns "Index unavailable".
+  - Preserve `KrakenAPIError`-specific logging, notifications and state updates from `origin/main`.
+
+- Fixes made:
+  - `ttslo.create_tsl_order()` now:
+    - retries with `trigger='last'` when index is unavailable and uses the retry result instead of falling through to generic error handling;
+    - notifies via `NotificationManager.notify_insufficient_balance` when balance check fails (even if no state entry exists yet);
+    - preserves existing state-based `_handle_order_error_state()` updates when state entry exists.
+  - `config.ConfigManager.save_state()` and `initialize_state_file()` updated to include `last_error` and `error_notified` in CSV headers so saving state won't raise a fields mismatch.
+
+- Validation:
+  - Created a local venv and ran the full pytest suite inside it.
+  - Test results: 297 passed, 6 skipped.
+
+- Git/PR status:
+  - Branch `copilot/fix-tslo-index-error` contains the merge resolution and tests-green changes.
+  - After this commit I'll push the LEARNINGS update and check the existing PR for mergeability.
+
+- Notes / follow-ups:
+  - PR: "Fix: Add automatic fallback to last price when index price unavailable" (active PR in this repo) — verify CI/branch protection in GitHub before merging.
+  - Consider adding a tiny unit test to assert that `NotificationManager.notify_insufficient_balance` is called when balance is insufficient (already covered by existing tests, but worth an explicit assertion in integration tests).
+
+
+```
