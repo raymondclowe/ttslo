@@ -81,8 +81,8 @@ def demo_order_fill_notification():
         print("   • Status: Open (not filled)")
         print()
         
-        is_filled, fill_price = ttslo.check_order_filled('btc_sell_1', 'ORDER-ABC123')
-        print(f"   → check_order_filled() returns: is_filled={is_filled}, fill_price={fill_price}")
+        is_filled, fill_price, api_pair, filled_volume = ttslo.check_order_filled('btc_sell_1', 'ORDER-ABC123')
+        print(f"   → check_order_filled() returns: is_filled={is_filled}, fill_price={fill_price}, api_pair={api_pair}, filled_volume={filled_volume}")
         print("   ✓ Order not in closed orders yet - no notification sent")
         print()
         
@@ -102,8 +102,8 @@ def demo_order_fill_notification():
         print("   • Trailing stop order executed")
         print()
         
-        is_filled, fill_price = ttslo.check_order_filled('btc_sell_1', 'ORDER-ABC123')
-        print(f"   → check_order_filled() returns: is_filled={is_filled}, fill_price={fill_price}")
+        is_filled, fill_price, api_pair, filled_volume = ttslo.check_order_filled('btc_sell_1', 'ORDER-ABC123')
+        print(f"   → check_order_filled() returns: is_filled={is_filled}, fill_price={fill_price}, api_pair={api_pair}, filled_volume={filled_volume}")
         print()
         
         # Trigger notification
