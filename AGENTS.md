@@ -74,3 +74,5 @@ Kraken API Balance Handling:
    Why this matters
    - Tests and the TUI depend on packages that are not in the base system Python. Running under the `uv` venv guarantees correct imports and reproduces developer expectations.
 
+# Testing in copilot agent workspace
+- creds.py should look for a github environment secret called `COPILOT_KRAKEN_API_KEY` and `COPILOT_KRAKEN_API_SECRET` to be able to do read only tests to get our live data from production but read only to test things like checking open orders.
