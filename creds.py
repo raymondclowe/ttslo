@@ -89,9 +89,13 @@ def get_env_var(name: str) -> Optional[str]:
     if name == 'KRAKEN_API_SECRET_RW':
         return os.environ.get('COPILOT_W_KR_RW_SECRET') or os.environ.get('COPILOT_W_KR_RW_SECRET_KEY')
     if name == 'KRAKEN_API_KEY':
-        return os.environ.get('COPILOT_W_KR_RO_PUBLIC') or os.environ.get('COPILOT_W_KR_PUBLIC')
+        return (os.environ.get('COPILOT_KRAKEN_API_KEY') or 
+                os.environ.get('COPILOT_W_KR_RO_PUBLIC') or 
+                os.environ.get('COPILOT_W_KR_PUBLIC'))
     if name == 'KRAKEN_API_SECRET':
-        return os.environ.get('COPILOT_W_KR_RO_SECRET') or os.environ.get('COPILOT_W_KR_SECRET')
+        return (os.environ.get('COPILOT_KRAKEN_API_SECRET') or 
+                os.environ.get('COPILOT_W_KR_RO_SECRET') or 
+                os.environ.get('COPILOT_W_KR_SECRET'))
 
     return None
 

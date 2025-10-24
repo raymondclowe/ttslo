@@ -95,21 +95,10 @@ def get_cached_open_orders():
 # Longer TTL cache for closed orders (30s)
 @ttl_cache(seconds=30)
 def get_cached_closed_orders():
-    """Get closed orders from Kraken with longer TTL caching.
-    
-    Fetches orders from the last 30 days to ensure we capture all recent
-    completed orders. Kraken API returns max 50 orders by default, so we
-    use the 'start' parameter to limit the time window.
-    """
+    """Get closed orders from Kraken with longer TTL caching."""
     if not kraken_api:
         return {}
-    
-    # Calculate timestamp for 30 days ago
-    # This ensures we get recent orders while staying within Kraken's limits
-    import time
-    thirty_days_ago = int(time.time()) - (30 * 24 * 60 * 60)
-    
-    result = kraken_api.query_closed_orders(start=thirty_days_ago)
+    result = kraken_api.query_closed_orders()
     return result.get('closed', {})
 
 
@@ -364,19 +353,47 @@ def get_completed_orders():
     completed = []
     
     try:
-        # Use cached closed orders (30s TTL)
-        closed_orders = get_cached_closed_orders()
-        print(f"[PERF] Cached closed orders: {len(closed_orders)}")
-        filter_start = time.time()
+        # Collect order IDs from triggered state entries
+        order_ids = []
+        config_id_by_order = {}  # Map order_id -> config_id
+        
         for config_id, config_state in state.items():
             if config_state.get('triggered') != 'true':
                 continue
             order_id = config_state.get('order_id')
             if not order_id:
                 continue
-            order_info = closed_orders.get(order_id)
+            order_ids.append(order_id)
+            config_id_by_order[order_id] = config_id
+        
+        print(f"[PERF] Found {len(order_ids)} triggered orders in state")
+        
+        if not order_ids:
+            print(f"[PERF] No triggered orders to query")
+            return []
+        
+        # Query specific order IDs directly (more efficient than fetching all closed orders)
+        # Kraken's QueryOrders endpoint can query up to 50 orders at once
+        query_start = time.time()
+        try:
+            closed_orders = kraken_api.query_orders(order_ids)
+            query_elapsed = time.time() - query_start
+            print(f"[PERF] Queried {len(order_ids)} specific orders in {query_elapsed:.3f}s, got {len(closed_orders)} results")
+        except Exception as e:
+            print(f"[PERF] Error querying specific orders: {e}")
+            # Fallback to the old method if query_orders fails
+            closed_orders = get_cached_closed_orders()
+            print(f"[PERF] Fallback: using cached closed orders, got {len(closed_orders)} orders")
+        
+        filter_start = time.time()
+        for order_id, order_info in closed_orders.items():
+            config_id = config_id_by_order.get(order_id)
+            if not config_id:
+                continue
+                
             if order_info and order_info.get('status') in ['closed', 'canceled']:
                 config = config_map.get(config_id, {})
+                config_state = state.get(config_id, {})
                 trigger_price = float(config_state.get('trigger_price', 0))
                 executed_price = float(order_info.get('price', 0))
                 benefit = 0
@@ -407,7 +424,7 @@ def get_completed_orders():
                     'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
         filter_elapsed = time.time() - filter_start
-        print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
+        print(f"[PERF] Filtering/matching {len(closed_orders)} orders took {filter_elapsed:.3f}s")
     except Exception as e:
         print(f"[PERF] Error getting completed orders: {e}")
     

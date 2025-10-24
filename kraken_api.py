@@ -958,6 +958,35 @@ class KrakenAPI:
             
         return result.get('result', {})
     
+    def query_orders(self, txids, trades=False):
+        """
+        Query information about specific orders by their transaction IDs.
+        
+        Args:
+            txids: Comma-delimited list of transaction IDs to query (up to 50)
+            trades: Whether or not to include trades related to position in output
+            
+        Returns:
+            Dictionary containing order information for the specified transaction IDs
+        """
+        if not txids:
+            return {}
+        
+        # Ensure txids is a string (comma-separated if it's a list)
+        if isinstance(txids, list):
+            txids = ','.join(txids)
+        
+        params = {'txid': txids}
+        if trades:
+            params['trades'] = trades
+            
+        result = self._query_private('QueryOrders', params)
+        
+        if result.get('error'):
+            raise Exception(f"Kraken API error: {result['error']}")
+            
+        return result.get('result', {})
+    
     def cancel_order(self, txid):
         print(f"[DEBUG] KrakenAPI.cancel_order: txid={txid}")
         """
