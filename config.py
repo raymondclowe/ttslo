@@ -340,7 +340,8 @@ class ConfigManager:
             
         # Added 'offset' to capture the trailing offset specified when order was created
         # Added 'fill_notified' to track if we've sent notification about order being filled
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset', 'fill_notified']
+        # Added 'last_error' and 'error_notified' to persist recent error state and notifications
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset', 'fill_notified', 'last_error', 'error_notified']
 
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -418,7 +419,8 @@ class ConfigManager:
     def initialize_state_file(self):
         """Initialize an empty state file with headers."""
         # Include 'offset' column to record trailing offset specified when order created
-        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset']
+        # Keep headers in sync with save_state (including error fields)
+        fieldnames = ['id', 'triggered', 'trigger_price', 'trigger_time', 'order_id', 'activated_on', 'last_checked', 'offset', 'fill_notified', 'last_error', 'error_notified']
         
         with open(self.state_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
