@@ -92,7 +92,13 @@ KRAKEN_API_KEY_RW=your_readwrite_api_key
 KRAKEN_API_SECRET_RW=your_readwrite_api_secret
 ```
 
-**Note:** The tool checks for both standard names (e.g., `KRAKEN_API_KEY`) and Copilot-prefixed names (e.g., `copilot_KRAKEN_API_KEY`) to support GitHub Copilot agent environments.
+**Note:** The tool checks for credentials from multiple sources:
+- Standard names (e.g., `KRAKEN_API_KEY`)
+- Copilot-prefixed names (e.g., `copilot_KRAKEN_API_KEY`)
+- COPILOT_W_* variants (e.g., `COPILOT_W_KR_RO_PUBLIC`)
+- GitHub environment secrets (e.g., `COPILOT_KRAKEN_API_KEY`, `COPILOT_KRAKEN_API_SECRET`)
+
+This allows flexible deployment in development, CI/CD, and production environments.
 
 ## Quick Start
 
