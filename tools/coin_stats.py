@@ -748,14 +748,15 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     if not valid_results:
         return None
     
-    # Use lower probability threshold for portfolio approach
-    # With many pairs, using 30% per entry gives good chance of triggers
-    # Portfolio prob of at least one: 1 - (1-0.30)^n
-    # For 30 pairs: 1 - 0.70^30 ≈ 99.97% chance of at least one trigger
-    # For 10 pairs: 1 - 0.70^10 ≈ 97.2% chance
-    # For 5 pairs: 1 - 0.70^5 ≈ 83.2% chance
+    # Use lower probability threshold for portfolio approach  
+    # Need low enough probability to get thresholds > 1% for practical use
+    # With 3% per entry: threshold ~2-3% for typical crypto
+    # Portfolio prob of at least one: 1 - (1-0.03)^n
+    # For 30 pairs: 1 - 0.97^30 ≈ 60% chance of at least one trigger
+    # For 20 pairs: 1 - 0.97^20 ≈ 46% chance
+    # But with wider thresholds, more likely to actually trigger
     n_pairs = len(valid_results)
-    per_entry_probability = 0.30  # 30% per entry for reasonable thresholds
+    per_entry_probability = 0.03  # 3% per entry for wider thresholds that pass filter
     
     with open(output_file, 'w', newline='') as csvfile:
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
@@ -783,12 +784,18 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             lower_threshold = threshold['threshold_price_down']
             
             # Use a conservative trailing offset based on volatility
-            # Use half of the threshold percentage as trailing offset, minimum 1.0%
-            trailing_offset = max(1.0, threshold_pct / 2)
-            
-            # Note: We don't filter based on distance from current price because
-            # statistical thresholds may be small for low-volatility periods.
-            # TTSLO validation will handle cases where thresholds are too close.
+            # For practical use, trailing offset should be less than threshold distance
+            # Calculate trailing as half of threshold, but cap at reasonable values
+            if threshold_pct >= 2.0:
+                # For larger thresholds (>2%), use half as trailing offset
+                trailing_offset = threshold_pct / 2
+            elif threshold_pct >= 0.5:
+                # For medium thresholds (0.5-2%), use 1% trailing or less
+                trailing_offset = min(1.0, threshold_pct * 0.6)
+            else:
+                # For very small thresholds (<0.5%), skip - too close to be practical
+                # Would trigger immediately even with smallest trailing offset
+                continue
             
             # Determine decimal places based on price magnitude
             if current_price >= 1000:
@@ -984,9 +991,13 @@ def main():
         print(f"\nIn order to create items that have a high chance of triggering")
         print(f"in the next 24 hours, add these lines to your config.csv:")
         print(f"\n✓ Suggested config saved to {config_path}")
+        # Calculate portfolio probability with 3% per entry
+        portfolio_prob_3pct = (1 - (0.97 ** n_pairs)) * 100
+        
         print(f"\nThese entries use portfolio-level optimization:")
-        print(f"  - Individual entries use 30% probability for wider trigger thresholds")
-        print(f"  - With {n_pairs} pairs, portfolio has ~{portfolio_prob:.1f}% chance at least one triggers")
+        print(f"  - Individual entries use 3% probability for wider thresholds (>1%)")
+        print(f"  - With {n_pairs} pairs, portfolio has ~{portfolio_prob_3pct:.1f}% chance at least one triggers")
+        print(f"  - Filtered to exclude entries where threshold < 0.5% (would trigger immediately)")
         print(f"  - Decimal places adjusted based on coin value (more for low-value coins)")
         print(f"  - Each pair has up to two entries (above/below thresholds)")
         print(f"\n⚠️  WARNING: These are suggestions based on statistical analysis.")

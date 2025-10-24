@@ -2,336 +2,336 @@
   {
     "pair": "XXBTZUSD",
     "stats": {
-      "mean": 109915.52843273232,
-      "median": 109951.0,
-      "stdev": 508.8519077665713,
+      "mean": 109936.05950069347,
+      "median": 109967.9,
+      "stdev": 500.07256281438833,
       "min_price": 108800.1,
       "max_price": 111290.2,
       "range": 2490.0999999999913,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.8341471697268082,
-        "p_value": 1.0925617926270875e-26,
+        "statistic": 0.8315595668742122,
+        "p_value": 7.278797968935411e-27,
         "is_normal": false
       },
-      "pct_mean": 0.0015568671678472198,
+      "pct_mean": 0.0015291419847445478,
       "pct_median": 0.0,
-      "pct_stdev": 0.057085410142204196
+      "pct_stdev": 0.05729141789672697
     },
     "threshold_95": {
-      "threshold_pct": 0.09389714391841693,
-      "threshold_price_up": 110018.73597465348,
-      "threshold_price_down": 109812.32089081114,
+      "threshold_pct": 0.09423599652062384,
+      "threshold_price_up": 110039.65884189947,
+      "threshold_price_down": 109832.4601594875,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.057085410142204196
+      "pct_stdev": 0.05729141789672697
     }
   },
   {
     "pair": "XETHZUSD",
     "stats": {
-      "mean": 3860.001151178918,
-      "median": 3853.62,
-      "stdev": 22.813089978505563,
+      "mean": 3860.055714285714,
+      "median": 3853.9,
+      "stdev": 22.801094133626048,
       "min_price": 3811.4,
       "max_price": 3930.69,
       "range": 119.28999999999996,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.8936723616267122,
-        "p_value": 6.935806167470004e-22,
+        "statistic": 0.8944216887965899,
+        "p_value": 8.192167844298334e-22,
         "is_normal": false
       },
-      "pct_mean": 0.0003673627187433121,
+      "pct_mean": -5.5243961221703964e-05,
       "pct_median": 0.0,
-      "pct_stdev": 0.09158613936044335
+      "pct_stdev": 0.09171676968676822
     },
     "threshold_95": {
-      "threshold_pct": 0.15064579350550825,
-      "threshold_price_up": 3865.8160805424327,
-      "threshold_price_down": 3854.186221815403,
+      "threshold_pct": 0.15086066127155354,
+      "threshold_price_up": 3865.8790198617357,
+      "threshold_price_down": 3854.232408709692,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.09158613936044335
+      "pct_stdev": 0.09171676968676822
     }
   },
   {
     "pair": "SOLUSD",
     "stats": {
-      "mean": 190.56409153952842,
-      "median": 190.7,
-      "stdev": 1.1234386881594036,
-      "min_price": 187.46,
+      "mean": 190.62151178918168,
+      "median": 190.73,
+      "stdev": 1.1011775591950246,
+      "min_price": 188.24,
       "max_price": 193.46,
-      "range": 6.0,
+      "range": 5.219999999999999,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.9345022045754422,
-        "p_value": 3.147850516902493e-17,
+        "statistic": 0.9333301015486608,
+        "p_value": 2.1783546021551634e-17,
         "is_normal": false
       },
-      "pct_mean": 0.0033771872017280473,
+      "pct_mean": 0.0020136502763298957,
       "pct_median": 0.0,
-      "pct_stdev": 0.10352647477357776
+      "pct_stdev": 0.10225342546905536
     },
     "threshold_95": {
-      "threshold_pct": 0.17028589751681947,
-      "threshold_price_up": 190.88859531315128,
-      "threshold_price_down": 190.23958776590555,
+      "threshold_pct": 0.16819191775098774,
+      "threshold_price_up": 190.94212176550585,
+      "threshold_price_down": 190.30090181285752,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.10352647477357776
+      "pct_stdev": 0.10225342546905536
     }
   },
   {
     "pair": "XLTCZUSD",
     "stats": {
-      "mean": 93.77625520110956,
-      "median": 93.8,
-      "stdev": 0.3772349861584139,
+      "mean": 93.79108183079057,
+      "median": 93.81,
+      "stdev": 0.37427106222181217,
       "min_price": 92.9,
       "max_price": 94.75,
       "range": 1.8499999999999943,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.859399221030257,
-        "p_value": 7.621663117449175e-25,
+        "statistic": 0.8574909799105315,
+        "p_value": 5.422644435750901e-25,
         "is_normal": false
       },
-      "pct_mean": 0.0018130348077547687,
+      "pct_mean": 0.0012620559663805255,
       "pct_median": 0.0,
-      "pct_stdev": 0.08119735956205412
+      "pct_stdev": 0.08127388465998014
     },
     "threshold_95": {
-      "threshold_pct": 0.1335577713745275,
-      "threshold_price_up": 93.90150067763466,
-      "threshold_price_down": 93.65100972458447,
+      "threshold_pct": 0.13368364395940396,
+      "threshold_price_up": 93.91646516669093,
+      "threshold_price_down": 93.66569849489022,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.08119735956205412
+      "pct_stdev": 0.08127388465998014
     }
   },
   {
     "pair": "XXRPZUSD",
     "stats": {
-      "mean": 2.3991031067961166,
+      "mean": 2.3992220665742026,
       "median": 2.39899,
-      "stdev": 0.009441763153432899,
+      "stdev": 0.009303446600051302,
       "min_price": 2.37989,
       "max_price": 2.42542,
       "range": 0.04552999999999985,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.8925403459894992,
-        "p_value": 5.402447991518049e-22,
+        "statistic": 0.892168067766754,
+        "p_value": 4.978450353262536e-22,
         "is_normal": false
       },
-      "pct_mean": 0.0006379950567878878,
+      "pct_mean": 0.00022824770740802124,
       "pct_median": 0.0,
-      "pct_stdev": 0.07908759725244371
+      "pct_stdev": 0.07890900287577911
     },
     "threshold_95": {
-      "threshold_pct": 0.13008752118755934,
-      "threshold_price_up": 2.4022240405584814,
-      "threshold_price_down": 2.395982173033752,
+      "threshold_pct": 0.1297937595793494,
+      "threshold_price_up": 2.4023361070950666,
+      "threshold_price_down": 2.3961080260533385,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.07908759725244371
+      "pct_stdev": 0.07890900287577911
     }
   },
   {
     "pair": "XXMRZUSD",
     "stats": {
-      "mean": 323.9466019417476,
+      "mean": 323.8207489597781,
       "median": 322.97,
-      "stdev": 3.6841033461265265,
+      "stdev": 3.5685549509962944,
       "min_price": 317.41,
       "max_price": 334.7,
       "range": 17.289999999999964,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.8722821471861072,
-        "p_value": 8.36438740104462e-24,
+        "statistic": 0.8650300384991703,
+        "p_value": 2.125340745156799e-24,
         "is_normal": false
       },
-      "pct_mean": -0.003104851283239454,
+      "pct_mean": -0.0029579535467674067,
       "pct_median": 0.0,
-      "pct_stdev": 0.14813588079203457
+      "pct_stdev": 0.14920477553599262
     },
     "threshold_95": {
-      "threshold_pct": 0.243661840802429,
-      "threshold_price_up": 324.73593619525576,
-      "threshold_price_down": 323.1572676882394,
+      "threshold_pct": 0.24542001619885775,
+      "threshold_price_up": 324.61546989433043,
+      "threshold_price_down": 323.02602802522574,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.14813588079203457
+      "pct_stdev": 0.14920477553599262
     }
   },
   {
     "pair": "AAVEUSD",
     "stats": {
-      "mean": 223.64617198335645,
-      "median": 223.87,
-      "stdev": 2.039622662090706,
-      "min_price": 219.42,
+      "mean": 223.71618585298197,
+      "median": 223.92,
+      "stdev": 1.9818760090910568,
+      "min_price": 219.72,
       "max_price": 228.23,
-      "range": 8.810000000000002,
+      "range": 8.509999999999991,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.6348792796483822,
-        "p_value": 1.8303356310243696e-36,
+        "statistic": 0.6365484135113726,
+        "p_value": 2.1082335094907234e-36,
         "is_normal": false
       },
-      "pct_mean": 0.003141410151313994,
+      "pct_mean": 0.0023342999776519704,
       "pct_median": 0.0,
-      "pct_stdev": 0.09915594638952799
+      "pct_stdev": 0.09924125080296446
     },
     "threshold_95": {
-      "threshold_pct": 0.16309701805262083,
-      "threshold_price_up": 224.01093222085012,
-      "threshold_price_down": 223.28141174586278,
+      "threshold_pct": 0.1632373313264568,
+      "threshold_price_up": 224.08137418451372,
+      "threshold_price_down": 223.3509975214502,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.09915594638952799
+      "pct_stdev": 0.09924125080296446
     }
   },
   {
     "pair": "ATOMUSD",
     "stats": {
-      "mean": 3.189126629680999,
+      "mean": 3.1894388349514564,
       "median": 3.1882,
-      "stdev": 0.01648048798790915,
-      "min_price": 3.1526,
+      "stdev": 0.01604095940524683,
+      "min_price": 3.1568,
       "max_price": 3.2307,
-      "range": 0.07810000000000006,
+      "range": 0.07390000000000008,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.6686085943224079,
-        "p_value": 3.5450928167821064e-35,
+        "statistic": 0.6714124181729044,
+        "p_value": 4.5846062597365877e-35,
         "is_normal": false
       },
-      "pct_mean": 0.001424399559699504,
+      "pct_mean": 0.0004429358883565196,
       "pct_median": 0.0,
-      "pct_stdev": 0.07806652911216205
+      "pct_stdev": 0.07816821343154823
     },
     "threshold_95": {
-      "threshold_pct": 0.12840801355365244,
-      "threshold_price_up": 3.1932217238358827,
-      "threshold_price_down": 3.185031535526115,
+      "threshold_pct": 0.1285752693751989,
+      "threshold_price_up": 3.1935396645250522,
+      "threshold_price_down": 3.1853380053778606,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.07806652911216205
+      "pct_stdev": 0.07816821343154823
     }
   },
   {
     "pair": "COMPUSD",
     "stats": {
-      "mean": 36.99101248266297,
+      "mean": 37.00274618585298,
       "median": 36.98,
-      "stdev": 0.18271091650646795,
+      "stdev": 0.1844924063177248,
       "min_price": 36.67,
       "max_price": 37.47,
       "range": 0.7999999999999972,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.3213656970080281,
-        "p_value": 2.87876672379104e-45,
+        "statistic": 0.3288266658354003,
+        "p_value": 4.215855049876733e-45,
         "is_normal": false
       },
-      "pct_mean": 0.0025849274162533355,
+      "pct_mean": 0.002919958142947164,
       "pct_median": 0.0,
-      "pct_stdev": 0.0812892741272782
+      "pct_stdev": 0.08221234260178183
     },
     "threshold_95": {
-      "threshold_pct": 0.133708957380506,
-      "threshold_price_up": 37.04047277977803,
-      "threshold_price_down": 36.941552185547906,
+      "threshold_pct": 0.13522726990871786,
+      "threshold_price_up": 37.05278398931136,
+      "threshold_price_down": 36.9527083823946,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.0812892741272782
+      "pct_stdev": 0.08221234260178183
     }
   },
   {
     "pair": "DYDXUSD",
     "stats": {
-      "mean": 0.31901054091539527,
-      "median": 0.3192,
-      "stdev": 0.002844976051706222,
-      "min_price": 0.3115,
+      "mean": 0.31917891816920946,
+      "median": 0.3194,
+      "stdev": 0.0027422566630048344,
+      "min_price": 0.3133,
       "max_price": 0.326,
-      "range": 0.014500000000000013,
+      "range": 0.012699999999999989,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.2862680333383608,
-        "p_value": 5.006064617059658e-46,
+        "statistic": 0.27998749511462107,
+        "p_value": 3.688352504182586e-46,
         "is_normal": false
       },
-      "pct_mean": 0.004710570961772134,
+      "pct_mean": 0.003863671786279545,
       "pct_median": 0.0,
-      "pct_stdev": 0.11231028916555715
+      "pct_stdev": 0.11024993145914314
     },
     "threshold_95": {
-      "threshold_pct": 0.1847339864779353,
-      "threshold_price_up": 0.3195998618049131,
-      "threshold_price_down": 0.3184212200258774,
+      "threshold_pct": 0.1813449996317228,
+      "threshold_price_up": 0.3197577331771879,
+      "threshold_price_down": 0.31860010316123094,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.11231028916555715
+      "pct_stdev": 0.11024993145914314
     }
   },
   {
     "pair": "EGLDUSD",
     "stats": {
-      "mean": 9.689514563106796,
-      "median": 9.66,
-      "stdev": 0.09023834256111389,
-      "min_price": 9.51,
+      "mean": 9.694160887656034,
+      "median": 9.67,
+      "stdev": 0.08791344652105837,
+      "min_price": 9.52,
       "max_price": 9.91,
-      "range": 0.40000000000000036,
+      "range": 0.39000000000000057,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.2081530004410107,
-        "p_value": 1.3003438118337403e-47,
+        "statistic": 0.20809953674245385,
+        "p_value": 1.2972345917961495e-47,
         "is_normal": false
       },
-      "pct_mean": 0.003795298076895281,
+      "pct_mean": 0.0037914115133672478,
       "pct_median": 0.0,
-      "pct_stdev": 0.09914229222309914
+      "pct_stdev": 0.09913836807796658
     },
     "threshold_95": {
-      "threshold_pct": 0.16307455894744735,
-      "threshold_price_up": 9.70531569624473,
-      "threshold_price_down": 9.67371342996886,
+      "threshold_pct": 0.16306810430309338,
+      "threshold_price_up": 9.709968972043626,
+      "threshold_price_down": 9.678352803268442,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.09914229222309914
+      "pct_stdev": 0.09913836807796658
     }
   },
   {
     "pair": "ENSUSD",
     "stats": {
-      "mean": 15.241497919556172,
+      "mean": 15.244022191400832,
       "median": 15.23,
-      "stdev": 0.08968604380838231,
+      "stdev": 0.08732232472710884,
       "min_price": 15.09,
       "max_price": 15.49,
       "range": 0.40000000000000036,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.28731712173444557,
-        "p_value": 5.269273081544419e-46,
+        "statistic": 0.2873171217344449,
+        "p_value": 5.269273081544118e-46,
         "is_normal": false
       },
       "pct_mean": 0.0013141624834715631,
@@ -340,8 +340,8 @@
     },
     "threshold_95": {
       "threshold_pct": 0.13073958691137688,
-      "threshold_price_up": 15.261424590975304,
-      "threshold_price_down": 15.221571248137039,
+      "threshold_price_up": 15.263952163042546,
+      "threshold_price_down": 15.224092219759116,
       "confidence": "low",
       "z_score": -1.6448536269514722,
       "pct_stdev": 0.07948402506409409
@@ -350,241 +350,241 @@
   {
     "pair": "FILUSD",
     "stats": {
-      "mean": 1.5556990291262136,
+      "mean": 1.5559736477115118,
       "median": 1.556,
-      "stdev": 0.00917572955927669,
-      "min_price": 1.536,
+      "stdev": 0.008973920494233928,
+      "min_price": 1.541,
       "max_price": 1.577,
-      "range": 0.040999999999999925,
+      "range": 0.03600000000000003,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.4794033324314846,
-        "p_value": 2.2156572714786426e-41,
+        "statistic": 0.4729247730116426,
+        "p_value": 1.4730885602048735e-41,
         "is_normal": false
       },
-      "pct_mean": 0.001925837009448538,
+      "pct_mean": 0.0012934666112883822,
       "pct_median": 0.0,
-      "pct_stdev": 0.08927255678930975
+      "pct_stdev": 0.08832227280742463
     },
     "threshold_95": {
-      "threshold_pct": 0.1468402888221274,
-      "threshold_price_up": 1.5579834220737856,
-      "threshold_price_down": 1.5534146361786416,
+      "threshold_pct": 0.1452772107678898,
+      "threshold_price_up": 1.5582341228271905,
+      "threshold_price_down": 1.553713172595833,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.08927255678930975
+      "pct_stdev": 0.08832227280742463
     }
   },
   {
     "pair": "INJUSD",
     "stats": {
-      "mean": 8.439084604715672,
+      "mean": 8.440836338418862,
       "median": 8.438,
-      "stdev": 0.07658887211664947,
+      "stdev": 0.07451581383182132,
       "min_price": 8.302,
       "max_price": 8.631,
       "range": 0.3290000000000006,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.5978321982860314,
-        "p_value": 9.018818850343082e-38,
+        "statistic": 0.60441466483491,
+        "p_value": 1.5139334464274446e-37,
         "is_normal": false
       },
-      "pct_mean": 0.001346068902843303,
+      "pct_mean": 0.0015619036906908154,
       "pct_median": 0.0,
-      "pct_stdev": 0.11306234738517168
+      "pct_stdev": 0.11351601590758177
     },
     "threshold_95": {
-      "threshold_pct": 0.18597101216814693,
-      "threshold_price_up": 8.454778855772789,
-      "threshold_price_down": 8.423390353658556,
+      "threshold_pct": 0.1867172304826669,
+      "threshold_price_up": 8.456596834259532,
+      "threshold_price_down": 8.425075842578192,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.11306234738517168
+      "pct_stdev": 0.11351601590758177
     }
   },
   {
     "pair": "NEARUSD",
     "stats": {
-      "mean": 2.1957378640776697,
+      "mean": 2.1963134535367543,
       "median": 2.195,
-      "stdev": 0.01829258563791322,
+      "stdev": 0.0180811119795667,
       "min_price": 2.158,
       "max_price": 2.24,
       "range": 0.0820000000000003,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.5864713093920064,
-        "p_value": 3.748195357075456e-38,
+        "statistic": 0.5873896349555738,
+        "p_value": 4.0209399231249235e-38,
         "is_normal": false
       },
-      "pct_mean": 0.0018506462624938394,
+      "pct_mean": 0.001596464850098123,
       "pct_median": 0.0,
-      "pct_stdev": 0.11840503252212035
+      "pct_stdev": 0.12033218354562722
     },
     "threshold_95": {
-      "threshold_pct": 0.19475894719331668,
-      "threshold_price_up": 2.200014260024872,
-      "threshold_price_down": 2.191461468130467,
+      "threshold_pct": 0.1979288285440152,
+      "threshold_price_up": 2.200660591026494,
+      "threshold_price_down": 2.1919663160470146,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.11840503252212035
+      "pct_stdev": 0.12033218354562722
     }
   },
   {
     "pair": "BONKUSD",
     "stats": {
-      "mean": 1.442368932038835e-05,
-      "median": 1.4449e-05,
-      "stdev": 1.6748581369347453e-07,
-      "min_price": 1.404e-05,
+      "mean": 1.4431957004160888e-05,
+      "median": 1.4458e-05,
+      "stdev": 1.6061071668931974e-07,
+      "min_price": 1.4058e-05,
       "max_price": 1.4804e-05,
-      "range": 7.639999999999998e-07,
+      "range": 7.459999999999993e-07,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.6238204115435866,
-        "p_value": 7.2683495070614844e-37,
+        "statistic": 0.6261865663584738,
+        "p_value": 8.839843057644632e-37,
         "is_normal": false
       },
-      "pct_mean": 0.0045400536598154025,
+      "pct_mean": 0.0039742677085268345,
       "pct_median": 0.0,
-      "pct_stdev": 0.13515687194069295
+      "pct_stdev": 0.13471401104982872
     },
     "threshold_95": {
-      "threshold_pct": 0.22231327101906445,
-      "threshold_price_up": 1.4455755095918133e-05,
-      "threshold_price_down": 1.4391623544858567e-05,
+      "threshold_pct": 0.22158482967649146,
+      "threshold_price_up": 1.4463936031507543e-05,
+      "threshold_price_down": 1.4399977976814232e-05,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.13515687194069295
+      "pct_stdev": 0.13471401104982872
     }
   },
   {
     "pair": "DOGSUSD",
     "stats": {
-      "mean": 5.998529819694868e-05,
+      "mean": 5.99882108183079e-05,
       "median": 6e-05,
-      "stdev": 5.384960549835584e-07,
+      "stdev": 5.295042124945451e-07,
       "min_price": 5.79e-05,
       "max_price": 6.14e-05,
       "range": 3.5000000000000038e-06,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.396128902945561,
-        "p_value": 1.5581011607595627e-43,
+        "statistic": 0.37273592513742404,
+        "p_value": 4.2857481178590346e-44,
         "is_normal": false
       },
-      "pct_mean": -0.0018784563815990537,
+      "pct_mean": 0.0032070771433338465,
       "pct_median": 0.0,
-      "pct_stdev": 0.1981521945745417
+      "pct_stdev": 0.1759303944480124
     },
     "threshold_95": {
-      "threshold_pct": 0.32593135593432876,
-      "threshold_price_up": 6.018080909272325e-05,
-      "threshold_price_down": 5.978978730117412e-05,
+      "threshold_pct": 0.28937974739881633,
+      "threshold_price_up": 6.016180455124299e-05,
+      "threshold_price_down": 5.981461708537281e-05,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.1981521945745417
+      "pct_stdev": 0.1759303944480124
     }
   },
   {
     "pair": "MEMEUSD",
     "stats": {
-      "mean": 0.0016294771151178918,
+      "mean": 0.0016304396671289875,
       "median": 0.001639,
-      "stdev": 2.0356949141081132e-05,
-      "min_price": 0.00158,
+      "stdev": 1.9597038662346113e-05,
+      "min_price": 0.001589,
       "max_price": 0.001657,
-      "range": 7.700000000000003e-05,
+      "range": 6.800000000000013e-05,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.17407190011165108,
-        "p_value": 2.903104227017117e-48,
+        "statistic": 0.16762710167747952,
+        "p_value": 2.199108086644293e-48,
         "is_normal": false
       },
-      "pct_mean": 0.0053388850629948375,
+      "pct_mean": 0.004547745822488517,
       "pct_median": 0.0,
-      "pct_stdev": 0.12455634937816192
+      "pct_stdev": 0.12276335383317125
     },
     "threshold_95": {
-      "threshold_pct": 0.20487696303450437,
-      "threshold_price_up": 0.0016328155383446878,
-      "threshold_price_down": 0.001626138691891096,
+      "threshold_pct": 0.20192774780921863,
+      "threshold_price_up": 0.0016337319772282094,
+      "threshold_price_down": 0.0016271473570297658,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.12455634937816192
+      "pct_stdev": 0.12276335383317125
     }
   },
   {
     "pair": "MEWUSD",
     "stats": {
-      "mean": 0.0018479791955617198,
-      "median": 0.001848,
-      "stdev": 1.3859046781265787e-05,
-      "min_price": 0.001811,
+      "mean": 0.001848762829403606,
+      "median": 0.00185,
+      "stdev": 1.3223739376381687e-05,
+      "min_price": 0.00182,
       "max_price": 0.001876,
-      "range": 6.500000000000017e-05,
+      "range": 5.600000000000006e-05,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.2084815521847675,
-        "p_value": 1.31961916398837e-47,
+        "statistic": 0.2015104449838081,
+        "p_value": 9.667848900803744e-48,
         "is_normal": false
       },
-      "pct_mean": 0.0037675711165239506,
+      "pct_mean": 0.002929226396195274,
       "pct_median": 0.0,
-      "pct_stdev": 0.10932587364576286
+      "pct_stdev": 0.1089800213986939
     },
     "threshold_95": {
-      "threshold_pct": 0.1798250597858714,
-      "threshold_price_up": 0.001851302325254969,
-      "threshold_price_down": 0.0018446560658684705,
+      "threshold_pct": 0.1792561834628907,
+      "threshold_price_up": 0.0018520768510928752,
+      "threshold_price_down": 0.0018454488077143366,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.10932587364576286
+      "pct_stdev": 0.1089800213986939
     }
   },
   {
     "pair": "PEPEUSD",
     "stats": {
-      "mean": 6.907847434119278e-06,
-      "median": 6.911e-06,
-      "stdev": 4.41967698944341e-08,
+      "mean": 6.909719833564494e-06,
+      "median": 6.912e-06,
+      "stdev": 4.3322296773717326e-08,
       "min_price": 6.809e-06,
       "max_price": 7.022e-06,
       "range": 2.1299999999999949e-07,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.7958848148691575,
-        "p_value": 4.188921947458908e-29,
+        "statistic": 0.7995178892230448,
+        "p_value": 6.847522857527118e-29,
         "is_normal": false
       },
-      "pct_mean": 0.0027846700953615597,
+      "pct_mean": 0.0019749329385812336,
       "pct_median": 0.0,
-      "pct_stdev": 0.1101674529467026
+      "pct_stdev": 0.10984449298981847
     },
     "threshold_95": {
-      "threshold_pct": 0.18120933455138943,
-      "threshold_price_up": 6.9203650984864714e-06,
-      "threshold_price_down": 6.895329769752085e-06,
+      "threshold_pct": 0.18067811269494846,
+      "threshold_price_up": 6.922204184952287e-06,
+      "threshold_price_down": 6.897235482176701e-06,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.1101674529467026
+      "pct_stdev": 0.10984449298981847
     }
   },
   {
     "pair": "PONKEUSD",
     "stats": {
-      "mean": 0.060633536754507625,
+      "mean": 0.06064778085991678,
       "median": 0.06059,
-      "stdev": 0.0007832069767557589,
+      "stdev": 0.0007831039108855599,
       "min_price": 0.05846,
       "max_price": 0.06152,
       "range": 0.0030600000000000002,
@@ -601,8 +601,8 @@
     },
     "threshold_95": {
       "threshold_pct": 0.27624650777566245,
-      "threshold_price_up": 0.06080103478233283,
-      "threshold_price_down": 0.06046603872668243,
+      "threshold_price_up": 0.060815318236585744,
+      "threshold_price_down": 0.06048024348324783,
       "confidence": "low",
       "z_score": -1.6448536269514722,
       "pct_stdev": 0.16794595169398163
@@ -611,9 +611,9 @@
   {
     "pair": "POPCATUSD",
     "stats": {
-      "mean": 0.14931844660194174,
+      "mean": 0.14940679611650484,
       "median": 0.1497,
-      "stdev": 0.0014042913694350208,
+      "stdev": 0.0013055207023280476,
       "min_price": 0.1454,
       "max_price": 0.1525,
       "range": 0.007099999999999995,
@@ -630,8 +630,8 @@
     },
     "threshold_95": {
       "threshold_pct": 0.197790792812832,
-      "threshold_price_up": 0.14961378474129153,
-      "threshold_price_down": 0.14902310846259195,
+      "threshold_price_up": 0.14970230900305995,
+      "threshold_price_down": 0.14911128322994974,
       "confidence": "low",
       "z_score": -1.6448536269514722,
       "pct_stdev": 0.12024826377980645
@@ -640,96 +640,96 @@
   {
     "pair": "TRUMPUSD",
     "stats": {
-      "mean": 5.834668515950069,
-      "median": 5.834,
-      "stdev": 0.039779562300537176,
-      "min_price": 5.758,
+      "mean": 5.836251040221914,
+      "median": 5.845,
+      "stdev": 0.038952349125420685,
+      "min_price": 5.765,
       "max_price": 6.0,
-      "range": 0.242,
+      "range": 0.23500000000000032,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.47853797023555067,
-        "p_value": 2.0975833120486468e-41,
+        "statistic": 0.47264280434677985,
+        "p_value": 1.447284738022545e-41,
         "is_normal": false
       },
-      "pct_mean": 0.0024630256170246586,
+      "pct_mean": 0.002029060257481161,
       "pct_median": 0.0,
-      "pct_stdev": 0.097918472052477
+      "pct_stdev": 0.09745204160851992
     },
     "threshold_95": {
-      "threshold_pct": 0.16106155390106316,
-      "threshold_price_up": 5.844065923726834,
-      "threshold_price_down": 5.825271108173304,
+      "threshold_pct": 0.16029434409359977,
+      "threshold_price_up": 5.845606220546493,
+      "threshold_price_down": 5.826895859897334,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.097918472052477
+      "pct_stdev": 0.09745204160851992
     }
   },
   {
     "pair": "ATHUSD",
     "stats": {
-      "mean": 0.029283037447988904,
+      "mean": 0.029276588072122054,
       "median": 0.02923,
-      "stdev": 0.0001918508100528186,
+      "stdev": 0.00018582252082677457,
       "min_price": 0.02898,
       "max_price": 0.03008,
       "range": 0.0011000000000000003,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.5238969447174366,
-        "p_value": 4.115063596794853e-40,
+        "statistic": 0.5080412481110474,
+        "p_value": 1.4173647881570382e-40,
         "is_normal": false
       },
-      "pct_mean": 0.0006123655405985116,
+      "pct_mean": -0.002142173636570865,
       "pct_median": 0.0,
-      "pct_stdev": 0.16583911720972674
+      "pct_stdev": 0.15891919191011605
     },
     "threshold_95": {
-      "threshold_pct": 0.27278107343284935,
-      "threshold_price_up": 0.02936291603187327,
-      "threshold_price_down": 0.029203158864104538,
+      "threshold_pct": 0.2613988092055515,
+      "threshold_price_up": 0.029353116724718596,
+      "threshold_price_down": 0.029200059419525512,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.16583911720972674
+      "pct_stdev": 0.15891919191011605
     }
   },
   {
     "pair": "NANOUSD",
     "stats": {
-      "mean": 0.6734737073509015,
+      "mean": 0.6736720776699029,
       "median": 0.673762,
-      "stdev": 0.0058143566978704556,
-      "min_price": 0.665933,
+      "stdev": 0.005794427381311503,
+      "min_price": 0.665934,
       "max_price": 0.685223,
-      "range": 0.01929000000000003,
+      "range": 0.019289,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.20602031557391087,
-        "p_value": 1.182035432639915e-47,
+        "statistic": 0.19963741695728465,
+        "p_value": 8.895963794304147e-48,
         "is_normal": false
       },
-      "pct_mean": 0.0005570182277645347,
+      "pct_mean": 0.003154153756731767,
       "pct_median": 0.0,
-      "pct_stdev": 0.12382858994450373
+      "pct_stdev": 0.1423422167078944
     },
     "threshold_95": {
-      "threshold_pct": 0.20367990529050356,
-      "threshold_price_up": 0.6748454379601904,
-      "threshold_price_down": 0.6721019767416128,
+      "threshold_pct": 0.23413211142029255,
+      "threshold_price_up": 0.6752493603294004,
+      "threshold_price_down": 0.6720947950104054,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.12382858994450373
+      "pct_stdev": 0.1423422167078944
     }
   },
   {
     "pair": "RAYUSD",
     "stats": {
-      "mean": 1.7661872399445215,
-      "median": 1.769,
-      "stdev": 0.01387652507171582,
+      "mean": 1.7669625520110956,
+      "median": 1.77,
+      "stdev": 0.012885822792268617,
       "min_price": 1.728,
       "max_price": 1.802,
       "range": 0.07400000000000007,
@@ -746,8 +746,8 @@
     },
     "threshold_95": {
       "threshold_pct": 0.2159243268820142,
-      "threshold_price_up": 1.770000867853848,
-      "threshold_price_down": 1.7623736120351954,
+      "threshold_price_up": 1.770777854007783,
+      "threshold_price_down": 1.7631472500144085,
       "confidence": "low",
       "z_score": -1.6448536269514722,
       "pct_stdev": 0.1312726697038706
@@ -756,146 +756,146 @@
   {
     "pair": "RENDERUSD",
     "stats": {
-      "mean": 2.452345353675451,
-      "median": 2.453,
-      "stdev": 0.02182751216720455,
-      "min_price": 2.406,
+      "mean": 2.453242718446602,
+      "median": 2.454,
+      "stdev": 0.021076135934585308,
+      "min_price": 2.408,
       "max_price": 2.509,
-      "range": 0.10299999999999976,
+      "range": 0.10099999999999998,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.6551803208879681,
-        "p_value": 1.0594871436684989e-35,
+        "statistic": 0.6576414576892722,
+        "p_value": 1.3182140491768355e-35,
         "is_normal": false
       },
-      "pct_mean": 0.0032112071037464023,
+      "pct_mean": 0.0026355580171475647,
       "pct_median": 0.0,
-      "pct_stdev": 0.12004494185101257
+      "pct_stdev": 0.1195250036052339
     },
     "threshold_95": {
-      "threshold_pct": 0.1974563580008166,
-      "threshold_price_up": 2.4571876654964204,
-      "threshold_price_down": 2.4475030418544814,
+      "threshold_pct": 0.19660113569145676,
+      "threshold_price_up": 2.4580658214923363,
+      "threshold_price_down": 2.4484196154008684,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.12004494185101257
+      "pct_stdev": 0.1195250036052339
     }
   },
   {
     "pair": "SUPERUSD",
     "stats": {
-      "mean": 0.38430513176144243,
-      "median": 0.3838,
-      "stdev": 0.0031189187523889923,
+      "mean": 0.38441816920943134,
+      "median": 0.3839,
+      "stdev": 0.0030566439437896896,
       "min_price": 0.3787,
       "max_price": 0.3907,
       "range": 0.01200000000000001,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.1887938026208016,
-        "p_value": 5.512616043019078e-48,
+        "statistic": 0.18498437925833844,
+        "p_value": 4.665447105112528e-48,
         "is_normal": false
       },
-      "pct_mean": 0.002052326321390391,
+      "pct_mean": 0.002419846358146138,
       "pct_median": 0.0,
-      "pct_stdev": 0.10932673665286531
+      "pct_stdev": 0.10843423311718282
     },
     "threshold_95": {
-      "threshold_pct": 0.17982647930623397,
-      "threshold_price_up": 0.3849962141496822,
-      "threshold_price_down": 0.38361404937320265,
+      "threshold_pct": 0.17835844162849962,
+      "threshold_price_up": 0.3851038114653701,
+      "threshold_price_down": 0.3837325269534926,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.10932673665286531
+      "pct_stdev": 0.10843423311718282
     }
   },
   {
     "pair": "TONUSD",
     "stats": {
-      "mean": 2.126621359223301,
-      "median": 2.125,
-      "stdev": 0.008661828061798951,
+      "mean": 2.1268238557558945,
+      "median": 2.126,
+      "stdev": 0.008500705010059643,
       "min_price": 2.111,
       "max_price": 2.147,
       "range": 0.03599999999999959,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.6433758750604315,
-        "p_value": 3.7793451403173596e-36,
+        "statistic": 0.6397318819812692,
+        "p_value": 2.764619983945269e-36,
         "is_normal": false
       },
-      "pct_mean": 0.00035800740364632364,
+      "pct_mean": 0.0005540200877535292,
       "pct_median": 0.0,
-      "pct_stdev": 0.07719232471653023
+      "pct_stdev": 0.0777297132126003
     },
     "threshold_95": {
-      "threshold_pct": 0.12697007528280052,
-      "threshold_price_up": 2.129321531964087,
-      "threshold_price_down": 2.123921186482515,
+      "threshold_pct": 0.12785400069964337,
+      "threshold_price_up": 2.129543085143313,
+      "threshold_price_down": 2.124104626368476,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.07719232471653023
+      "pct_stdev": 0.0777297132126003
     }
   },
   {
     "pair": "TRXUSD",
     "stats": {
-      "mean": 0.31678473231622745,
-      "median": 0.315954,
-      "stdev": 0.0028147153278541307,
+      "mean": 0.31662740638002773,
+      "median": 0.31588,
+      "stdev": 0.0027683241345248157,
       "min_price": 0.312709,
       "max_price": 0.32287,
       "range": 0.010160999999999976,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.8368948659263749,
-        "p_value": 1.6908023862784833e-26,
+        "statistic": 0.8419316237208404,
+        "p_value": 3.821564271709751e-26,
         "is_normal": false
       },
-      "pct_mean": -0.003744189972572515,
+      "pct_mean": -0.003908663173567435,
       "pct_median": 0.0,
-      "pct_stdev": 0.04877921718359629
+      "pct_stdev": 0.04915887098302049
     },
     "threshold_95": {
-      "threshold_pct": 0.08023467230429193,
-      "threshold_price_up": 0.3170389035081114,
-      "threshold_price_down": 0.31653056112434347,
+      "threshold_pct": 0.08085914723326074,
+      "threshold_price_up": 0.31688342860073343,
+      "threshold_price_down": 0.31637138415932203,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.04877921718359629
+      "pct_stdev": 0.04915887098302049
     }
   },
   {
     "pair": "WALUSD",
     "stats": {
-      "mean": 0.2572226768377254,
+      "mean": 0.2571155339805825,
       "median": 0.25597,
-      "stdev": 0.006072946124422919,
+      "stdev": 0.006170684571627715,
       "min_price": 0.2405,
       "max_price": 0.27354,
       "range": 0.033040000000000014,
       "count": 721,
       "normality_test": {
         "test": "Shapiro-Wilk",
-        "statistic": 0.5783296004550601,
-        "p_value": 2.021841648544866e-38,
+        "statistic": 0.5743050405841762,
+        "p_value": 1.495494649015211e-38,
         "is_normal": false
       },
-      "pct_mean": -0.0026548299957567683,
+      "pct_mean": -0.0032276768684401194,
       "pct_median": 0.0,
-      "pct_stdev": 0.402422317894713
+      "pct_stdev": 0.39552328923316854
     },
     "threshold_95": {
-      "threshold_pct": 0.661925809155337,
-      "threshold_price_up": 0.25892530012271453,
-      "threshold_price_down": 0.2555200535527362,
+      "threshold_pct": 0.6505779168389535,
+      "threshold_price_up": 0.2587882708654227,
+      "threshold_price_down": 0.2554427970957423,
       "confidence": "low",
       "z_score": -1.6448536269514722,
-      "pct_stdev": 0.402422317894713
+      "pct_stdev": 0.39552328923316854
     }
   }
 ]
