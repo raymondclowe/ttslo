@@ -10,6 +10,7 @@ credentials from multiple locations with a clear precedence:
 
 Functions:
 - load_env(env_file='.env') -> loads .env into os.environ if not present
+ - get_env_var(name) -> checks name, copilot_ prefixed, COPILOT_W_*, and COPILOT_KRAKEN_* variants
 - get_env_var(name) -> checks name, copilot_ prefixed, COPILOT_W_*, and COPILOT_KRAKEN_* variants
 - find_kraken_credentials(readwrite=False) -> returns (key, secret) tuple
 """
@@ -67,17 +68,28 @@ def get_env_var(name: str) -> Optional[str]:
 
     Order of precedence:
       1. Exact name in os.environ
+      2. 'COPILOT_' prefixed name in os.environ (uppercase)
+      3. 'copilot_' prefixed name in os.environ (lowercase)
+    4. COPILOT_W_ prefixed variants (best-effort mapping)
+    5. COPILOT_KRAKEN_* fallbacks (legacy/alternate secrets)
       2. 'copilot_' prefixed name in os.environ
       3. COPILOT_W_ prefixed variants (best-effort mapping)
       4. COPILOT_KRAKEN_API_KEY and COPILOT_KRAKEN_API_SECRET (for GitHub secrets)
     """
-    # Exact and copilot_ prefix
+    # Exact match
     val = os.environ.get(name)
     if val:
         return val
 
-    copilot_name = f"copilot_{name}"
-    val = os.environ.get(copilot_name)
+    # Try uppercase COPILOT_ prefix (GitHub Copilot agent style)
+    copilot_upper_name = f"COPILOT_{name}"
+    val = os.environ.get(copilot_upper_name)
+    if val:
+        return val
+
+    # Try lowercase copilot_ prefix (legacy style)
+    copilot_lower_name = f"copilot_{name}"
+    val = os.environ.get(copilot_lower_name)
     if val:
         return val
 
@@ -88,6 +100,17 @@ def get_env_var(name: str) -> Optional[str]:
     if name == 'KRAKEN_API_SECRET_RW':
         return os.environ.get('COPILOT_W_KR_RW_SECRET') or os.environ.get('COPILOT_W_KR_RW_SECRET_KEY')
     if name == 'KRAKEN_API_KEY':
+        return (
+            os.environ.get('COPILOT_W_KR_RO_PUBLIC')
+            or os.environ.get('COPILOT_W_KR_PUBLIC')
+            or os.environ.get('COPILOT_KRAKEN_API_KEY')
+        )
+    if name == 'KRAKEN_API_SECRET':
+        return (
+            os.environ.get('COPILOT_W_KR_RO_SECRET')
+            or os.environ.get('COPILOT_W_KR_SECRET')
+            or os.environ.get('COPILOT_KRAKEN_API_SECRET')
+        )
         return (os.environ.get('COPILOT_W_KR_RO_PUBLIC') or 
                 os.environ.get('COPILOT_W_KR_PUBLIC') or 
                 os.environ.get('COPILOT_KRAKEN_API_KEY'))

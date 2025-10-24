@@ -983,4 +983,51 @@ The application will automatically pick these up for read-only operations withou
   - Consider adding a tiny unit test to assert that `NotificationManager.notify_insufficient_balance` is called when balance is insufficient (already covered by existing tests, but worth an explicit assertion in integration tests).
 
 
+---
+
+## Copilot Credential Discovery Fix (2025-10-24)
+
+**Problem**: Balance checks were failing with "Available Balance: unknown" for pairs like DYDXUSD because:
+1. GitHub Copilot agent sets credentials as `COPILOT_KRAKEN_API_KEY` (uppercase prefix)
+2. `creds.py` was only checking for `copilot_KRAKEN_API_KEY` (lowercase prefix)
+3. Credentials were not found, so balance API call failed
+
+**Fix**: Updated `get_env_var()` in `creds.py` to check both uppercase and lowercase variants:
+- Check exact name
+- Check `COPILOT_` prefix (uppercase) - **NEW**
+- Check `copilot_` prefix (lowercase) - existing
+- Check `COPILOT_W_*` mappings - existing
+
+**Testing**: Created `tools/test_balance_copilot.py` to verify credentials are found and balance API works.
+
+---
+
+## USD Pair Suffix Support (2025-10-24)
+
+**Problem**: Balance checks were failing for pairs ending in 'USD' (like DYDXUSD, ATOMUSD, SOLUSD) because:
+1. `_extract_base_asset()` only checked for suffixes: USDT, ZUSD, ZEUR, EUR, etc.
+2. It didn't check for plain 'USD' suffix
+3. For DYDXUSD, base asset extraction returned empty string
+4. Balance lookup failed completely
+
+**Fix**: Added 'USD' to the list of quote currency suffixes in `_extract_base_asset()`:
+```python
+# Note: Order matters - check longer suffixes first (e.g., USDT before USD)
+for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
+```
+
+**Why order matters**: 
+- Some pairs might theoretically end with both USDT and USD
+- Checking USDT first ensures we get the most specific match
+- Example: "XXBTUSDT" should match USDT (4 chars) not USD (3 chars)
+
+**Testing**: 
+- Created `tools/test_dydx_balance.py` to test with live API
+- Created `tests/test_balance_fix.py` with unit tests
+- Verified DYDXUSD, ATOMUSD, SOLUSD all work correctly
+
+**Result**: Balance checking now works for all USD pairs, properly aggregating spot and funding wallet balances.
+
+---
+
 ```
