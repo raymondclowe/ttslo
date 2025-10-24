@@ -1,0 +1,37 @@
+================================================================================
+STATE.CSV FIX SUMMARY
+================================================================================
+
+Found 3 orders that were created by ttslo.py but may be
+incorrectly marked as 'manual' in state.csv
+
+Orders to fix:
+
+Config ID: near_usd_sell_29
+  Order ID: OIZXVF-N5TQ5-DHTPIR
+  Created: 2025-10-24T05:15:09.131324+00:00
+  Trigger Price: 2.249
+  Trailing Offset: 1.0%
+  Pair: NEARUSD
+
+Config ID: dydx_usd_sell_19
+  Order ID: O2VLNP-DNSKF-LAFIJP
+  Created: 2025-10-24T05:15:04.196768+00:00
+  Trigger Price: 0.3266
+  Trailing Offset: 1.0%
+  Pair: DYDXUSD
+
+Config ID: eth_usd_sell_3
+  Order ID: OGMFI4-MABOV-YGJDWI
+  Created: 2025-10-24T04:33:25.895299+00:00
+  Trigger Price: 3945.98
+  Trailing Offset: 1.0%
+  Pair: ETHUSD
+
+
+These entries should be added/updated in state.csv with:
+  triggered=true
+  order_id=<order_id from above>
+  trigger_time=<timestamp from above>
+  trigger_price=<price from above>
+  offset=<trailing offset from above>
