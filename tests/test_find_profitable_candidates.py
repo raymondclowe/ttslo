@@ -180,9 +180,30 @@ class TestCandidateAnalyzer:
         api = KrakenAPI()
         analyzer = CandidateAnalyzer(api, hours=48)
         
+        # Test major cryptocurrencies
         assert analyzer.format_pair_name('XXBTZUSD') == 'BTC/USD'
         assert analyzer.format_pair_name('XETHZUSD') == 'ETH/USD'
         assert analyzer.format_pair_name('SOLUSD') == 'SOL/USD'
+        assert analyzer.format_pair_name('XLTCZUSD') == 'LTC/USD'
+        assert analyzer.format_pair_name('XXRPZUSD') == 'XRP/USD'
+        assert analyzer.format_pair_name('XXMRZUSD') == 'XMR/USD'
+        
+        # Test DeFi and smart contract platforms
+        assert analyzer.format_pair_name('AAVEUSD') == 'AAVE/USD'
+        assert analyzer.format_pair_name('ATOMUSD') == 'ATOM/USD'
+        assert analyzer.format_pair_name('NEARUSD') == 'NEAR/USD'
+        
+        # Test meme coins
+        assert analyzer.format_pair_name('BONKUSD') == 'BONK/USD'
+        assert analyzer.format_pair_name('DOGSUSD') == 'DOGE/USD'
+        assert analyzer.format_pair_name('PEPEUSD') == 'PEPE/USD'
+        assert analyzer.format_pair_name('TRUMPUSD') == 'TRUMP/USD'
+        
+        # Test other popular coins
+        assert analyzer.format_pair_name('RENDERUSD') == 'RENDER/USD'
+        assert analyzer.format_pair_name('TONUSD') == 'TON/USD'
+        
+        # Test unknown pair (should return as-is)
         assert analyzer.format_pair_name('UNKNOWN') == 'UNKNOWN'
     
     def test_insufficient_data_handling(self):

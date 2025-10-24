@@ -487,7 +487,8 @@ class TTSLO:
                     f"Set KRAKEN_API_KEY_RW and KRAKEN_API_SECRET_RW environment variables.",
                     config_id=config_id, trigger_price=trigger_price)
             print(f"ERROR: Cannot create order for {config_id}: Missing read-write API credentials")
-            # Return None to indicate no order was created
+            if config_id in self.state:
+                self._handle_order_error_state(config_id, 'Missing read-write API credentials')
             return None
         
         # Step 10: Check if we have sufficient balance before creating the order
@@ -500,31 +501,19 @@ class TTSLO:
         )
         
         if not is_sufficient:
-            # Log the insufficient balance error
             self.log('ERROR', 
                     f"Cannot create TSL order: {balance_msg}",
                     config_id=config_id, trigger_price=trigger_price, 
                     pair=pair, direction=direction, volume=volume)
-            
-            # Print error message for immediate visibility
             print(f"ERROR: Cannot create order for {config_id}: {balance_msg}")
-            
-            # Send Telegram notification about insufficient balance
-            if self.notification_manager:
-                try:
-                    self.notification_manager.notify_insufficient_balance(
-                        config_id=config_id,
-                        pair=pair,
-                        direction=direction,
-                        volume=volume,
-                        available=str(available) if available is not None else 'unknown',
-                        trigger_price=trigger_price_float
-                    )
-                except Exception as e:
-                    self.log('WARNING', f'Failed to send insufficient balance notification: {str(e)}',
-                            config_id=config_id)
-            
-            # Return None to indicate no order was created
+            if config_id in self.state:
+                self._handle_order_error_state(config_id, balance_msg, notify_type='insufficient_balance', notify_args={
+                    'pair': pair,
+                    'direction': direction,
+                    'volume': volume,
+                    'available': str(available) if available is not None else 'unknown',
+                    'trigger_price': trigger_price_float
+                })
             return None
         else:
             # Log that balance check passed
@@ -571,15 +560,13 @@ class TTSLO:
                 **api_kwargs
             )
         except Exception as e:
-            # Check if error is "Index unavailable" - some coins don't have index price
             error_msg = str(e)
+
+            # If index price is unavailable, retry with last trade price
             if 'index unavailable' in error_msg.lower():
-                # Log that we're falling back to last price
-                self.log('WARNING', 
+                self.log('WARNING',
                         f"Index price unavailable for {pair}, retrying with last trade price",
                         config_id=config_id, pair=pair)
-                
-                # Retry with 'last' trigger instead of 'index'
                 try:
                     api_kwargs['trigger'] = 'last'
                     result = self.kraken_api_readwrite.add_trailing_stop_loss(
@@ -589,43 +576,34 @@ class TTSLO:
                         trailing_offset_percent=trailing_offset,
                         **api_kwargs
                     )
-                    # Successfully created order with 'last' trigger
-                    self.log('INFO', 
+                    self.log('INFO',
                             f"TSL order created successfully using last price trigger for {pair}",
                             config_id=config_id, pair=pair)
                 except KrakenAPIError as retry_e:
-                    # SAFETY: Retry also failed with KrakenAPIError
                     retry_error_msg = str(retry_e)
-                    self.log('ERROR', 
+                    self.log('ERROR',
                             f"Kraken API error creating TSL order (after retry): {retry_error_msg} (type: {retry_e.error_type})",
                             config_id=config_id, error=retry_error_msg, error_type=retry_e.error_type)
-                    
-                    # Send notification about API error
                     if self.notification_manager:
-                        self.notification_manager.notify_api_error(
-                            error_type=retry_e.error_type,
-                            endpoint='AddOrder/add_trailing_stop_loss',
-                            error_message=retry_error_msg,
-                            details=retry_e.details
-                        )
-                    
-                    # Check if error is related to API permissions
+                        try:
+                            self.notification_manager.notify_api_error(
+                                error_type=retry_e.error_type,
+                                endpoint='AddOrder/add_trailing_stop_loss',
+                                error_message=retry_error_msg,
+                                details=retry_e.details
+                            )
+                        except Exception:
+                            pass
                     if 'permission' in retry_error_msg.lower() or 'invalid key' in retry_error_msg.lower():
                         print(f"ERROR: API credentials may not have proper permissions for creating orders. "
                               f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
-                    
-                    # Return None to indicate order was NOT created
                     return None
                 except Exception as retry_e:
-                    # SAFETY: Retry also failed with generic exception
                     retry_error_msg = str(retry_e)
-                    self.log('ERROR', 
+                    self.log('ERROR',
                             f"Unexpected exception creating TSL order (after retry): {retry_error_msg}",
                             config_id=config_id, error=retry_error_msg)
-                    
-                    # Check if error is related to insufficient funds
                     if 'insufficient' in retry_error_msg.lower() or 'balance' in retry_error_msg.lower():
-                        # Send notification about insufficient balance from Kraken API
                         if self.notification_manager:
                             try:
                                 self.notification_manager.notify_order_failed(
@@ -639,61 +617,69 @@ class TTSLO:
                             except Exception as notify_error:
                                 self.log('WARNING', f'Failed to send order failure notification: {str(notify_error)}',
                                         config_id=config_id)
-                    
-                    # Return None to indicate order was NOT created
                     return None
-            elif isinstance(e, KrakenAPIError):
-                # SAFETY: Original API call failed with KrakenAPIError (not index unavailable)
-                self.log('ERROR', 
+
+            # KrakenAPIError handling: log, notify, update state
+            if isinstance(e, KrakenAPIError):
+                self.log('ERROR',
                         f"Kraken API error creating TSL order: {error_msg} (type: {e.error_type})",
                         config_id=config_id, error=error_msg, error_type=e.error_type)
-                
-                # Send notification about API error
                 if self.notification_manager:
-                    self.notification_manager.notify_api_error(
-                        error_type=e.error_type,
-                        endpoint='AddOrder/add_trailing_stop_loss',
-                        error_message=error_msg,
-                        details=e.details
-                    )
-                
-                # Check if error is related to API permissions
-                if 'permission' in error_msg.lower() or 'invalid key' in error_msg.lower():
-                    print(f"ERROR: API credentials may not have proper permissions for creating orders. "
-                          f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
-                
-                # Return None to indicate order was NOT created
+                    try:
+                        self.notification_manager.notify_api_error(
+                            error_type=e.error_type,
+                            endpoint='AddOrder/add_trailing_stop_loss',
+                            error_message=error_msg,
+                            details=e.details
+                        )
+                    except Exception:
+                        pass
+                if config_id in self.state:
+                    try:
+                        self._handle_order_error_state(config_id, error_msg, notify_type='order_failed', notify_args={
+                            'pair': pair,
+                            'direction': direction,
+                            'volume': volume,
+                            'error': error_msg,
+                            'trigger_price': trigger_price_float
+                        })
+                    except Exception:
+                        pass
                 return None
-            else:
-                # SAFETY: Original API call failed with generic exception (not index unavailable)
-                self.log('ERROR', 
-                        f"Unexpected exception creating TSL order: {error_msg}",
-                        config_id=config_id, error=error_msg)
-                
-                # Check if error is related to API permissions
-                if 'permission' in error_msg.lower() or 'invalid key' in error_msg.lower():
-                    print(f"ERROR: API credentials may not have proper permissions for creating orders. "
-                          f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
-                
-                # Check if error is related to insufficient funds
-                if 'insufficient' in error_msg.lower() or 'balance' in error_msg.lower():
-                    # Send notification about insufficient balance from Kraken API
-                    if self.notification_manager:
-                        try:
-                            self.notification_manager.notify_order_failed(
-                                config_id=config_id,
-                                pair=pair,
-                                direction=direction,
-                                volume=volume,
-                                error=error_msg,
-                                trigger_price=trigger_price_float
-                            )
-                        except Exception as notify_error:
-                            self.log('WARNING', f'Failed to send order failure notification: {str(notify_error)}',
-                                    config_id=config_id)
-                
-                # Return None to indicate order was NOT created
-                return None
+
+            # Generic exception handling: log, possibly notify, update state
+            self.log('ERROR',
+                    f"Unexpected exception creating TSL order: {error_msg}",
+                    config_id=config_id, error=error_msg)
+            if 'permission' in error_msg.lower() or 'invalid key' in error_msg.lower():
+                print(f"ERROR: API credentials may not have proper permissions for creating orders. "
+                      f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
+            if 'insufficient' in error_msg.lower() or 'balance' in error_msg.lower():
+                if self.notification_manager:
+                    try:
+                        self.notification_manager.notify_order_failed(
+                            config_id=config_id,
+                            pair=pair,
+                            direction=direction,
+                            volume=volume,
+                            error=error_msg,
+                            trigger_price=trigger_price_float
+                        )
+                    except Exception as notify_error:
+                        self.log('WARNING', f'Failed to send order failure notification: {str(notify_error)}',
+                                config_id=config_id)
+            if config_id in self.state:
+                try:
+                    self._handle_order_error_state(config_id, error_msg, notify_type='order_failed', notify_args={
+                        'pair': pair,
+                        'direction': direction,
+                        'volume': volume,
+                        'error': error_msg,
+                        'trigger_price': trigger_price_float
+                    })
+                except Exception:
+                    pass
+            return None
         
         # Step 12: Validate the API response
         # SAFETY: Ensure result is a dictionary before accessing
@@ -987,7 +973,9 @@ class TTSLO:
                 'trigger_price': '',
                 'trigger_time': '',
                 'order_id': '',
-                'last_checked': ''
+                'last_checked': '',
+                'last_error': '',
+                'error_notified': False
             }
         
         # Step 5: Check if config has already been triggered
@@ -997,6 +985,10 @@ class TTSLO:
             self.log('DEBUG', f"Config {config_id} already triggered, skipping")
             # Do not process already triggered configs - this prevents duplicate orders
             return
+        # Reset error state if config is re-enabled or changed
+        if self.state[config_id].get('last_error') and enabled_normalized == 'true':
+            self.state[config_id]['last_error'] = ''
+            self.state[config_id]['error_notified'] = False
         
         # Step 6: Get the trading pair
         pair = config.get('pair')

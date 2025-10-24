@@ -219,3 +219,6 @@ notification_queue.json
 !.env.example
 .kraken_pairs_cache.json
 notifications.ini
+
+# Generated graphs and analysis output
+# Note: Keeping graphs and deliverables in git for documentation purposes
