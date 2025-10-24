@@ -85,4 +85,18 @@ for svc in "${SERVICES[@]}"; do
     sudo systemctl --no-pager status "$svc" -n 5 || true
 done
 
+# check that the /var/lib/config.csv has the correct 660 permissions
+CONFIG_FILE="/var/lib/config.csv"
+if [ -f "$CONFIG_FILE" ]; then
+    PERMS=$(stat -c "%a" "$CONFIG_FILE")
+    if [ "$PERMS" != "660" ]; then
+        log "Correcting permissions for $CONFIG_FILE to 660"
+        sudo chmod 660 "$CONFIG_FILE" || err "Failed to set permissions on $CONFIG_FILE"
+    else
+        log "Permissions for $CONFIG_FILE are already correct (660)."
+    fi
+else
+    log "$CONFIG_FILE does not exist; skipping permission check."
+fi
+
 log "Update complete."
