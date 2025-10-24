@@ -506,6 +506,32 @@ class TTSLO:
                     config_id=config_id, trigger_price=trigger_price, 
                     pair=pair, direction=direction, volume=volume)
             print(f"ERROR: Cannot create order for {config_id}: {balance_msg}")
+            # Notify user about insufficient balance (do this even if state entry not present)
+            if self.notification_manager:
+                try:
+                    # Prefer a dedicated insufficient-balance notification hook
+                    if hasattr(self.notification_manager, 'notify_insufficient_balance'):
+                        self.notification_manager.notify_insufficient_balance(
+                            config_id=config_id,
+                            pair=pair,
+                            direction=direction,
+                            volume=str(volume),
+                            available=str(available) if available is not None else 'unknown',
+                            trigger_price=trigger_price_float
+                        )
+                    else:
+                        # Fallback to generic order failed notification
+                        self.notification_manager.notify_order_failed(
+                            config_id=config_id,
+                            pair=pair,
+                            direction=direction,
+                            volume=volume,
+                            error=balance_msg,
+                            trigger_price=trigger_price_float
+                        )
+                except Exception:
+                    pass
+            # Update state-based error handling only if state exists for this config
             if config_id in self.state:
                 self._handle_order_error_state(config_id, balance_msg, notify_type='insufficient_balance', notify_args={
                     'pair': pair,
@@ -529,9 +555,10 @@ class TTSLO:
         
         # Step 12: Attempt to create the order via API
         # Wrap in try-except to catch ANY errors
+        result = None
         try:
             # Decide best defaults for 'trigger' and 'oflags'
-            # Hard-code trigger to 'index' (use index price)
+            # Prefer 'index' trigger (use index price) but fall back to 'last' if unavailable
             api_kwargs = {'trigger': 'index'}
 
             # Determine base asset and prefer NOT to pay fees in BTC (keep BTC)
@@ -558,34 +585,132 @@ class TTSLO:
                 trailing_offset_percent=trailing_offset,
                 **api_kwargs
             )
-        except KrakenAPIError as e:
-            error_msg = str(e)
-            self.log('ERROR', 
-                    f"Kraken API error creating TSL order: {error_msg} (type: {e.error_type})",
-                    config_id=config_id, error=error_msg, error_type=e.error_type)
-            if config_id in self.state:
-                self._handle_order_error_state(config_id, error_msg, notify_type='order_failed', notify_args={
-                    'pair': pair,
-                    'direction': direction,
-                    'volume': volume,
-                    'error': error_msg,
-                    'trigger_price': trigger_price_float
-                })
-            return None
         except Exception as e:
             error_msg = str(e)
-            self.log('ERROR', 
-                    f"Unexpected exception creating TSL order: {error_msg}",
-                    config_id=config_id, error=error_msg)
-            if config_id in self.state:
-                self._handle_order_error_state(config_id, error_msg, notify_type='order_failed', notify_args={
-                    'pair': pair,
-                    'direction': direction,
-                    'volume': volume,
-                    'error': error_msg,
-                    'trigger_price': trigger_price_float
-                })
-            return None
+
+            # If index price is unavailable, retry with last trade price
+            if 'index unavailable' in error_msg.lower():
+                self.log('WARNING',
+                        f"Index price unavailable for {pair}, retrying with last trade price",
+                        config_id=config_id, pair=pair)
+                try:
+                    api_kwargs['trigger'] = 'last'
+                    result = self.kraken_api_readwrite.add_trailing_stop_loss(
+                        pair=pair,
+                        direction=direction,
+                        volume=volume,
+                        trailing_offset_percent=trailing_offset,
+                        **api_kwargs
+                    )
+                    self.log('INFO',
+                            f"TSL order created successfully using last price trigger for {pair}",
+                            config_id=config_id, pair=pair)
+                except KrakenAPIError as retry_e:
+                    retry_error_msg = str(retry_e)
+                    self.log('ERROR',
+                            f"Kraken API error creating TSL order (after retry): {retry_error_msg} (type: {retry_e.error_type})",
+                            config_id=config_id, error=retry_error_msg, error_type=retry_e.error_type)
+                    if self.notification_manager:
+                        try:
+                            self.notification_manager.notify_api_error(
+                                error_type=retry_e.error_type,
+                                endpoint='AddOrder/add_trailing_stop_loss',
+                                error_message=retry_error_msg,
+                                details=retry_e.details
+                            )
+                        except Exception:
+                            pass
+                    if 'permission' in retry_error_msg.lower() or 'invalid key' in retry_error_msg.lower():
+                        print(f"ERROR: API credentials may not have proper permissions for creating orders. "
+                              f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
+                    return None
+                except Exception as retry_e:
+                    retry_error_msg = str(retry_e)
+                    self.log('ERROR',
+                            f"Unexpected exception creating TSL order (after retry): {retry_error_msg}",
+                            config_id=config_id, error=retry_error_msg)
+                    if 'insufficient' in retry_error_msg.lower() or 'balance' in retry_error_msg.lower():
+                        if self.notification_manager:
+                            try:
+                                self.notification_manager.notify_order_failed(
+                                    config_id=config_id,
+                                    pair=pair,
+                                    direction=direction,
+                                    volume=volume,
+                                    error=retry_error_msg,
+                                    trigger_price=trigger_price_float
+                                )
+                            except Exception as notify_error:
+                                self.log('WARNING', f'Failed to send order failure notification: {str(notify_error)}',
+                                        config_id=config_id)
+                    return None
+
+            # If we already recovered via retry, don't run the subsequent error handling
+            if result is not None:
+                # We have a valid result from the retry path; fall through to normal validation
+                pass
+            else:
+                # KrakenAPIError handling: log, notify, update state
+                if isinstance(e, KrakenAPIError):
+                    self.log('ERROR',
+                            f"Kraken API error creating TSL order: {error_msg} (type: {e.error_type})",
+                            config_id=config_id, error=error_msg, error_type=e.error_type)
+                    if self.notification_manager:
+                        try:
+                            self.notification_manager.notify_api_error(
+                                error_type=e.error_type,
+                                endpoint='AddOrder/add_trailing_stop_loss',
+                                error_message=error_msg,
+                                details=e.details
+                            )
+                        except Exception:
+                            pass
+                    if config_id in self.state:
+                        try:
+                            self._handle_order_error_state(config_id, error_msg, notify_type='order_failed', notify_args={
+                                'pair': pair,
+                                'direction': direction,
+                                'volume': volume,
+                                'error': error_msg,
+                                'trigger_price': trigger_price_float
+                            })
+                        except Exception:
+                            pass
+                    return None
+
+                # Generic exception handling: log, possibly notify, update state
+                self.log('ERROR',
+                        f"Unexpected exception creating TSL order: {error_msg}",
+                        config_id=config_id, error=error_msg)
+                if 'permission' in error_msg.lower() or 'invalid key' in error_msg.lower():
+                    print(f"ERROR: API credentials may not have proper permissions for creating orders. "
+                          f"Check that KRAKEN_API_KEY_RW has 'Create & Modify Orders' permission.")
+                if 'insufficient' in error_msg.lower() or 'balance' in error_msg.lower():
+                    if self.notification_manager:
+                        try:
+                            self.notification_manager.notify_order_failed(
+                                config_id=config_id,
+                                pair=pair,
+                                direction=direction,
+                                volume=volume,
+                                error=error_msg,
+                                trigger_price=trigger_price_float
+                            )
+                        except Exception as notify_error:
+                            self.log('WARNING', f'Failed to send order failure notification: {str(notify_error)}',
+                                    config_id=config_id)
+                if config_id in self.state:
+                    try:
+                        self._handle_order_error_state(config_id, error_msg, notify_type='order_failed', notify_args={
+                            'pair': pair,
+                            'direction': direction,
+                            'volume': volume,
+                            'error': error_msg,
+                            'trigger_price': trigger_price_float
+                        })
+                    except Exception:
+                        pass
+                return None
         
         # Step 12: Validate the API response
         # SAFETY: Ensure result is a dictionary before accessing
