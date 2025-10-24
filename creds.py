@@ -11,6 +11,7 @@ credentials from multiple locations with a clear precedence:
 Functions:
 - load_env(env_file='.env') -> loads .env into os.environ if not present
  - get_env_var(name) -> checks name, copilot_ prefixed, COPILOT_W_*, and COPILOT_KRAKEN_* variants
+- get_env_var(name) -> checks name, copilot_ prefixed, COPILOT_W_*, and COPILOT_KRAKEN_* variants
 - find_kraken_credentials(readwrite=False) -> returns (key, secret) tuple
 """
 from __future__ import annotations
@@ -62,8 +63,6 @@ def _check_variants(name: str) -> Tuple[str, ...]:
         # also include upper-case COPILOT_W_* fallback patterns
         variants.append(name.replace('KRAKEN_API_', 'COPILOT_W_KR_'))
     return tuple(variants)
-
-
 def get_env_var(name: str) -> Optional[str]:
     """Get environment variable checking multiple variants.
 
@@ -73,6 +72,9 @@ def get_env_var(name: str) -> Optional[str]:
       3. 'copilot_' prefixed name in os.environ (lowercase)
     4. COPILOT_W_ prefixed variants (best-effort mapping)
     5. COPILOT_KRAKEN_* fallbacks (legacy/alternate secrets)
+      2. 'copilot_' prefixed name in os.environ
+      3. COPILOT_W_ prefixed variants (best-effort mapping)
+      4. COPILOT_KRAKEN_API_KEY and COPILOT_KRAKEN_API_SECRET (for GitHub secrets)
     """
     # Exact match
     val = os.environ.get(name)
@@ -109,9 +111,15 @@ def get_env_var(name: str) -> Optional[str]:
             or os.environ.get('COPILOT_W_KR_SECRET')
             or os.environ.get('COPILOT_KRAKEN_API_SECRET')
         )
+        return (os.environ.get('COPILOT_W_KR_RO_PUBLIC') or 
+                os.environ.get('COPILOT_W_KR_PUBLIC') or 
+                os.environ.get('COPILOT_KRAKEN_API_KEY'))
+    if name == 'KRAKEN_API_SECRET':
+        return (os.environ.get('COPILOT_W_KR_RO_SECRET') or 
+                os.environ.get('COPILOT_W_KR_SECRET') or 
+                os.environ.get('COPILOT_KRAKEN_API_SECRET'))
 
     return None
-
 
 def find_kraken_credentials(readwrite: bool = False, env_file: str = '.env') -> Tuple[Optional[str], Optional[str]]:
     """Find Kraken credentials.

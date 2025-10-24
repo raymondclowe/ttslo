@@ -7,8 +7,12 @@ after all local unit tests pass. They use minimal order sizes with
 unreasonable prices to avoid execution.
 
 Environment variables required:
-- COPILOT_W_KR_RW_PUBLIC: Kraken API public key
-- COPILOT_W_KR_RW_SECRET: Kraken API secret key
+- COPILOT_W_KR_RW_PUBLIC: Kraken API public key (or KRAKEN_API_KEY_RW)
+- COPILOT_W_KR_RW_SECRET: Kraken API secret key (or KRAKEN_API_SECRET_RW)
+
+For read-only tests (queries, price checks), you can also use:
+- COPILOT_KRAKEN_API_KEY: GitHub environment secret for API key
+- COPILOT_KRAKEN_API_SECRET: GitHub environment secret for API secret
 """
 import os
 import sys
