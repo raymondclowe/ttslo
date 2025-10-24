@@ -808,6 +808,43 @@ python3 tools/coin_stats.py --hours 48 --json-output results.json
 
 ---
 
+## Dashboard /api/completed Missing Recent Orders (2025-10-24)
+
+**Problem**: Dashboard only showed 2 old completed orders even though new orders were being filled.
+
+**Root Cause**: 
+- Kraken API `ClosedOrders` endpoint returns **only 50 most recent** closed orders by default
+- Dashboard was calling `query_closed_orders()` without parameters
+- If account had >50 closed orders, only the newest 50 were returned
+- Older state entries wouldn't match any orders in the response, so they wouldn't appear in completed list
+
+**Solution**:
+- Modified `get_cached_closed_orders()` in `dashboard.py` to pass `start` parameter
+- Fetches orders from last 30 days using: `start=int(time.time()) - (30 * 24 * 60 * 60)`
+- This ensures all recent completed orders are retrieved while staying within API limits
+
+**Key Insights**:
+1. **50 Order Limit**: Kraken `ClosedOrders` API has default limit of 50 results
+2. **Time Window Approach**: Using `start` parameter is more reliable than pagination with `ofs`
+3. **30 Day Window**: Balances between getting recent data and minimizing API response size
+4. **State Matching**: Dashboard matches state entries with closed orders from Kraken
+5. **TTL Caching**: 30-second cache on closed orders reduces API calls
+
+**Testing**:
+- Created `tests/test_dashboard_closed_orders.py` to verify `start` parameter is passed
+- All 33 dashboard tests pass
+- Verified 30-day calculation is accurate (±10 seconds tolerance)
+
+**Related Files**:
+- `dashboard.py`: Lines 95-113 (get_cached_closed_orders function)
+- `tests/test_dashboard_closed_orders.py`: Test for start parameter
+- `kraken_api.py`: Lines 926-959 (query_closed_orders method)
+
+**Documentation**:
+From Kraken API docs: "50 results are returned at a time, the most recent by default."
+
+---
+
 *Add new learnings here as we discover them*
 
 ---

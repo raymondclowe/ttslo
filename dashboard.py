@@ -95,10 +95,21 @@ def get_cached_open_orders():
 # Longer TTL cache for closed orders (30s)
 @ttl_cache(seconds=30)
 def get_cached_closed_orders():
-    """Get closed orders from Kraken with longer TTL caching."""
+    """Get closed orders from Kraken with longer TTL caching.
+    
+    Fetches orders from the last 30 days to ensure we capture all recent
+    completed orders. Kraken API returns max 50 orders by default, so we
+    use the 'start' parameter to limit the time window.
+    """
     if not kraken_api:
         return {}
-    result = kraken_api.query_closed_orders()
+    
+    # Calculate timestamp for 30 days ago
+    # This ensures we get recent orders while staying within Kraken's limits
+    import time
+    thirty_days_ago = int(time.time()) - (30 * 24 * 60 * 60)
+    
+    result = kraken_api.query_closed_orders(start=thirty_days_ago)
     return result.get('closed', {})
 
 
