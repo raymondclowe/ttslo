@@ -199,12 +199,15 @@ class CoinStatsAnalyzer:
         
         return result
     
-    def calculate_probability_threshold(self, stats, probability=0.95, time_horizon_minutes=1440):
+    def calculate_probability_threshold(self, stats, probability=0.95, time_horizon_minutes=1440, use_fat_tails=True):
         """
         Calculate price threshold for a given probability over a time horizon.
         
         Uses random walk theory: cumulative volatility over n steps = σ_minute × sqrt(n)
         For 24 hours (1440 minutes): σ_24h = σ_minute × sqrt(1440) ≈ σ_minute × 37.95
+        
+        Accounts for fat tails using Student's t-distribution when normality test fails.
+        Crypto markets typically show fat tails (more extreme events than normal distribution).
         
         This correctly models how minute-to-minute changes accumulate over time to
         produce larger daily price movements.
@@ -213,6 +216,7 @@ class CoinStatsAnalyzer:
             stats: Statistics from calculate_statistics
             probability: Desired probability (0.95 = 95%)
             time_horizon_minutes: Time horizon in minutes (default 1440 = 24 hours)
+            use_fat_tails: Use t-distribution for non-normal data (default True)
             
         Returns:
             dict with threshold information:
@@ -239,13 +243,26 @@ class CoinStatsAnalyzer:
         import math
         pct_stdev_horizon = pct_stdev_minute * math.sqrt(time_horizon_minutes)
         
-        # Calculate z-score for the probability
+        # Calculate quantile for the probability
         # For 95% probability of exceeding, we want the 5th percentile (lower tail)
-        z_score = scipy_stats.norm.ppf(1 - probability)
+        # Use t-distribution for fat tails (crypto typical) or normal distribution
+        is_normal = stats.get('normality_test', {}).get('is_normal', False)
+        
+        if use_fat_tails and not is_normal:
+            # Use Student's t-distribution with df=5 for fat tails
+            # df=5 is typical for crypto markets - heavier tails than normal
+            # More conservative for extreme events
+            df = 5
+            quantile = scipy_stats.t.ppf(1 - (1 - probability), df)
+            distribution_used = 't-dist (df=5)'
+        else:
+            # Use normal distribution
+            quantile = scipy_stats.norm.ppf(1 - (1 - probability))
+            distribution_used = 'normal'
         
         # Calculate threshold (absolute value)
         # We're interested in the magnitude of movement from starting point
-        threshold_pct = abs(z_score * pct_stdev_horizon)
+        threshold_pct = abs(quantile * pct_stdev_horizon)
         
         # Calculate actual price thresholds
         current_mean = stats['mean']
@@ -267,7 +284,8 @@ class CoinStatsAnalyzer:
             'threshold_price_up': threshold_price_up,
             'threshold_price_down': threshold_price_down,
             'confidence': confidence,
-            'z_score': z_score,
+            'quantile': quantile,
+            'distribution': distribution_used,
             'pct_stdev_minute': pct_stdev_minute,
             'pct_stdev_horizon': pct_stdev_horizon,
             'time_horizon_minutes': time_horizon_minutes
@@ -735,11 +753,18 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
 
 def generate_config_suggestions(results, analyzer, output_file='suggested_config.csv'):
     """
-    Generate suggested config.csv entries for high-probability triggers.
+    Generate suggested config.csv entries using bracket strategy.
     
-    Creates configuration entries optimized for portfolio-level 95% probability
-    where at least one entry will trigger within 24 hours. Uses lower per-entry
-    probability (~10%) to increase chances of finding suitable triggers.
+    BRACKET STRATEGY:
+    - Each pair gets TWO entries: buy bracket below (-2%) and sell bracket above (+2%)
+    - Fixed 2% offset from current price for both brackets
+    - Fixed 1% trailing offset (TTSLO minimum)
+    - Only includes pairs where 2% movement has reasonable probability within 24h
+    
+    PORTFOLIO OPTIMIZATION:
+    - Target 95% probability that at least ONE entry triggers in portfolio
+    - For n entries: per_entry_prob = 1 - (0.05)^(1/n)
+    - Validates each pair can achieve this probability based on 24h volatility
     
     Args:
         results: List of analysis results
@@ -749,20 +774,33 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     if not results:
         return None
     
-    # Filter for results with valid thresholds
-    valid_results = [r for r in results if r.get('threshold_95')]
+    # Filter for results with valid statistics
+    valid_results = [r for r in results if r.get('stats')]
     
     if not valid_results:
         return None
     
-    # Use portfolio-level probability approach
-    # With random walk correction, thresholds are now realistic (1-10%)
-    # Use 10% per entry: reasonable chance of trigger, manageable portfolio size
-    # Portfolio prob of at least one: 1 - (1-0.10)^n
-    # For 30 pairs: 1 - 0.90^30 ≈ 96% chance of at least one trigger
-    # For 10 pairs: 1 - 0.90^10 ≈ 65% chance
-    n_pairs = len(valid_results)
-    per_entry_probability = 0.10  # 10% per entry gives realistic thresholds
+    # Calculate required per-entry probability for 95% portfolio probability
+    # Each pair contributes 2 entries (buy + sell bracket)
+    n_total_entries = len(valid_results) * 2
+    # Portfolio probability: 1 - (1-p)^n = 0.95
+    # Solving for p: p = 1 - (0.05)^(1/n)
+    import math
+    per_entry_probability = 1 - math.pow(0.05, 1.0 / n_total_entries)
+    
+    # Convert to "probability of exceeding threshold" (1 - tail_prob)
+    tail_probability = 1 - per_entry_probability
+    
+    print(f"\n{'='*70}")
+    print(f"BRACKET STRATEGY CONFIG GENERATION")
+    print(f"{'='*70}")
+    print(f"Total pairs analyzed: {len(valid_results)}")
+    print(f"Total entries (2 per pair): {n_total_entries}")
+    print(f"Per-entry probability: {per_entry_probability*100:.2f}%")
+    print(f"Portfolio probability (at least one triggers): 95.0%")
+    print(f"Bracket offset: ±2.0% from current price")
+    print(f"Trailing offset: 1.0% (TTSLO minimum)")
+    print(f"{'='*70}\n")
     
     with open(output_file, 'w', newline='') as csvfile:
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
@@ -771,55 +809,51 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         writer.writeheader()
         
         entry_count = 0
+        pairs_included = 0
+        pairs_excluded = 0
+        
         for analysis in valid_results:
             pair = analysis['pair']
             stats = analysis['stats']
             
-            # Recalculate threshold with lower probability for portfolio approach
-            threshold = analyzer.calculate_probability_threshold(stats, probability=per_entry_probability)
-            
-            if not threshold:
-                continue
-            
             # Get current mean price
             current_price = stats['mean']
-            threshold_pct = threshold['threshold_pct']
             
-            # Calculate threshold prices
-            upper_threshold = threshold['threshold_price_up']
-            lower_threshold = threshold['threshold_price_down']
+            # Fixed 2% bracket offset
+            bracket_offset_pct = 2.0
             
-            # Filter out entries where threshold is too small for practical use
-            # TTSLO requires minimum 1% trailing offset, so threshold should be > 1.5%
-            # to allow room for the trailing stop to work without immediate trigger
-            min_practical_threshold = 1.5  # 1.5% minimum
-            if threshold_pct < min_practical_threshold:
+            # Calculate threshold prices for 2% brackets
+            upper_bracket = current_price * (1 + bracket_offset_pct / 100)
+            lower_bracket = current_price * (1 - bracket_offset_pct / 100)
+            
+            # Check if 2% movement is achievable with required probability
+            # Calculate what probability the pair can achieve for 2% movement
+            threshold = analyzer.calculate_probability_threshold(stats, probability=tail_probability)
+            
+            if not threshold:
+                pairs_excluded += 1
                 continue
             
-            # Use a conservative trailing offset based on volatility
-            # Calculate trailing as fraction of threshold
-            if threshold_pct >= 4.0:
-                # For larger thresholds (>4%), use half as trailing offset
-                trailing_offset = threshold_pct / 2
-            else:
-                # For smaller thresholds (1.5-4%), use fixed 1% trailing
-                trailing_offset = 1.0
+            # Check if the pair's volatility can achieve 2% with required probability
+            # If threshold_pct >= 2%, then 2% is achievable with this probability
+            if threshold['threshold_pct'] < bracket_offset_pct:
+                # This pair's volatility is too low for 2% to be probable enough
+                pairs_excluded += 1
+                continue
+            
+            pairs_included += 1
             
             # Determine decimal places based on price magnitude
             if current_price >= 1000:
                 price_format = '.2f'
-                decimals = 2
             elif current_price >= 10:
                 price_format = '.4f'
-                decimals = 4
             elif current_price >= 0.01:
                 price_format = '.6f'
-                decimals = 6
             else:
                 price_format = '.8f'
-                decimals = 8
             
-            # Suggest a small volume for testing (0.01 for most, smaller for high-value assets)
+            # Suggest a small volume for testing
             if current_price > 10000:  # BTC-like prices
                 volume = 0.001
             elif current_price > 1000:  # ETH-like prices
@@ -827,13 +861,16 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             else:
                 volume = 0.1
             
-            # Create entry for price going above upper threshold (sell TSL)
+            # Fixed 1% trailing offset (TTSLO minimum)
+            trailing_offset = 1.0
+            
+            # Create SELL bracket entry (price goes above +2%)
             entry_count += 1
             pair_short = analyzer.format_pair_name(pair).replace('/', '_').lower()
             writer.writerow({
-                'id': f"{pair_short}_above_{entry_count}",
+                'id': f"{pair_short}_sell_{entry_count}",
                 'pair': pair,
-                'threshold_price': f"{upper_threshold:{price_format}}",
+                'threshold_price': f"{upper_bracket:{price_format}}",
                 'threshold_type': 'above',
                 'direction': 'sell',
                 'volume': f"{volume:.4f}",
@@ -841,18 +878,23 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                 'enabled': 'true'
             })
             
-            # Create entry for price going below lower threshold (buy TSL)
+            # Create BUY bracket entry (price goes below -2%)
             entry_count += 1
             writer.writerow({
-                'id': f"{pair_short}_below_{entry_count}",
+                'id': f"{pair_short}_buy_{entry_count}",
                 'pair': pair,
-                'threshold_price': f"{lower_threshold:{price_format}}",
+                'threshold_price': f"{lower_bracket:{price_format}}",
                 'threshold_type': 'below',
                 'direction': 'buy',
                 'volume': f"{volume:.4f}",
                 'trailing_offset_percent': f"{trailing_offset:.2f}",
                 'enabled': 'true'
             })
+    
+    print(f"Config generation complete:")
+    print(f"  Pairs included: {pairs_included}")
+    print(f"  Pairs excluded (insufficient volatility): {pairs_excluded}")
+    print(f"  Total entries generated: {entry_count}\n")
     
     return output_file
 
@@ -985,27 +1027,22 @@ def main():
             print(f"✓ HTML graph viewer saved to {html_path}")
             print(f"  Open in browser: file://{os.path.abspath(html_path)}")
     
-    # Generate suggested config.csv entries
+    # Generate suggested config.csv entries with bracket strategy
     config_path = generate_config_suggestions(results, analyzer, args.config_output)
     if config_path:
-        # Calculate portfolio probability for display
-        valid_results = [r for r in results if r.get('threshold_95')]
-        n_pairs = len(valid_results) if valid_results else len(results)
-        per_entry_prob = 0.10  # Same as used in generate_config_suggestions
-        portfolio_prob = (1 - ((1 - per_entry_prob) ** n_pairs)) * 100
-        
         print(f"\n{'='*70}")
-        print(f"SUGGESTED CONFIG FOR HIGH-PROBABILITY PORTFOLIO TRIGGERS")
+        print(f"SUGGESTED CONFIG WITH BRACKET STRATEGY")
         print(f"{'='*70}")
         print(f"\nIn order to create items that have a high chance of triggering")
         print(f"in the next 24 hours, add these lines to your config.csv:")
         print(f"\n✓ Suggested config saved to {config_path}")
         
-        print(f"\nThese entries use portfolio-level optimization:")
-        print(f"  - Individual entries use 10% probability (90% chance of exceeding threshold)")
-        print(f"  - With {n_pairs} pairs, portfolio has ~{portfolio_prob:.1f}% chance at least one triggers")
-        print(f"  - Uses random walk model: 24h volatility = minute volatility × sqrt(1440)")
-        print(f"  - Filtered to exclude entries where threshold < 1.5% (would trigger immediately)")
+        print(f"\nBracket Strategy Details:")
+        print(f"  - Each pair gets TWO entries: buy bracket (-2%) and sell bracket (+2%)")
+        print(f"  - Fixed 1% trailing offset (TTSLO minimum)")
+        print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
+        print(f"  - Uses Student's t-distribution to account for fat tails")
+        print(f"  - Random walk model: 24h volatility = minute volatility × sqrt(1440)")
         print(f"  - Decimal places adjusted based on coin value (more for low-value coins)")
         print(f"  - Each pair has up to two entries (above/below thresholds)")
         print(f"\n⚠️  WARNING: These are suggestions based on statistical analysis.")
