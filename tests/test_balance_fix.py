@@ -28,12 +28,9 @@ def test_copilot_credentials():
     
     result = get_env_var('TEST_KEY')
     
-    if result == 'test_value_123':
-        print("✓ PASS: Found COPILOT_TEST_KEY via get_env_var('TEST_KEY')")
-        return True
-    else:
-        print(f"✗ FAIL: Expected 'test_value_123', got '{result}'")
-        return False
+    print(f"Looking for TEST_KEY, got: {result}")
+    assert result == 'test_value_123', f"Expected 'test_value_123', got '{result}'"
+    print("✓ PASS: Found COPILOT_TEST_KEY via get_env_var('TEST_KEY')")
 
 
 def test_extract_base_asset():
@@ -87,16 +84,12 @@ def test_extract_base_asset():
         ('SOLUSDT', 'SOL'),  # Should use USDT first (longer match)
     ]
     
-    all_pass = True
     for pair, expected in test_cases:
         result = _extract_base_asset(pair)
-        if result == expected:
-            print(f"✓ {pair:15} -> {result:10} (expected: {expected})")
-        else:
-            print(f"✗ {pair:15} -> {result:10} (expected: {expected})")
-            all_pass = False
+        print(f"  {pair:15} -> {result:10} (expected: {expected})")
+        assert result == expected, f"Failed for {pair}: got '{result}', expected '{expected}'"
     
-    return all_pass
+    print("✓ All pairs extracted correctly")
 
 
 def test_normalize_and_sum_balances():
@@ -142,16 +135,12 @@ def test_normalize_and_sum_balances():
         ('BT', Decimal('0.0015626064')),  # BTC normalizes to 'BT'
     ]
     
-    all_pass = True
     for asset, expected in test_cases:
         result = normalized_totals.get(asset, Decimal('0'))
-        if result == expected:
-            print(f"✓ {asset:10} total: {result}")
-        else:
-            print(f"✗ {asset:10} total: {result} (expected: {expected})")
-            all_pass = False
+        print(f"  {asset:10} total: {result}")
+        assert result == expected, f"Failed for {asset}: got {result}, expected {expected}"
     
-    return all_pass
+    print("✓ All balances summed correctly")
 
 
 def main():
@@ -160,29 +149,15 @@ def main():
     print("Balance Checking Fix Tests")
     print("="*60)
     
-    results = []
-    results.append(("COPILOT credentials", test_copilot_credentials()))
-    results.append(("USD pair extraction", test_extract_base_asset()))
-    results.append(("Balance normalization", test_normalize_and_sum_balances()))
+    # When run directly (not via pytest), run all tests
+    test_copilot_credentials()
+    test_extract_base_asset()
+    test_normalize_and_sum_balances()
     
     print("\n" + "="*60)
-    print("Test Summary")
+    print("✓ All tests passed!")
     print("="*60)
-    
-    all_pass = True
-    for name, passed in results:
-        status = "✓ PASS" if passed else "✗ FAIL"
-        print(f"{status}: {name}")
-        if not passed:
-            all_pass = False
-    
-    print("="*60)
-    if all_pass:
-        print("✓ All tests passed!")
-        return 0
-    else:
-        print("✗ Some tests failed")
-        return 1
+    return 0
 
 
 if __name__ == '__main__':
