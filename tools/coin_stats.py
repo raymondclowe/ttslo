@@ -730,8 +730,9 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     """
     Generate suggested config.csv entries for high-probability triggers.
     
-    Creates configuration entries that are likely to trigger within 24 hours
-    based on the 95% probability thresholds.
+    Creates configuration entries optimized for portfolio-level 95% probability
+    where at least one entry will trigger within 24 hours. Uses lower per-entry
+    probability (~10%) to increase chances of finding suitable triggers.
     
     Args:
         results: List of analysis results
@@ -747,6 +748,15 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     if not valid_results:
         return None
     
+    # Use lower probability threshold for portfolio approach
+    # With many pairs, using 30% per entry gives good chance of triggers
+    # Portfolio prob of at least one: 1 - (1-0.30)^n
+    # For 30 pairs: 1 - 0.70^30 ≈ 99.97% chance of at least one trigger
+    # For 10 pairs: 1 - 0.70^10 ≈ 97.2% chance
+    # For 5 pairs: 1 - 0.70^5 ≈ 83.2% chance
+    n_pairs = len(valid_results)
+    per_entry_probability = 0.30  # 30% per entry for reasonable thresholds
+    
     with open(output_file, 'w', newline='') as csvfile:
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
                      'direction', 'volume', 'trailing_offset_percent', 'enabled']
@@ -757,7 +767,9 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         for analysis in valid_results:
             pair = analysis['pair']
             stats = analysis['stats']
-            threshold = analysis.get('threshold_95')
+            
+            # Recalculate threshold with lower probability for portfolio approach
+            threshold = analyzer.calculate_probability_threshold(stats, probability=per_entry_probability)
             
             if not threshold:
                 continue
@@ -766,13 +778,31 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             current_price = stats['mean']
             threshold_pct = threshold['threshold_pct']
             
-            # Calculate threshold prices (95% probability of being exceeded)
+            # Calculate threshold prices
             upper_threshold = threshold['threshold_price_up']
             lower_threshold = threshold['threshold_price_down']
             
             # Use a conservative trailing offset based on volatility
-            # Use half of the threshold percentage as trailing offset
+            # Use half of the threshold percentage as trailing offset, minimum 1.0%
             trailing_offset = max(1.0, threshold_pct / 2)
+            
+            # Note: We don't filter based on distance from current price because
+            # statistical thresholds may be small for low-volatility periods.
+            # TTSLO validation will handle cases where thresholds are too close.
+            
+            # Determine decimal places based on price magnitude
+            if current_price >= 1000:
+                price_format = '.2f'
+                decimals = 2
+            elif current_price >= 10:
+                price_format = '.4f'
+                decimals = 4
+            elif current_price >= 0.01:
+                price_format = '.6f'
+                decimals = 6
+            else:
+                price_format = '.8f'
+                decimals = 8
             
             # Suggest a small volume for testing (0.01 for most, smaller for high-value assets)
             if current_price > 10000:  # BTC-like prices
@@ -788,7 +818,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             writer.writerow({
                 'id': f"{pair_short}_above_{entry_count}",
                 'pair': pair,
-                'threshold_price': f"{upper_threshold:.2f}",
+                'threshold_price': f"{upper_threshold:{price_format}}",
                 'threshold_type': 'above',
                 'direction': 'sell',
                 'volume': f"{volume:.4f}",
@@ -801,7 +831,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             writer.writerow({
                 'id': f"{pair_short}_below_{entry_count}",
                 'pair': pair,
-                'threshold_price': f"{lower_threshold:.2f}",
+                'threshold_price': f"{lower_threshold:{price_format}}",
                 'threshold_type': 'below',
                 'direction': 'buy',
                 'volume': f"{volume:.4f}",
@@ -943,16 +973,22 @@ def main():
     # Generate suggested config.csv entries
     config_path = generate_config_suggestions(results, analyzer, args.config_output)
     if config_path:
+        # Calculate portfolio probability for display
+        valid_results = [r for r in results if r.get('threshold_95')]
+        n_pairs = len(valid_results) if valid_results else len(results)
+        portfolio_prob = (1 - (0.70 ** n_pairs)) * 100
+        
         print(f"\n{'='*70}")
-        print(f"SUGGESTED CONFIG FOR HIGH-PROBABILITY TRIGGERS")
+        print(f"SUGGESTED CONFIG FOR HIGH-PROBABILITY PORTFOLIO TRIGGERS")
         print(f"{'='*70}")
         print(f"\nIn order to create items that have a high chance of triggering")
         print(f"in the next 24 hours, add these lines to your config.csv:")
         print(f"\n✓ Suggested config saved to {config_path}")
-        print(f"\nThese entries are based on 95% probability thresholds from the analysis.")
-        print(f"Each pair has two entries:")
-        print(f"  - Above threshold: Triggers when price exceeds upper bound")
-        print(f"  - Below threshold: Triggers when price falls below lower bound")
+        print(f"\nThese entries use portfolio-level optimization:")
+        print(f"  - Individual entries use 30% probability for wider trigger thresholds")
+        print(f"  - With {n_pairs} pairs, portfolio has ~{portfolio_prob:.1f}% chance at least one triggers")
+        print(f"  - Decimal places adjusted based on coin value (more for low-value coins)")
+        print(f"  - Each pair has up to two entries (above/below thresholds)")
         print(f"\n⚠️  WARNING: These are suggestions based on statistical analysis.")
         print(f"   Review and adjust volumes before using in production!")
     
