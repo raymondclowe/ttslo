@@ -2,6 +2,55 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## State.csv Reconciliation - Handling Order Creation Failures
+
+**Date**: 2025-10-24
+
+**Problem**: Issue #88 - state.csv may not update if exception occurs during order creation, leading to orders incorrectly marked as "manual" when they were created by ttslo.py.
+
+**Validation Process**:
+1. Fetch current open orders from Kraken API
+2. Parse logs.csv to find all "TSL order created successfully" entries
+3. Cross-reference: orders in logs that are still open on Kraken
+4. Result: Found 3 orders incorrectly classified
+
+**Orders Found**:
+- OIZXVF-N5TQ5-DHTPIR (near_usd_sell_29) - Created 2025-10-24T05:15:09
+- O2VLNP-DNSKF-LAFIJP (dydx_usd_sell_19) - Created 2025-10-24T05:15:04  
+- OGMFI4-MABOV-YGJDWI (eth_usd_sell_3) - Created 2025-10-24T04:33:25
+
+**Solution**: Created `reconcile_state.py` tool:
+- Fetches open orders from Kraken
+- Parses logs.csv for order creation history (including trailing offset, trigger price)
+- Identifies missing/incorrect state.csv entries
+- Creates backups before modifying state.csv
+- Supports dry-run mode for safety
+
+**Key Insights**:
+1. Logs.csv structure: Order creation happens in 2 log entries:
+   - "Creating TSL order: ..." (has trailing_offset, trigger_price in message and row[4])
+   - "TSL order created successfully: order_id=..." (has order_id in row[4])
+   - Config ID is always in row[3]
+
+2. State.csv fields needed for proper tracking:
+   - id, triggered, trigger_price, trigger_time, order_id, offset
+
+3. Reconciliation should be run periodically (e.g., daily cron job) to prevent drift
+
+**Best Practice**: 
+- Always validate state.csv against live Kraken data + logs
+- Use logs.csv as source of truth for order creation events
+- Implement reconciliation as periodic maintenance task
+- Always create backups before modifying state.csv
+
+**Related Files**:
+- `reconcile_state.py`: Main reconciliation tool
+- `STATE_FIX_README.md`: Documentation and usage
+- `state_fix.csv`: Pre-computed fix data for identified issues
+- `config.py`: State file structure (save_state, load_state)
+
+---
+
 ## Active TSL Orders Display - Manual Order Data Extraction
 
 **Date**: 2025-10-24
