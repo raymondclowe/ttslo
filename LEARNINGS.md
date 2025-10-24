@@ -808,6 +808,60 @@ python3 tools/coin_stats.py --hours 48 --json-output results.json
 
 ---
 
+## Dashboard /api/completed Missing Recent Orders (2025-10-24)
+
+**Problem**: Dashboard only showed 2 old completed orders even though new orders were being filled.
+
+**Initial Incorrect Diagnosis**: 
+- Initially thought Kraken API's 50-order limit on `ClosedOrders` was the issue
+- Added `start` parameter to fetch last 30 days - but testing showed this didn't help
+- The real issue: triggered orders in state.csv weren't in the most recent 50 closed orders
+
+**Root Cause** (Corrected):
+- Dashboard matched state entries against `ClosedOrders` API response (max 50 orders)
+- If the specific order IDs from state.csv weren't in those 50 recent orders, they wouldn't appear
+- Account had 362 total closed orders, but API only returns 50 at a time
+- The `start` parameter doesn't change this - still returns only 50 orders even with time filter
+
+**Solution**:
+- Added `query_orders(txids)` method to kraken_api.py using Kraken's `QueryOrders` endpoint
+- Modified `get_completed_orders()` to directly query specific order IDs from state
+- More efficient: only queries the exact orders needed (typically 3-4) vs fetching 50 unrelated orders
+- Includes fallback to old method if query_orders fails
+
+**Implementation**:
+1. **kraken_api.py**: Added `query_orders(txids)` method
+   - Accepts list or comma-separated string of order IDs (up to 50)
+   - Uses Kraken's `QueryOrders` private API endpoint
+   - Returns order details for specified transaction IDs
+
+2. **dashboard.py**: Updated `get_completed_orders()`
+   - Collects order IDs from triggered state entries first
+   - Calls `query_orders()` with specific order IDs
+   - Falls back to `get_cached_closed_orders()` on error
+   - More efficient and reliable
+
+3. **creds.py**: Added support for `COPILOT_KRAKEN_API_KEY` and `COPILOT_KRAKEN_API_SECRET`
+   - Allows GitHub Copilot agent to test with live production data (read-only)
+
+**Testing**:
+- All dashboard tests pass
+- Live testing confirmed `query_orders()` works with production API
+- Queried 3 specific orders successfully from 362 total closed orders
+
+**Key Insights**:
+1. **Direct Query > Listing**: Querying specific order IDs is more efficient than listing all and filtering
+2. **Kraken API Limits**: `ClosedOrders` returns max 50 orders, even with `start` parameter
+3. **QueryOrders Endpoint**: Can query up to 50 specific order IDs in one call
+4. **State-Driven Approach**: Use state.csv as source of truth for which orders to query
+
+**Related Files**:
+- `kraken_api.py`: Lines 960-990 (query_orders method)
+- `dashboard.py`: Lines 337-445 (get_completed_orders function)
+- `creds.py`: Lines 91-95 (COPILOT_KRAKEN_API_KEY support)
+
+---
+
 *Add new learnings here as we discover them*
 
 ---

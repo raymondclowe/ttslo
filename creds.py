@@ -62,8 +62,6 @@ def _check_variants(name: str) -> Tuple[str, ...]:
         # also include upper-case COPILOT_W_* fallback patterns
         variants.append(name.replace('KRAKEN_API_', 'COPILOT_W_KR_'))
     return tuple(variants)
-
-
 def get_env_var(name: str) -> Optional[str]:
     """Get environment variable checking multiple variants.
 
@@ -99,7 +97,6 @@ def get_env_var(name: str) -> Optional[str]:
                 os.environ.get('COPILOT_KRAKEN_API_SECRET'))
 
     return None
-
 
 def find_kraken_credentials(readwrite: bool = False, env_file: str = '.env') -> Tuple[Optional[str], Optional[str]]:
     """Find Kraken credentials.
