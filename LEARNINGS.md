@@ -2,6 +2,50 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## GitHub Copilot Workspace Setup (2025-10-25)
+
+**Problem**: GitHub Copilot agents started in fresh environments without `uv` or `pytest` installed, requiring manual setup every session.
+
+**Solution**: Created `.github/workflows/copilot-setup-steps.yml` workflow that runs before Copilot agent starts.
+
+**Key Points**:
+1. **Workflow runs automatically**: GitHub Actions executes `copilot-setup-steps` job before agent initialization
+2. **Install uv**: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+3. **Add to PATH**: `echo "$HOME/.local/bin" >> $GITHUB_PATH`
+4. **Sync deps**: `uv sync` installs all pyproject.toml dependencies (including pytest)
+5. **Verification**: Tests run `uv --version` and `uv run pytest --version`
+
+**Workflow Structure**:
+```yaml
+jobs:
+  copilot-setup-steps:  # Special job name recognized by Copilot
+    runs-on: ubuntu-latest
+    steps:
+      - Checkout
+      - Setup Python 3.12
+      - Install uv
+      - Verify uv
+      - Sync dependencies
+      - Verify pytest
+```
+
+**Benefits**:
+- No manual installation needed
+- Consistent environment every session
+- All dependencies from pyproject.toml automatically available
+- Pytest ready to run immediately
+
+**Testing**:
+- Workflow can be manually triggered via `workflow_dispatch`
+- Agent environment matches developer environment (same uv version, same deps)
+
+**Related Files**:
+- `.github/workflows/copilot-setup-steps.yml`: Workflow definition
+- `AGENTS.md`: Updated with environment setup documentation
+- `pyproject.toml`: Dependency source of truth
+
+---
+
 ## Dashboard Completed Orders - Canceled Order Filtering
 
 **Date**: 2025-10-24
