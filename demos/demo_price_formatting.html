@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Price Formatting Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .comparison {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .price-example {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .price-label {
+            font-weight: 600;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .price-value {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .old-value {
+            color: #e74c3c;
+            text-decoration: line-through;
+        }
+        
+        .new-value {
+            color: #27ae60;
+        }
+        
+        .issue-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .fix-box {
+            background-color: #d4edda;
+            border: 1px solid #28a745;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Price Formatting Fix Demo</h1>
+    
+    <div class="issue-box">
+        <h2>❌ The Issue</h2>
+        <p>Dashboard was showing <strong>$0.00</strong> for very small value coins like MEME ($0.001679) because all prices used <code>.toFixed(2)</code> which only shows 2 decimal places.</p>
+    </div>
+    
+    <div class="fix-box">
+        <h2>✅ The Solution</h2>
+        <p>Created a smart <code>formatPrice()</code> function that dynamically adjusts decimal places based on price magnitude.</p>
+    </div>
+    
+    <div class="comparison">
+        <h3>MEME Coin Example (Worth $0.001679)</h3>
+        <div class="price-example">
+            <div>
+                <div class="price-label">Raw Value</div>
+                <div class="price-value">0.001679</div>
+            </div>
+            <div>
+                <div class="price-label">Old Format (.toFixed(2))</div>
+                <div class="price-value old-value" id="meme-old">$0.00</div>
+            </div>
+            <div>
+                <div class="price-label">New Format (formatPrice)</div>
+                <div class="price-value new-value" id="meme-new">$0.001679</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="comparison">
+        <h3>Price Range Examples</h3>
+        
+        <div class="price-example">
+            <div>
+                <div class="price-label">Very Small (< $0.01)</div>
+                <div class="price-value">0.00000123</div>
+            </div>
+            <div>
+                <div class="price-label">Old Format</div>
+                <div class="price-value old-value">$0.00</div>
+            </div>
+            <div>
+                <div class="price-label">New Format</div>
+                <div class="price-value new-value" id="small1">$0.00000123</div>
+            </div>
+        </div>
+        
+        <div class="price-example">
+            <div>
+                <div class="price-label">Small (< $1)</div>
+                <div class="price-value">0.5678</div>
+            </div>
+            <div>
+                <div class="price-label">Old Format</div>
+                <div class="price-value old-value">$0.57</div>
+            </div>
+            <div>
+                <div class="price-label">New Format</div>
+                <div class="price-value new-value" id="small2">$0.5678</div>
+            </div>
+        </div>
+        
+        <div class="price-example">
+            <div>
+                <div class="price-label">Medium (< $100)</div>
+                <div class="price-value">42.345</div>
+            </div>
+            <div>
+                <div class="price-label">Old Format</div>
+                <div class="price-value">$42.35</div>
+            </div>
+            <div>
+                <div class="price-label">New Format</div>
+                <div class="price-value new-value" id="medium">$42.35</div>
+            </div>
+        </div>
+        
+        <div class="price-example">
+            <div>
+                <div class="price-label">Large (>= $100)</div>
+                <div class="price-value">12345.67</div>
+            </div>
+            <div>
+                <div class="price-label">Old Format</div>
+                <div class="price-value">$12345.67</div>
+            </div>
+            <div>
+                <div class="price-label">New Format</div>
+                <div class="price-value new-value" id="large">$12,345.67</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="comparison">
+        <h3>Key Features</h3>
+        <ul>
+            <li><strong>Dynamic Precision:</strong> Uses 8 decimals for very small values, 4 for small, 2 for larger</li>
+            <li><strong>Trailing Zero Removal:</strong> $0.001 instead of $0.00100000 for cleaner display</li>
+            <li><strong>Thousands Separator:</strong> $12,345.67 for better readability of large numbers</li>
+            <li><strong>Consistent Handling:</strong> Applied to all price displays (trigger, current, executed, benefit)</li>
+        </ul>
+    </div>
+
+    <script>
+        /**
+         * Format a price value with appropriate decimal places for display.
+         * This is the actual function used in the dashboard.
+         */
+        function formatPrice(value) {
+            if (value === null || value === undefined || value === 'N/A') {
+                return 'N/A';
+            }
+            
+            const price = parseFloat(value);
+            if (isNaN(price)) {
+                return 'N/A';
+            }
+            
+            // For very small values (< 0.01), use up to 8 decimal places
+            if (Math.abs(price) < 0.01) {
+                // Remove trailing zeros for cleaner display
+                return price.toFixed(8).replace(/\.?0+$/, '');
+            }
+            // For small values (< 1), use 4 decimal places
+            else if (Math.abs(price) < 1) {
+                return price.toFixed(4);
+            }
+            // For medium values (< 100), use 2 decimal places
+            else if (Math.abs(price) < 100) {
+                return price.toFixed(2);
+            }
+            // For large values, use 2 decimal places with thousands separator
+            else {
+                return price.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+        }
+
+        // Update the demo values using the actual formatPrice function
+        document.getElementById('meme-new').textContent = '$' + formatPrice(0.001679);
+        document.getElementById('small1').textContent = '$' + formatPrice(0.00000123);
+        document.getElementById('small2').textContent = '$' + formatPrice(0.5678);
+        document.getElementById('medium').textContent = '$' + formatPrice(42.345);
+        document.getElementById('large').textContent = '$' + formatPrice(12345.67);
+    </script>
+</body>
+</html>
