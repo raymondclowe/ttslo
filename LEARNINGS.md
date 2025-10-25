@@ -1244,6 +1244,43 @@ The application will automatically pick these up for read-only operations withou
 
 ---
 
+## Understanding Negative "Benefit" in Dashboard (2025-10-25)
+
+**Issue**: Users confused by negative "benefit" values in Completed Orders section, thinking they were losing money.
+
+**Root Cause**: 
+- "Benefit" is actually **slippage** - difference between trigger price and execution price
+- For TSL orders, negative slippage is NORMAL and EXPECTED
+- The trailing mechanism means price must move against you (by trailing offset %) before order executes
+- Example: Sell triggers at $2.53, executes at $2.50 with 1% trailing = -1.23% slippage
+
+**Why This Happens**:
+- TSL orders trail the price by the offset percentage
+- When price reverses, order triggers at the offset distance
+- This is the COST of using TSL protection (like insurance)
+- It's NOT a net loss on the total trade
+
+**Solution**:
+1. Created comprehensive guide: `docs/UNDERSTANDING_BENEFIT.md`
+2. Renamed "Benefit" to "Slippage" in dashboard UI
+3. Added help icons with tooltips explaining what slippage means
+4. Added README section explaining negative values are normal
+5. Documented expected ranges: -1% to -2% matching trailing offset
+
+**Key Insight**: 
+- Users should focus on TOTAL PROFIT (buy price vs sell price minus fees/slippage)
+- Not on individual order slippage
+- The bracket strategy (buy low, sell high) still profits despite slippage
+- Example: Buy at $2.31, sell at $2.50 = +$0.19 gross, -$0.04 slippage, +$0.14 net profit
+
+**Related Files**:
+- `docs/UNDERSTANDING_BENEFIT.md`: Complete explanation with examples
+- `templates/dashboard.html`: UI updates (label, tooltips)
+- `README.md`: Quick explanation section
+- `dashboard.py`: Lines 424-433 (benefit calculation)
+
+---
+
 ## USD Pair Suffix Support (2025-10-24)
 
 **Problem**: Balance checks were failing for pairs ending in 'USD' (like DYDXUSD, ATOMUSD, SOLUSD) because:
