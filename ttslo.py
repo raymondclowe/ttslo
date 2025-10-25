@@ -538,7 +538,7 @@ class TTSLO:
                     'pair': pair,
                     'direction': direction,
                     'volume': volume,
-                    'available': str(available) if available is not None else 'unknown',
+                    'available': available,  # Pass Decimal directly for proper formatting
                     'trigger_price': trigger_price_float
                 })
             return None

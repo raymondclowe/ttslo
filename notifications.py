@@ -546,7 +546,8 @@ class NotificationManager:
     
     def notify_insufficient_balance(self, config_id: str, pair: str,
                                    direction: str, volume: str,
-                                   available: str, trigger_price: float):
+                                   available: Union[Decimal, float, int, str, None], 
+                                   trigger_price: float):
         """
         Notify that an order could not be created due to insufficient balance.
         
@@ -555,7 +556,7 @@ class NotificationManager:
             pair: Trading pair
             direction: Order direction (buy/sell)
             volume: Requested order volume
-            available: Available balance (raw value, will be formatted)
+            available: Available balance (Decimal, float, int, str, or None - will be formatted)
             trigger_price: Price at which threshold was triggered
         """
         # Format the available balance with appropriate decimal precision
