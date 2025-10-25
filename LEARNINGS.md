@@ -1148,6 +1148,78 @@ function formatPrice(value) {
 
 ---
 
+## Dashboard Cancel Buttons & Actions (2025-10-25)
+
+**Implementation**: Added cancel functionality to dashboard for managing pending and active orders.
+
+**Features**:
+1. **Pending Orders Cancel** - Set enabled status
+   - POST `/api/pending/<id>/cancel` - disable/pause/cancel pending config
+   - Supports states: `true`, `false`, `paused`, `canceled`
+   - Updates config.csv atomically (preserves comments)
+   - Red "Cancel" button on each pending order card
+
+2. **Active Orders Cancel** - Cancel live Kraken orders
+   - POST `/api/active/<order_id>/cancel` - cancels live order on Kraken
+   - Calls `KrakenAPI.cancel_order(txid)`
+   - Red "Cancel Order" button on each active order card
+
+3. **Cancel All** - Emergency stop for all orders
+   - POST `/api/cancel-all` - cancels ALL open orders
+   - Double confirmation dialog (destructive action)
+   - Handles partial failures gracefully
+   - Red "🛑 Cancel All Active Orders" button at bottom
+
+**UI Design**:
+- Red buttons (btn-danger) for destructive actions
+- Small buttons on cards (btn-small)
+- Confirmation dialogs before cancel
+- Double confirmation for Cancel All
+- Clear error messages
+
+**Backend** (`config.py`):
+- `update_config_enabled(config_id, status)` - updates single config
+- Supports: `true`, `false`, `paused`, `canceled`
+- Uses atomic write (prevents data loss)
+- Preserves ALL CSV lines (comments, empty rows)
+
+**Testing** (`tests/test_dashboard_cancel.py`):
+- 13 tests covering all scenarios
+- Tests status updates, API calls, error handling
+- Tests graceful degradation (no Kraken API)
+- Tests partial failures in Cancel All
+
+**Kraken API Quirks** (handled):
+- `cancel_order(txid)` works for spot/funding wallets
+- Returns `{'count': 1}` on success
+- Handles API errors gracefully
+- No special wallet handling needed (Kraken handles internally)
+
+**Security**:
+- POST endpoints only (prevents accidental GET cancels)
+- Confirmation dialogs prevent fat-finger errors
+- Double confirmation for Cancel All
+- Clear error messages (no sensitive data exposed)
+
+**Related Files**:
+- `dashboard.py`: Lines 825-943 (cancel endpoints)
+- `config.py`: Lines 510-540 (update_config_enabled)
+- `templates/dashboard.html`: Cancel buttons, JS functions
+- `tests/test_dashboard_cancel.py`: Complete test suite
+
+**Usage**:
+- Pending orders: Click "Cancel" → confirms → sets enabled=canceled
+- Active orders: Click "Cancel Order" → confirms → cancels on Kraken
+- Cancel All: Click button → double confirm → cancels all open orders
+
+**Notes**:
+- Cancel pending: Only updates config.csv (order not yet on Kraken)
+- Cancel active: Calls Kraken API to cancel live order
+- enabled field is text, supports future states (e.g., "scheduled", "error")
+- Comment in config.csv updated to reflect new values
+
+---
+
 *Add new learnings here as we discover them*
 
 ---
