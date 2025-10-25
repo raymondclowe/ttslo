@@ -517,8 +517,10 @@
             if (Math.abs(price) < 0.01) {
                 // Remove trailing zeros for cleaner display, but keep at least one digit
                 const formatted = price.toFixed(8);
-                // Use parseFloat to remove trailing zeros, then toString to get clean string
-                return parseFloat(formatted).toString();
+                // Remove trailing zeros manually to avoid scientific notation from toString()
+                const result = formatted.replace(/\.?0+$/, '');
+                // Safety check: ensure we never return empty string
+                return result || '0';
             }
             // For small values (< 1), use 4 decimal places
             else if (Math.abs(price) < 1) {

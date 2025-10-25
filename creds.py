@@ -68,22 +68,12 @@ def get_env_var(name: str) -> Optional[str]:
 
     Order of precedence:
       1. Exact name in os.environ
-      2. 'COPILOT_' prefixed name in os.environ (uppercase)
-      3. 'copilot_' prefixed name in os.environ (lowercase)
-    4. COPILOT_W_ prefixed variants (best-effort mapping)
-    5. COPILOT_KRAKEN_* fallbacks (legacy/alternate secrets)
-      2. 'copilot_' prefixed name in os.environ
-      3. COPILOT_W_ prefixed variants (best-effort mapping)
-      4. COPILOT_KRAKEN_API_KEY and COPILOT_KRAKEN_API_SECRET (for GitHub secrets)
+      2. 'copilot_' prefixed name in os.environ (lowercase)
+      3. COPILOT_W_ prefixed variants and COPILOT_KRAKEN_* (best-effort mapping for specific keys)
+      4. COPILOT_ prefixed name in os.environ (uppercase, generic fallback)
     """
     # Exact match
     val = os.environ.get(name)
-    if val:
-        return val
-
-    # Try uppercase COPILOT_ prefix (GitHub Copilot agent style)
-    copilot_upper_name = f"COPILOT_{name}"
-    val = os.environ.get(copilot_upper_name)
     if val:
         return val
 
@@ -111,13 +101,12 @@ def get_env_var(name: str) -> Optional[str]:
             or os.environ.get('COPILOT_W_KR_SECRET')
             or os.environ.get('COPILOT_KRAKEN_API_SECRET')
         )
-        return (os.environ.get('COPILOT_W_KR_RO_PUBLIC') or 
-                os.environ.get('COPILOT_W_KR_PUBLIC') or 
-                os.environ.get('COPILOT_KRAKEN_API_KEY'))
-    if name == 'KRAKEN_API_SECRET':
-        return (os.environ.get('COPILOT_W_KR_RO_SECRET') or 
-                os.environ.get('COPILOT_W_KR_SECRET') or 
-                os.environ.get('COPILOT_KRAKEN_API_SECRET'))
+
+    # Try uppercase COPILOT_ prefix (GitHub Copilot agent style) as last resort
+    copilot_upper_name = f"COPILOT_{name}"
+    val = os.environ.get(copilot_upper_name)
+    if val:
+        return val
 
     return None
 

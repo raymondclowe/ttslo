@@ -2,6 +2,52 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Pytest Test Failures Investigation (2025-10-25)
+
+**Issue**: 4 test failures and 6 skips in pytest run.
+
+**Investigation Findings**:
+
+### 1. creds.py Duplicate Code (3 failures fixed)
+- **Problem**: Lines 103-120 had duplicate credential checks
+- **Root cause**: `COPILOT_KRAKEN_API_KEY` checked at line 85-88 BEFORE `COPILOT_W_KR_*` variants (line 103-113)
+- **Expected precedence**: `COPILOT_W_KR_RO_PUBLIC` > `COPILOT_W_KR_PUBLIC` > `COPILOT_KRAKEN_API_KEY`
+- **Actual precedence**: `COPILOT_KRAKEN_API_KEY` won (checked first)
+- **Fix**: Removed duplicate code, reordered checks to match expected precedence
+- **Key insight**: Check order matters! More specific keys (COPILOT_W_*) must be checked before generic fallbacks
+
+### 2. formatPrice Scientific Notation (1 failure fixed)
+- **Problem**: `parseFloat(formatted).toString()` in JavaScript converts small numbers to scientific notation
+- **Example**: `0.00000123` → `"1.23e-06"` instead of `"0.00000123"`
+- **Root cause**: JavaScript's `Number.toString()` uses scientific notation for numbers < 1e-6
+- **Fix**: Use manual string manipulation: `formatted.replace(/\.?0+$/, '')` to remove trailing zeros
+- **Python equivalent**: `formatted.rstrip('0').rstrip('.')`
+- **Affected files**: `templates/dashboard.html`, `tests/test_dashboard_price_formatting.py`
+
+### 3. Skipped Tests (6 tests - CONDITIONAL, NOT ALWAYS SKIPPED)
+- **Location**: All in `test_kraken_api_live.py`
+- **Skip logic**: Line 88 - `pytest.skip("Live API credentials not available")` - only when credentials missing
+- **Behavior**: 
+  - **WITH credentials**: Tests RUN (may fail with API errors if credentials invalid)
+  - **WITHOUT credentials**: Tests SKIP (intentional - can't test live API)
+- **Current environment**: Has `COPILOT_W_KR_RW_PUBLIC/SECRET` set, tests run but fail with "EAPI:Invalid key" (credentials exist but are invalid/placeholder)
+- **Dev environment**: With valid credentials in `.env`, these tests should PASS
+- **Verdict**: CORRECT BEHAVIOR - integration tests that conditionally skip based on credential availability
+
+**Key Learnings**:
+1. Always check for duplicate code blocks when tests fail unexpectedly
+2. Variable precedence order must match documentation and test expectations
+3. JavaScript number formatting can trigger scientific notation - use string manipulation instead
+4. Skipped tests are not failures - check the skip reason before "fixing" them
+5. Integration tests should gracefully skip when external resources unavailable
+
+**Files Modified**:
+- `creds.py`: Removed duplicate code, fixed precedence order
+- `templates/dashboard.html`: Fixed formatPrice to avoid scientific notation
+- `tests/test_dashboard_price_formatting.py`: Updated Python equivalent to match JS fix
+
+---
+
 ## GitHub Copilot Workspace Setup (2025-10-25)
 
 **Problem**: GitHub Copilot agents started in fresh environments without `uv` or `pytest` installed, requiring manual setup every session.
