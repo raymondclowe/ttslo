@@ -37,11 +37,11 @@ class TestAssetExtraction:
         assert _extract_base_asset('LINKZUSD') == 'LINK'
     
     def test_extract_quote_asset(self):
-        """Test extraction of quote assets."""
+        """Test extraction of quote assets - all fiat normalized to Z-prefix."""
         assert _extract_quote_asset('XXBTZUSD') == 'ZUSD'
-        assert _extract_quote_asset('SOLUSD') == 'USD'
+        assert _extract_quote_asset('SOLUSD') == 'ZUSD'  # USD normalized to ZUSD
         assert _extract_quote_asset('XETHZEUR') == 'ZEUR'
-        assert _extract_quote_asset('ADAUSDT') == 'USDT'
+        assert _extract_quote_asset('ADAUSDT') == 'USDT'  # USDT stays as-is (not fiat)
 
 
 class TestBalancesAPI:
@@ -59,7 +59,7 @@ class TestBalancesAPI:
         ]
         mock_active.return_value = []
         mock_prices.return_value = {'ATOMUSD': 100.0}
-        mock_api.get_balance.return_value = {'ATOM': 15.0, 'USD': 5000.0}
+        mock_api.get_balance.return_value = {'ATOM': 15.0, 'ZUSD': 5000.0}
         
         response = client.get('/api/balances')
         assert response.status_code == 200
@@ -125,15 +125,15 @@ class TestBalancesAPI:
         mock_active.return_value = []
         mock_prices.return_value = {'ATOMUSD': 10.0}  # $10 per ATOM
         
-        # User has 0 ATOM but $50 USD - should be SAFE for buy order
-        mock_api.get_balance.return_value = {'ATOM': 0.0, 'USD': 50.0}
+        # User has 0 ATOM but $50 ZUSD - should be SAFE for buy order
+        mock_api.get_balance.return_value = {'ATOM': 0.0, 'ZUSD': 50.0}
         
         # Call function directly, bypassing Flask/cache
         data = get_balances_and_risks()
         
-        # Find ATOM and USD assets
+        # Find ATOM and ZUSD assets
         atom_asset = next((a for a in data['assets'] if a['asset'] == 'ATOM'), None)
-        usd_asset = next((a for a in data['assets'] if a['asset'] == 'USD'), None)
+        zusd_asset = next((a for a in data['assets'] if a['asset'] == 'ZUSD'), None)
         
         # ATOM should NOT show danger/warning (we're buying it, not selling)
         # It should either not appear OR show as safe
@@ -143,12 +143,12 @@ class TestBalancesAPI:
             # Main assertion: buy_requirement should be 0 for ATOM (we don't need ATOM to buy ATOM)
             assert atom_asset['buy_requirement'] == 0, "Buy order should not require ATOM balance to buy ATOM"
         
-        # USD should show as safe (we have $50, need $24)
-        assert usd_asset is not None, "USD asset should be tracked for buy order"
-        assert usd_asset['risk_status'] == 'safe', \
-            f"USD should be safe (have $50, need $24). Got: {usd_asset['risk_status']}, message: {usd_asset.get('risk_message')}"
-        assert usd_asset['buy_requirement'] == 24.0, "Should need $24 USD to buy 2.40 ATOM at $10"
-        assert usd_asset['balance'] >= usd_asset['buy_requirement'], "USD balance should be sufficient"
+        # ZUSD should show as safe (we have $50, need $24)
+        assert zusd_asset is not None, "ZUSD asset should be tracked for buy order"
+        assert zusd_asset['risk_status'] == 'safe', \
+            f"ZUSD should be safe (have $50, need $24). Got: {zusd_asset['risk_status']}, message: {zusd_asset.get('risk_message')}"
+        assert zusd_asset['buy_requirement'] == 24.0, "Should need $24 ZUSD to buy 2.40 ATOM at $10"
+        assert zusd_asset['balance'] >= zusd_asset['buy_requirement'], "ZUSD balance should be sufficient"
     
     @patch('dashboard.kraken_api')
     @patch('dashboard.get_pending_orders')
@@ -169,8 +169,8 @@ class TestBalancesAPI:
         mock_active.return_value = []
         mock_prices.return_value = {'ATOMUSD': 10.0}
         
-        # User has 0 ATOM but lots of USD - should be DANGER for sell order
-        mock_api.get_balance.return_value = {'ATOM': 0.0, 'USD': 5000.0}
+        # User has 0 ATOM but lots of ZUSD - should be DANGER for sell order
+        mock_api.get_balance.return_value = {'ATOM': 0.0, 'ZUSD': 5000.0}
         
         # Call function directly, bypassing Flask/cache
         data = get_balances_and_risks()
