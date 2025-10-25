@@ -316,6 +316,27 @@ sudo iptables -A INPUT -p tcp --dport 5000 -j DROP
 
 The systemd service uses `--host 0.0.0.0` for network access while remaining protected by the system firewall.
 
+## Understanding "Benefit" (Slippage) in Completed Orders
+
+**Important:** The "Benefit" (now labeled "Slippage") in the dashboard's Completed Orders section is often negative - **this is normal and expected for Trailing Stop Loss orders!**
+
+The slippage metric shows the difference between your trigger price and the actual execution price. Trailing stop loss orders naturally have negative slippage because the price must move against you (by the trailing offset %) before the order executes.
+
+**Example:**
+- SELL order triggers at $2.53
+- With 1% trailing offset, it executes when price drops to ~$2.50
+- Slippage: -$0.03 (-1.23%)
+- **This is the cost of TSL protection, NOT a net loss on your trade!**
+
+### Key Points:
+
+1. **Negative slippage is normal** - expect -1% to -2% matching your trailing offset
+2. **Focus on total profit** - Did you buy low and sell high overall?
+3. **It's like insurance** - Small cost for protection from bad fill prices
+4. **Bracket strategy works** - Despite slippage, you profit from price oscillations
+
+For a complete explanation with examples, see: [Understanding Benefit (Slippage)](docs/UNDERSTANDING_BENEFIT.md)
+
 ## Tools
 
 ### Cryptocurrency Statistics Analysis
