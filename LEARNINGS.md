@@ -24,13 +24,15 @@ Key learnings and gotchas discovered during TTSLO development.
 - **Python equivalent**: `formatted.rstrip('0').rstrip('.')`
 - **Affected files**: `templates/dashboard.html`, `tests/test_dashboard_price_formatting.py`
 
-### 3. Skipped Tests (6 skips - INTENTIONAL)
+### 3. Skipped Tests (6 tests - CONDITIONAL, NOT ALWAYS SKIPPED)
 - **Location**: All in `test_kraken_api_live.py`
-- **Reason**: Live API tests require read-write credentials (`COPILOT_W_KR_RW_PUBLIC/SECRET`)
-- **Skip logic**: Line 88 - `pytest.skip("Live API credentials not available")`
-- **Verdict**: CORRECT BEHAVIOR - these should skip in environments without API access
-- **When they run**: Only in dev environments with `.env` file containing RW credentials
-- **No action needed**: These are properly designed integration tests
+- **Skip logic**: Line 88 - `pytest.skip("Live API credentials not available")` - only when credentials missing
+- **Behavior**: 
+  - **WITH credentials**: Tests RUN (may fail with API errors if credentials invalid)
+  - **WITHOUT credentials**: Tests SKIP (intentional - can't test live API)
+- **Current environment**: Has `COPILOT_W_KR_RW_PUBLIC/SECRET` set, tests run but fail with "EAPI:Invalid key" (credentials exist but are invalid/placeholder)
+- **Dev environment**: With valid credentials in `.env`, these tests should PASS
+- **Verdict**: CORRECT BEHAVIOR - integration tests that conditionally skip based on credential availability
 
 **Key Learnings**:
 1. Always check for duplicate code blocks when tests fail unexpectedly
