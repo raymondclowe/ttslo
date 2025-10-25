@@ -10,6 +10,10 @@ jobs:
   copilot-setup-steps:
     runs-on: ubuntu-latest
     
+    # Restrict permissions to minimum required (security best practice)
+    permissions:
+      contents: read
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
