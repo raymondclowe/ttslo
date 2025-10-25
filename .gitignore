@@ -222,3 +222,8 @@ notifications.ini
 
 # Generated graphs and analysis output
 # Note: Keeping graphs and deliverables in git for documentation purposes
+
+
+suggested_config.csv
+deliverables_48h/suggested_config.csv
+
