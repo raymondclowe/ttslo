@@ -17,7 +17,7 @@ import zipfile
 import io
 from datetime import datetime, timezone
 from functools import wraps
-from flask import Flask, render_template, jsonify, send_file
+from flask import Flask, render_template, jsonify, send_file, request
 from config import ConfigManager
 from kraken_api import KrakenAPI
 from creds import load_env
@@ -820,6 +820,145 @@ def api_status():
         'refresh_interval': DASHBOARD_REFRESH_INTERVAL,
         'timestamp': datetime.now(timezone.utc).isoformat()
     })
+
+
+@app.route('/api/pending/<config_id>/cancel', methods=['POST'])
+def api_cancel_pending(config_id):
+    """
+    Cancel a pending order by setting its enabled status.
+    
+    Args:
+        config_id: The ID of the config to cancel
+        
+    Request body:
+        {
+            "status": "paused" | "canceled" | "false"  # New enabled status
+        }
+    
+    Returns:
+        JSON response with success/error status
+    """
+    try:
+        data = request.get_json() or {}
+        new_status = data.get('status', 'canceled')
+        
+        # Validate status value
+        valid_statuses = ['true', 'false', 'paused', 'canceled']
+        if new_status not in valid_statuses:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'
+            }), 400
+        
+        # Update the config file
+        config_manager.update_config_enabled(config_id, new_status)
+        
+        print(f"[DASHBOARD] Pending order {config_id} set to enabled={new_status}")
+        
+        return jsonify({
+            'success': True,
+            'config_id': config_id,
+            'new_status': new_status
+        })
+        
+    except Exception as e:
+        print(f"[DASHBOARD] Error canceling pending order {config_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/active/<order_id>/cancel', methods=['POST'])
+def api_cancel_active(order_id):
+    """
+    Cancel an active Kraken order.
+    
+    Args:
+        order_id: Kraken order ID (txid) to cancel
+    
+    Returns:
+        JSON response with success/error status
+    """
+    if not kraken_api:
+        return jsonify({
+            'success': False,
+            'error': 'Kraken API not available'
+        }), 503
+    
+    try:
+        # Cancel the order via Kraken API
+        result = kraken_api.cancel_order(order_id)
+        
+        print(f"[DASHBOARD] Active order {order_id} canceled: {result}")
+        
+        return jsonify({
+            'success': True,
+            'order_id': order_id,
+            'result': result
+        })
+        
+    except Exception as e:
+        print(f"[DASHBOARD] Error canceling active order {order_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/cancel-all', methods=['POST'])
+def api_cancel_all():
+    """
+    Cancel all active orders immediately.
+    
+    Returns:
+        JSON response with success/error status and details
+    """
+    if not kraken_api:
+        return jsonify({
+            'success': False,
+            'error': 'Kraken API not available'
+        }), 503
+    
+    try:
+        # Get all open orders
+        open_orders_result = kraken_api.query_open_orders()
+        open_orders = open_orders_result.get('open', {})
+        
+        if not open_orders:
+            return jsonify({
+                'success': True,
+                'message': 'No active orders to cancel',
+                'canceled_count': 0
+            })
+        
+        # Cancel each order
+        canceled = []
+        failed = []
+        
+        for order_id in open_orders.keys():
+            try:
+                kraken_api.cancel_order(order_id)
+                canceled.append(order_id)
+                print(f"[DASHBOARD] Canceled order {order_id}")
+            except Exception as e:
+                failed.append({'order_id': order_id, 'error': str(e)})
+                print(f"[DASHBOARD] Failed to cancel order {order_id}: {e}")
+        
+        return jsonify({
+            'success': len(failed) == 0,
+            'canceled_count': len(canceled),
+            'failed_count': len(failed),
+            'canceled_orders': canceled,
+            'failed_orders': failed
+        })
+        
+    except Exception as e:
+        print(f"[DASHBOARD] Error in cancel-all: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @app.route('/health')

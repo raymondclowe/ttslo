@@ -85,6 +85,44 @@
             background-color: #21618c;
         }
 
+        button.btn-danger {
+            background-color: #e74c3c;
+        }
+
+        button.btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        button.btn-danger:active {
+            background-color: #a93226;
+        }
+
+        button.btn-small {
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+
+        .cancel-all-container {
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .cancel-all-container button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -430,6 +468,14 @@
         </div>
     </div>
 
+    <!-- Cancel All Button -->
+    <div class="cancel-all-container">
+        <button class="btn-danger" onclick="cancelAllOrders()">🛑 Cancel All Active Orders</button>
+        <div style="margin-top: 10px; font-size: 13px; color: #7f8c8d;">
+            This will immediately cancel all open orders on Kraken
+        </div>
+    </div>
+
     <div class="footer">
         <div class="footer-links">
             <a href="/health-details" class="footer-link">Health Status</a>
@@ -618,6 +664,9 @@
                                     </div>
                                 </div>
                                 ${progressHTML}
+                                <div class="order-actions">
+                                    <button class="btn-small btn-danger" onclick="cancelPendingOrder('${order.id}')">Cancel</button>
+                                </div>
                             </div>
                         `;
                     }).join('');
@@ -767,6 +816,9 @@
                                     <span class="detail-label">Triggered:</span>
                                     <span class="detail-value">${order.trigger_time ? new Date(order.trigger_time).toLocaleString() : 'N/A'}</span>
                                 </div>
+                            </div>
+                            <div class="order-actions">
+                                <button class="btn-small btn-danger" onclick="cancelActiveOrder('${order.order_id}')">Cancel Order</button>
                             </div>
                         </div>
                     `).join('');
@@ -1085,6 +1137,105 @@
                 fetchCompletedOrders(),
                 fetchBalances()
             ]);
+        }
+
+        // Cancel a pending order
+        async function cancelPendingOrder(configId) {
+            if (!confirm(`Cancel pending order ${configId}?\n\nThis will set its status to 'canceled' and prevent it from triggering.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/pending/${configId}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: 'canceled' })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log(`[DASHBOARD] Canceled pending order ${configId}`);
+                    alert(`Successfully canceled pending order ${configId}`);
+                    // Refresh data to show updated status
+                    await refreshData();
+                } else {
+                    alert(`Error canceling order: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('[DASHBOARD] Error canceling pending order:', error);
+                alert(`Error canceling order: ${error.message}`);
+            }
+        }
+
+        // Cancel an active order
+        async function cancelActiveOrder(orderId) {
+            if (!confirm(`Cancel active order ${orderId.substring(0, 12)}...?\n\nThis will immediately cancel the order on Kraken.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/active/${orderId}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log(`[DASHBOARD] Canceled active order ${orderId}`);
+                    alert(`Successfully canceled active order ${orderId.substring(0, 12)}...`);
+                    // Refresh data to show updated status
+                    await refreshData();
+                } else {
+                    alert(`Error canceling order: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('[DASHBOARD] Error canceling active order:', error);
+                alert(`Error canceling order: ${error.message}`);
+            }
+        }
+
+        // Cancel all active orders
+        async function cancelAllOrders() {
+            if (!confirm('⚠️ WARNING: Cancel ALL active orders?\n\nThis will immediately cancel ALL open orders on Kraken.\n\nThis action cannot be undone.')) {
+                return;
+            }
+
+            // Double confirmation for destructive action
+            if (!confirm('Are you absolutely sure?\n\nClick OK to cancel all orders, or Cancel to abort.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/cancel-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log(`[DASHBOARD] Canceled ${result.canceled_count} orders`);
+                    alert(`Successfully canceled ${result.canceled_count} orders`);
+                } else if (result.canceled_count > 0) {
+                    alert(`Canceled ${result.canceled_count} orders, but ${result.failed_count} failed:\n${result.failed_orders.map(f => f.error).join('\n')}`);
+                } else {
+                    alert(`Error: ${result.error || 'Failed to cancel orders'}`);
+                }
+
+                // Refresh data to show updated status
+                await refreshData();
+            } catch (error) {
+                console.error('[DASHBOARD] Error canceling all orders:', error);
+                alert(`Error canceling orders: ${error.message}`);
+            }
         }
 
         // Auto-refresh based on backend configuration
