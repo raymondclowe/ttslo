@@ -566,13 +566,30 @@ def _extract_quote_asset(pair: str) -> str:
         pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD', 'DYDXUSD')
         
     Returns:
-        Quote asset code (e.g., 'ZUSD', 'USD', 'EUR') or empty string if can't determine
+        Quote asset code (e.g., 'ZUSD', 'EUR') normalized to Kraken's internal notation
+        
+    Note:
+        Kraken uses 'Z' prefix for fiat currencies in API responses:
+        - USD → ZUSD
+        - EUR → ZEUR
+        - GBP → ZGBP
+        - JPY → ZJPY
     """
     # Try to extract from pattern
     # Note: Order matters - check longer suffixes first (e.g., USDT before USD)
     for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
         if pair.endswith(quote):
-            return quote
+            # Normalize to Kraken's internal notation (Z-prefixed for fiat)
+            if quote == 'USD':
+                return 'ZUSD'
+            elif quote == 'EUR':
+                return 'ZEUR'
+            elif quote == 'GBP':
+                return 'ZGBP'
+            elif quote == 'JPY':
+                return 'ZJPY'
+            else:
+                return quote
     
     return ''
 
