@@ -416,6 +416,18 @@
                 <div class="loading">Loading...</div>
             </div>
         </div>
+
+        <!-- Asset Balances & Risk Analysis Pane -->
+        <div class="pane">
+            <div class="pane-header">
+                Asset Balances & Risk
+                <span class="help-icon" data-tooltip="Shows available balances and risk analysis for pending and active orders. Warnings indicate potential insufficient funds." style="font-size: 12px; margin-left: 8px;">?</span>
+                <span class="count" id="balances-count">0</span>
+            </div>
+            <div class="pane-content" id="balances-content">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
     </div>
 
     <div class="footer">
@@ -432,6 +444,7 @@
     console.log(`[DASHBOARD] JS Version: ${DASHBOARD_JS_VERSION}`);
     // Declare refreshInterval for auto-refresh
     let refreshInterval = null;
+    let dashboardRefreshIntervalMs = 30000; // Default 30s, will be updated from API
         // Store current data to compare for changes
         let currentPendingData = null;
         let currentActiveData = null;
@@ -889,6 +902,156 @@
             }
         }
 
+        // Fetch and display asset balances and risk analysis
+        let currentBalancesData = null;
+        async function fetchBalances() {
+            const content = document.getElementById('balances-content');
+            const count = document.getElementById('balances-count');
+
+            try {
+                console.log(`[DEBUG] Fetching /api/balances at`, new Date().toISOString());
+                const t0 = performance.now();
+                const response = await fetch('/api/balances');
+                const t1 = performance.now();
+                console.log(`[DEBUG] Received /api/balances response at`, new Date().toISOString(), `Elapsed: ${(t1-t0).toFixed(2)} ms`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+
+                // Only update if data has changed
+                if (!dataHasChanged(currentBalancesData, data)) {
+                    return;
+                }
+                
+                if (count) {
+                    count.textContent = data.assets?.length || 0;
+                }
+
+                if (!data.assets || !data.assets.length) {
+                    if (content) {
+                        // Only show empty state if there was never any data
+                        if (!currentBalancesData || !currentBalancesData.assets || currentBalancesData.assets.length === 0) {
+                            content.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">💰</div>
+                                    <div>No assets with active or pending orders</div>
+                                </div>
+                            `;
+                        }
+                        // Otherwise, keep showing last known data
+                    }
+                    currentBalancesData = data;
+                    return;
+                }
+                
+                currentBalancesData = data;
+
+                if (content) {
+                    // Show risk summary at top
+                    let summaryHTML = '';
+                    if (data.risk_summary) {
+                        const summary = data.risk_summary;
+                        let summaryClass = '';
+                        let summaryIcon = '';
+                        
+                        if (summary.status === 'danger') {
+                            summaryClass = 'benefit-negative';
+                            summaryIcon = '⚠️';
+                        } else if (summary.status === 'warning') {
+                            summaryClass = 'detail-value';
+                            summaryIcon = '⚡';
+                        } else if (summary.status === 'safe') {
+                            summaryClass = 'benefit-positive';
+                            summaryIcon = '✓';
+                        } else {
+                            summaryClass = 'detail-label';
+                            summaryIcon = 'ℹ️';
+                        }
+                        
+                        summaryHTML = `
+                            <div class="order-card" style="background-color: ${summary.status === 'danger' ? '#ffebee' : summary.status === 'warning' ? '#fff9e6' : '#e8f5e9'}; border-color: ${summary.status === 'danger' ? '#e74c3c' : summary.status === 'warning' ? '#f39c12' : '#27ae60'};">
+                                <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">
+                                    ${summaryIcon} ${summary.message}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    content.innerHTML = summaryHTML + data.assets.map(asset => {
+                        // Determine risk badge
+                        let riskBadge = '';
+                        let riskColor = '';
+                        if (asset.risk_status === 'danger') {
+                            riskBadge = '⚠️ CRITICAL';
+                            riskColor = '#e74c3c';
+                        } else if (asset.risk_status === 'warning') {
+                            riskBadge = '⚡ WARNING';
+                            riskColor = '#f39c12';
+                        } else {
+                            riskBadge = '✓ SAFE';
+                            riskColor = '#27ae60';
+                        }
+                        
+                        return `
+                            <div class="order-card" style="border-left: 4px solid ${riskColor};">
+                                <div class="order-header">
+                                    <span class="order-id">${asset.asset}</span>
+                                    <span style="font-size:12px;color:#fff;background:${riskColor};padding:2px 8px;border-radius:10px;font-weight:600;">${riskBadge}</span>
+                                </div>
+                                <div class="order-details">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Available Balance:</span>
+                                        <span class="detail-value">${formatPrice(asset.balance)}</span>
+                                    </div>
+                                    ${asset.sell_requirement > 0 ? `
+                                    <div class="detail-row">
+                                        <span class="detail-label">Sell Orders Need:</span>
+                                        <span class="detail-value">${formatPrice(asset.sell_requirement)}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Sell Coverage:</span>
+                                        <span class="detail-value ${asset.sell_coverage >= 100 ? 'benefit-positive' : 'benefit-negative'}">${asset.sell_coverage.toFixed(0)}%</span>
+                                    </div>
+                                    ` : ''}
+                                    ${asset.buy_requirement > 0 ? `
+                                    <div class="detail-row">
+                                        <span class="detail-label">Buy Orders Need:</span>
+                                        <span class="detail-value">${formatPrice(asset.buy_requirement)}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Buy Coverage:</span>
+                                        <span class="detail-value ${asset.buy_coverage >= 100 ? 'benefit-positive' : 'benefit-negative'}">${asset.buy_coverage.toFixed(0)}%</span>
+                                    </div>
+                                    ` : ''}
+                                    <div class="detail-row">
+                                        <span class="detail-label">Pairs:</span>
+                                        <span class="detail-value" style="font-size: 11px;">${asset.pairs.join(', ')}</span>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 10px; padding: 8px; background-color: ${asset.risk_status === 'danger' ? '#ffebee' : asset.risk_status === 'warning' ? '#fff9e6' : '#e8f5e9'}; border-radius: 4px; font-size: 13px;">
+                                    ${asset.risk_message}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.warn('Error fetching balances:', error);
+                // Keep showing last known data if fetch fails
+                // Only show error if we never had data
+                if (content && (!currentBalancesData || !currentBalancesData.assets || currentBalancesData.assets.length === 0)) {
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⚠️</div>
+                            <div>Error loading balances</div>
+                        </div>
+                    `;
+                }
+                // Otherwise, keep showing last known data (do nothing)
+            }
+        }
+
         // Check system status and health
         async function checkStatus() {
             try {
@@ -919,22 +1082,43 @@
                 checkStatus(),
                 fetchPendingOrders(),
                 fetchActiveOrders(),
-                fetchCompletedOrders()
+                fetchCompletedOrders(),
+                fetchBalances()
             ]);
         }
 
-        // Auto-refresh every 30 seconds
+        // Auto-refresh based on backend configuration
         function startAutoRefresh() {
             if (refreshInterval) {
                 clearInterval(refreshInterval);
             }
-            refreshInterval = setInterval(refreshData, 30000);
+            console.log(`[DASHBOARD] Auto-refresh interval: ${dashboardRefreshIntervalMs}ms (${dashboardRefreshIntervalMs/1000}s)`);
+            refreshInterval = setInterval(refreshData, dashboardRefreshIntervalMs);
+        }
+
+        // Initialize dashboard configuration from backend
+        async function initializeDashboard() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                // Update refresh interval from backend configuration
+                if (status.refresh_interval) {
+                    dashboardRefreshIntervalMs = status.refresh_interval * 1000; // Convert seconds to milliseconds
+                    console.log(`[DASHBOARD] Using backend refresh interval: ${status.refresh_interval}s (check_interval: ${status.check_interval}s)`);
+                }
+            } catch (error) {
+                console.warn('[DASHBOARD] Could not fetch backend config, using default refresh interval:', error);
+            }
+            
+            // Start refreshing data
+            await refreshData();
+            startAutoRefresh();
         }
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
-            refreshData();
-            startAutoRefresh();
+            initializeDashboard();
         });
     </script>
 </body>

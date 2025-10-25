@@ -254,13 +254,19 @@ For detailed documentation, see [CSV_EDITOR_README.md](docs/CSV_EDITOR_README.md
 
 ## Web Dashboard
 
-TTSLO includes a Flask-based web dashboard for monitoring your orders in real-time. The dashboard provides a clean, executive-style interface with three main views:
+TTSLO includes a Flask-based web dashboard for monitoring your orders in real-time. The dashboard provides a clean, executive-style interface with four main views:
 
 ### Features
 
 - **Pending Orders**: View orders that haven't triggered yet, with visual progress bars showing how close they are to triggering
 - **Active TSL Orders**: Monitor orders that have triggered and are currently active on Kraken
 - **Completed Orders**: Review executed orders with benefit calculations comparing trigger price vs execution price
+- **Asset Balances & Risk**: Monitor account balances and analyze risk for pending and active orders
+  - Shows available balance for each asset involved in pending/active orders
+  - Calculates coverage: how much of order requirements are covered by current balances
+  - Risk warnings: CRITICAL (insufficient), WARNING (low coverage), SAFE (sufficient)
+  - Analyzes both buy orders (need quote currency) and sell orders (need base currency)
+  - Helps identify when to top up balances or cancel orders before failures occur
 - **Real-Time Data**: Auto-refreshes every 30 seconds with live price updates from Kraken
 - **Clean Design**: Simple, professional interface with no distracting colors or gradients
 
@@ -294,6 +300,7 @@ The dashboard exposes REST API endpoints for integration:
 - `GET /api/pending` - List of pending orders
 - `GET /api/active` - List of active TSL orders
 - `GET /api/completed` - List of completed orders
+- `GET /api/balances` - Asset balances and risk analysis for pending/active orders
 - `GET /health` - Health check endpoint (returns 200 if healthy, 503 if unhealthy)
 - `GET /backup` - Download backup zip file with all config, state, and log files
 - `GET /openapi.json` - OpenAPI 3.0 specification for API discovery
