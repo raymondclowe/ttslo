@@ -3,7 +3,17 @@
 - Save important learnings into LEARNINGS.md to avoid reinventing the wheel or making same mistakes repeatedly
 - Check LEARNINGS.md before asking for help or searching online
 
-Always use 'uv run ttslo.py' instead of 'python3'.
+## Environment Setup
+
+The repository uses `.github/workflows/copilot-setup-steps.yml` to automatically:
+- Install `uv` package manager (via `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- Add `uv` to PATH: `$HOME/.local/bin`
+- Run `uv sync` to install all dependencies (including pytest)
+- Verify pytest works with `uv run pytest --version`
+
+Always use 'uv run <command>' for Python commands:
+- `uv run ttslo.py` instead of `python3 ttslo.py`
+- `uv run pytest` instead of `pytest`
 
 Kraken API Balance Handling:
 1. Kraken returns balances with multiple potential key formats:
