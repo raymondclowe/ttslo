@@ -388,6 +388,47 @@
         let currentActiveData = null;
         let currentCompletedData = null;
 
+        /**
+         * Format a price value with appropriate decimal places for display.
+         * Uses more decimal places for very small values to avoid showing $0.00
+         * 
+         * @param {number|string} value - The price value to format
+         * @returns {string} Formatted price (e.g., "0.001679", "1.23", "1234.56")
+         */
+        function formatPrice(value) {
+            if (value === null || value === undefined || value === 'N/A') {
+                return 'N/A';
+            }
+            
+            const price = parseFloat(value);
+            if (isNaN(price)) {
+                return 'N/A';
+            }
+            
+            // For very small values (< 0.01), use up to 8 decimal places
+            if (Math.abs(price) < 0.01) {
+                // Remove trailing zeros for cleaner display, but keep at least one digit
+                const formatted = price.toFixed(8);
+                // Use parseFloat to remove trailing zeros, then toString to get clean string
+                return parseFloat(formatted).toString();
+            }
+            // For small values (< 1), use 4 decimal places
+            else if (Math.abs(price) < 1) {
+                return price.toFixed(4);
+            }
+            // For medium values (< 100), use 2 decimal places
+            else if (Math.abs(price) < 100) {
+                return price.toFixed(2);
+            }
+            // For large values, use 2 decimal places with thousands separator
+            else {
+                return price.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+        }
+
         function removeLoadingOverlay(container) {
             if (!container) return;
             const overlay = container.querySelector('.loading-overlay');
@@ -476,8 +517,8 @@
                                 <div class="progress-text">
                                     ${triggered ? 'READY TO TRIGGER' : 
                                       order.threshold_type === 'above' ? 
-                                        `$${Math.abs(distance.absolute).toFixed(2)} below threshold` :
-                                        `$${Math.abs(distance.absolute).toFixed(2)} above threshold`}
+                                        `$${formatPrice(Math.abs(distance.absolute))} below threshold` :
+                                        `$${formatPrice(Math.abs(distance.absolute))} above threshold`}
                                 </div>
                             `;
                         } else {
@@ -495,11 +536,11 @@
                                 <div class="order-details">
                                     <div class="detail-row">
                                         <span class="detail-label">Threshold:</span>
-                                        <span class="detail-value">$${parseFloat(order.threshold_price || 0).toFixed(2)} (${order.threshold_type || 'N/A'})</span>
+                                        <span class="detail-value">$${formatPrice(order.threshold_price)} (${order.threshold_type || 'N/A'})</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Current:</span>
-                                        <span class="detail-value">${order.current_price ? '$' + parseFloat(order.current_price).toFixed(2) : 'N/A'}</span>
+                                        <span class="detail-value">${order.current_price ? '$' + formatPrice(order.current_price) : 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Direction:</span>
@@ -540,8 +581,8 @@
                                 <div class="progress-text">
                                     ${triggered ? 'READY TO TRIGGER' : 
                                       order.threshold_type === 'above' ? 
-                                        `$${Math.abs(distance.absolute).toFixed(2)} below threshold` :
-                                        `$${Math.abs(distance.absolute).toFixed(2)} above threshold`}
+                                        `$${formatPrice(Math.abs(distance.absolute))} below threshold` :
+                                        `$${formatPrice(Math.abs(distance.absolute))} above threshold`}
                                 </div>
                             `;
                         } else {
@@ -558,11 +599,11 @@
                                 <div class="order-details">
                                     <div class="detail-row">
                                         <span class="detail-label">Threshold:</span>
-                                        <span class="detail-value">$${parseFloat(order.threshold_price || 0).toFixed(2)} (${order.threshold_type || 'N/A'})</span>
+                                        <span class="detail-value">$${formatPrice(order.threshold_price)} (${order.threshold_type || 'N/A'})</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Current:</span>
-                                        <span class="detail-value">${order.current_price ? '$' + parseFloat(order.current_price).toFixed(2) : 'N/A'}</span>
+                                        <span class="detail-value">${order.current_price ? '$' + formatPrice(order.current_price) : 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Direction:</span>
@@ -646,7 +687,7 @@
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label">Trigger Price:</span>
-                                    <span class="detail-value">$${parseFloat(order.trigger_price || 0).toFixed(2)}</span>
+                                    <span class="detail-value">$${formatPrice(order.trigger_price)}</span>
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label">Volume:</span>
@@ -732,7 +773,7 @@
                         if (order.benefit !== null && order.benefit !== undefined) {
                             benefitClass = order.benefit >= 0 ? 'benefit-positive' : 'benefit-negative';
                             const benefitSign = order.benefit >= 0 ? '+' : '';
-                            benefitHTML = `${benefitSign}$${Math.abs(order.benefit).toFixed(2)} (${benefitSign}${order.benefit_percent.toFixed(2)}%)`;
+                            benefitHTML = `${benefitSign}$${formatPrice(Math.abs(order.benefit))} (${benefitSign}${order.benefit_percent.toFixed(2)}%)`;
                         }
                         
                         // Build status tags
@@ -753,11 +794,11 @@
                                 <div class="order-details">
                                     <div class="detail-row">
                                         <span class="detail-label">Trigger Price:</span>
-                                        <span class="detail-value">${order.trigger_price !== null && order.trigger_price !== undefined ? '$' + parseFloat(order.trigger_price).toFixed(2) : 'N/A'}</span>
+                                        <span class="detail-value">${order.trigger_price !== null && order.trigger_price !== undefined ? '$' + formatPrice(order.trigger_price) : 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Executed Price:</span>
-                                        <span class="detail-value">${order.executed_price !== null && order.executed_price !== undefined ? '$' + parseFloat(order.executed_price).toFixed(2) : 'N/A'}</span>
+                                        <span class="detail-value">${order.executed_price !== null && order.executed_price !== undefined ? '$' + formatPrice(order.executed_price) : 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Volume:</span>
