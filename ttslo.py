@@ -517,7 +517,7 @@ class TTSLO:
                             pair=pair,
                             direction=direction,
                             volume=str(volume),
-                            available=str(available) if available is not None else 'unknown',
+                            available=available if available is not None else None,
                             trigger_price=trigger_price_float
                         )
                     else:

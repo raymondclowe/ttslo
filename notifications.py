@@ -9,8 +9,68 @@ import configparser
 import requests
 import threading
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
+
+
+def format_balance(value: Union[Decimal, float, int, str, None]) -> str:
+    """
+    Format a balance value with appropriate decimal precision.
+    
+    Matches the formatPrice() logic from dashboard.html to ensure
+    consistent display across notifications and UI.
+    
+    Args:
+        value: Balance value (Decimal, float, int, str, or None)
+        
+    Returns:
+        Formatted string with appropriate decimal places
+        
+    Examples:
+        >>> format_balance(Decimal('0.00123456'))
+        '0.00123456'
+        >>> format_balance(Decimal('0.0000012345'))
+        '0.00000123'
+        >>> format_balance(Decimal('1.234567'))
+        '1.23'
+        >>> format_balance(Decimal('100.5'))
+        '100.50'
+        >>> format_balance(Decimal('1234.567'))
+        '1,234.57'
+        >>> format_balance(None)
+        'N/A'
+    """
+    if value is None or value == 'N/A':
+        return 'N/A'
+    
+    try:
+        # Convert to float for formatting
+        if isinstance(value, Decimal):
+            price = float(value)
+        elif isinstance(value, str):
+            price = float(value)
+        else:
+            price = float(value)
+    except (ValueError, TypeError):
+        return 'N/A'
+    
+    # For very small values (< 0.01), use up to 8 decimal places
+    if abs(price) < 0.01:
+        # Format with 8 decimals and remove trailing zeros
+        formatted = f"{price:.8f}"
+        result = formatted.rstrip('0').rstrip('.')
+        # Safety check: ensure we never return empty string
+        return result or '0'
+    # For small values (< 1), use 4 decimal places
+    elif abs(price) < 1:
+        return f"{price:.4f}"
+    # For medium values (< 100), use 2 decimal places
+    elif abs(price) < 100:
+        return f"{price:.2f}"
+    # For large values, use 2 decimal places with thousands separator
+    else:
+        return f"{price:,.2f}"
 
 
 class NotificationManager:
@@ -495,15 +555,18 @@ class NotificationManager:
             pair: Trading pair
             direction: Order direction (buy/sell)
             volume: Requested order volume
-            available: Available balance
+            available: Available balance (raw value, will be formatted)
             trigger_price: Price at which threshold was triggered
         """
+        # Format the available balance with appropriate decimal precision
+        formatted_balance = format_balance(available)
+        
         message = (f"⚠️ TTSLO: Cannot create order - Insufficient balance!\n\n"
                   f"Config: {config_id}\n"
                   f"Pair: {pair}\n"
                   f"Direction: {direction}\n"
                   f"Required Volume: {volume}\n"
-                  f"Available Balance: {available}\n"
+                  f"Available Balance: {formatted_balance}\n"
                   f"Trigger Price: {trigger_price}\n\n"
                   f"⚠️ Action needed: Add funds to your account or adjust the order volume.")
         
