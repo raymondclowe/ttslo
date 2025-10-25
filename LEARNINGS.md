@@ -1037,6 +1037,73 @@ python3 tools/coin_stats.py --hours 48 --json-output results.json
 
 ---
 
+## Dashboard Price Formatting for Small Value Coins (2025-10-25)
+
+**Problem**: Dashboard displayed very small coin prices as "$0.00" because all prices used `.toFixed(2)` (2 decimal places).
+- Example: MEMEUSD worth $0.001679 showed as "$0.00"
+- Users couldn't see actual trigger prices for meme coins and other low-value assets
+
+**Root Cause**: 
+- `templates/dashboard.html` used hardcoded `.toFixed(2)` for ALL price displays
+- Line 649: `$${parseFloat(order.trigger_price || 0).toFixed(2)}`
+- Same pattern in ~20 places throughout the template
+
+**Solution**: Created smart `formatPrice()` JavaScript function with dynamic decimal places:
+```javascript
+function formatPrice(value) {
+    const price = parseFloat(value);
+    
+    // Very small values (< $0.01): up to 8 decimals, remove trailing zeros
+    if (Math.abs(price) < 0.01) {
+        return price.toFixed(8).replace(/\.?0+$/, '');
+    }
+    // Small values (< $1): 4 decimals
+    else if (Math.abs(price) < 1) {
+        return price.toFixed(4);
+    }
+    // Medium values (< $100): 2 decimals
+    else if (Math.abs(price) < 100) {
+        return price.toFixed(2);
+    }
+    // Large values: 2 decimals with thousands separator
+    else {
+        return price.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+}
+```
+
+**Examples**:
+- $0.001679 → "$0.001679" (was "$0.00")
+- $0.00000123 → "$0.00000123" (was "$0.00")
+- $0.5678 → "$0.5678"
+- $12.345 → "$12.35"
+- $1234.567 → "$1,234.57"
+
+**Changes Made**:
+- Pending Orders: threshold price, current price, distance to trigger
+- Active Orders: trigger price
+- Completed Orders: trigger price, executed price, benefit amount
+
+**Testing**:
+- Created `tests/test_dashboard_price_formatting.py` with Python equivalents
+- Tests verify all price ranges work correctly
+- Specifically tests the MEME coin issue case
+
+**Key Insights**:
+1. **Dynamic Precision**: Different price ranges need different decimal places
+2. **Trailing Zeros**: Remove for cleaner display (0.001 not 0.00100000)
+3. **Readability**: Larger numbers benefit from thousands separators
+4. **Edge Cases**: Handle null/undefined/N/A gracefully
+
+**Related Files**:
+- `templates/dashboard.html`: Lines 381-437 (formatPrice function), all price displays
+- `tests/test_dashboard_price_formatting.py`: Test suite
+
+---
+
 *Add new learnings here as we discover them*
 
 ---
