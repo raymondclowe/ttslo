@@ -23,6 +23,17 @@ class TestBalanceFormatting:
         """Very small balances should remove trailing zeros."""
         assert format_balance(Decimal('0.00100000')) == '0.001'
         assert format_balance(Decimal('0.00001000')) == '0.00001'
+    
+    def test_concern_balance_000005_not_zero(self):
+        """Test @raymondclowe's concern: 0.000005 should NOT show as 0."""
+        # This is the specific concern raised in PR comment
+        assert format_balance(Decimal('0.000005')) == '0.000005'
+        # Also test nearby values
+        assert format_balance(Decimal('0.000001')) == '0.000001'
+        assert format_balance(Decimal('0.00001')) == '0.00001'
+        assert format_balance(Decimal('0.0000001')) == '0.0000001'
+        # Only values beyond 8 decimals should show as 0
+        assert format_balance(Decimal('1E-9')) == '0'
         
     def test_extremely_small_balance(self):
         """Extremely small balances (< 0.00000001) should show as 0."""
