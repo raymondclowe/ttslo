@@ -503,6 +503,248 @@ def get_completed_orders():
     return completed
 
 
+def _extract_base_asset(pair: str) -> str:
+    """
+    Extract the base asset from a trading pair.
+    
+    Args:
+        pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD', 'DYDXUSD')
+        
+    Returns:
+        Base asset code (e.g., 'XXBT', 'XETH', 'DYDX') or empty string if can't determine
+    """
+    # Known mappings for common pairs
+    pair_mappings = {
+        'XBTUSDT': 'XXBT',
+        'XBTUSD': 'XXBT',
+        'XXBTZEUR': 'XXBT',
+        'XXBTZGBP': 'XXBT',
+        'XXBTZUSD': 'XXBT',
+        'ETHUSDT': 'XETH',
+        'ETHUSD': 'XETH',
+        'XETHZEUR': 'XETH',
+        'XETHZUSD': 'XETH',
+        'SOLUSDT': 'SOL',
+        'SOLEUR': 'SOL',
+        'SOLUSD': 'SOL',
+        'ADAUSDT': 'ADA',
+        'ADAUSD': 'ADA',
+        'DOTUSDT': 'DOT',
+        'DOTUSD': 'DOT',
+        'AVAXUSDT': 'AVAX',
+        'AVAXUSD': 'AVAX',
+        'LINKUSDT': 'LINK',
+        'LINKUSD': 'LINK',
+        'DYDXUSD': 'DYDX',
+        'NEARUSD': 'NEAR',
+        'MEMEUSD': 'MEME',
+    }
+    
+    # Check if we have a known mapping
+    if pair in pair_mappings:
+        return pair_mappings[pair]
+    
+    # Try to extract from pattern
+    # Note: Order matters - check longer suffixes first (e.g., USDT before USD)
+    for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
+        if pair.endswith(quote):
+            base = pair[:-len(quote)]
+            if base:
+                return base
+    
+    return ''
+
+
+def _extract_quote_asset(pair: str) -> str:
+    """
+    Extract the quote asset from a trading pair.
+    
+    Args:
+        pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD', 'DYDXUSD')
+        
+    Returns:
+        Quote asset code (e.g., 'ZUSD', 'USD', 'EUR') or empty string if can't determine
+    """
+    # Try to extract from pattern
+    # Note: Order matters - check longer suffixes first (e.g., USDT before USD)
+    for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
+        if pair.endswith(quote):
+            return quote
+    
+    return ''
+
+
+@ttl_cache(seconds=5)
+def get_balances_and_risks():
+    """
+    Get account balances and analyze risk for pending and active orders.
+    
+    Returns:
+        Dictionary with:
+        - assets: List of asset balance info with risk analysis
+        - risk_summary: Overall risk assessment
+    """
+    start_time = time.time()
+    print(f"[PERF] get_balances_and_risks started at {datetime.now(timezone.utc).isoformat()}")
+    
+    if not kraken_api:
+        print(f"[PERF] get_balances_and_risks: no kraken_api, elapsed {time.time() - start_time:.3f}s")
+        return {'assets': [], 'risk_summary': {'status': 'unknown', 'message': 'Kraken API not available'}}
+    
+    try:
+        # Get pending and active orders (exclude completed)
+        pending = get_pending_orders()
+        active = get_active_orders()
+        prices = get_current_prices()
+        
+        # Get account balances
+        balances = kraken_api.get_balance()
+        
+        # Collect unique assets from orders
+        assets_needed = {}  # asset -> {buy_volume, sell_volume, pairs}
+        
+        for order in pending + active:
+            pair = order.get('pair')
+            if not pair:
+                continue
+            
+            base_asset = _extract_base_asset(pair)
+            quote_asset = _extract_quote_asset(pair)
+            
+            if not base_asset:
+                continue
+            
+            volume = float(order.get('volume', 0))
+            direction = order.get('direction', '')
+            
+            # Initialize asset tracking if needed
+            if base_asset not in assets_needed:
+                assets_needed[base_asset] = {'buy_volume': 0, 'sell_volume': 0, 'pairs': set()}
+            if quote_asset and quote_asset not in assets_needed:
+                assets_needed[quote_asset] = {'buy_volume': 0, 'sell_volume': 0, 'pairs': set()}
+            
+            # Track volume requirements
+            if direction == 'sell':
+                # Selling base asset
+                assets_needed[base_asset]['sell_volume'] += volume
+                assets_needed[base_asset]['pairs'].add(pair)
+            elif direction == 'buy':
+                # Buying base asset (need quote asset)
+                assets_needed[base_asset]['buy_volume'] += volume
+                assets_needed[base_asset]['pairs'].add(pair)
+                
+                # For buys, we also need the quote currency
+                if quote_asset and pair in prices:
+                    price = prices[pair]
+                    quote_needed = volume * price
+                    assets_needed[quote_asset]['buy_volume'] += quote_needed
+                    assets_needed[quote_asset]['pairs'].add(pair)
+        
+        # Build asset info with risk analysis
+        asset_list = []
+        overall_warnings = []
+        
+        for asset, needs in assets_needed.items():
+            # Get balance for this asset
+            balance = float(balances.get(asset, 0))
+            
+            # Calculate requirements
+            sell_requirement = needs['sell_volume']
+            buy_requirement = needs['buy_volume']
+            
+            # Determine current sufficiency
+            current_sufficient = balance >= sell_requirement
+            
+            # Risk scenarios
+            all_sells_trigger = balance >= sell_requirement
+            all_buys_trigger = balance >= buy_requirement
+            
+            # Determine risk level
+            if sell_requirement > 0:
+                sell_coverage = (balance / sell_requirement * 100) if sell_requirement > 0 else 100
+            else:
+                sell_coverage = 100
+                
+            if buy_requirement > 0:
+                buy_coverage = (balance / buy_requirement * 100) if buy_requirement > 0 else 100
+            else:
+                buy_coverage = 100
+            
+            # Determine risk status
+            if sell_requirement > 0 and balance < sell_requirement:
+                risk_status = 'danger'
+                risk_message = f'Insufficient balance for sell orders ({balance:.4f} < {sell_requirement:.4f})'
+                overall_warnings.append(f'{asset}: {risk_message}')
+            elif buy_requirement > 0 and balance < buy_requirement:
+                risk_status = 'danger'
+                risk_message = f'Insufficient balance for buy orders ({balance:.4f} < {buy_requirement:.4f})'
+                overall_warnings.append(f'{asset}: {risk_message}')
+            elif sell_requirement > 0 and balance < sell_requirement * 1.5:
+                risk_status = 'warning'
+                risk_message = f'Low balance for sell orders (only {sell_coverage:.0f}% coverage)'
+                overall_warnings.append(f'{asset}: {risk_message}')
+            elif buy_requirement > 0 and balance < buy_requirement * 1.5:
+                risk_status = 'warning'
+                risk_message = f'Low balance for buy orders (only {buy_coverage:.0f}% coverage)'
+                overall_warnings.append(f'{asset}: {risk_message}')
+            else:
+                risk_status = 'safe'
+                risk_message = 'Sufficient balance'
+            
+            asset_list.append({
+                'asset': asset,
+                'balance': balance,
+                'sell_requirement': sell_requirement,
+                'buy_requirement': buy_requirement,
+                'sell_coverage': sell_coverage,
+                'buy_coverage': buy_coverage,
+                'risk_status': risk_status,
+                'risk_message': risk_message,
+                'pairs': sorted(list(needs['pairs']))
+            })
+        
+        # Sort by risk status (danger first, then warning, then safe)
+        risk_order = {'danger': 0, 'warning': 1, 'safe': 2}
+        asset_list.sort(key=lambda x: (risk_order.get(x['risk_status'], 3), x['asset']))
+        
+        # Overall risk summary
+        if any(a['risk_status'] == 'danger' for a in asset_list):
+            risk_summary = {
+                'status': 'danger',
+                'message': 'Critical: Insufficient balance for some orders'
+            }
+        elif any(a['risk_status'] == 'warning' for a in asset_list):
+            risk_summary = {
+                'status': 'warning',
+                'message': 'Warning: Low balance for some orders'
+            }
+        else:
+            risk_summary = {
+                'status': 'safe',
+                'message': 'All balances sufficient'
+            }
+        
+        elapsed = time.time() - start_time
+        print(f"[PERF] get_balances_and_risks completed in {elapsed:.3f}s, analyzed {len(asset_list)} assets")
+        
+        return {
+            'assets': asset_list,
+            'risk_summary': risk_summary
+        }
+        
+    except Exception as e:
+        print(f"[PERF] Error in get_balances_and_risks: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'assets': [],
+            'risk_summary': {
+                'status': 'error',
+                'message': f'Error fetching balances: {str(e)}'
+            }
+        }
+
+
 @app.route('/')
 def index():
     """Render the dashboard page."""
@@ -539,6 +781,17 @@ def api_completed():
     result = jsonify(get_completed_orders())
     elapsed = time.time() - start_time
     print(f"[PERF] /api/completed endpoint completed in {elapsed:.3f}s")
+    return result
+
+
+@app.route('/api/balances')
+def api_balances():
+    """API endpoint for asset balances and risk analysis."""
+    start_time = time.time()
+    print(f"[PERF] /api/balances endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    result = jsonify(get_balances_and_risks())
+    elapsed = time.time() - start_time
+    print(f"[PERF] /api/balances endpoint completed in {elapsed:.3f}s")
     return result
 
 
