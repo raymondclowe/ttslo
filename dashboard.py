@@ -29,6 +29,8 @@ app = Flask(__name__)
 CONFIG_FILE = os.getenv('TTSLO_CONFIG_FILE', 'config.csv')
 STATE_FILE = os.getenv('TTSLO_STATE_FILE', 'state.csv')
 LOG_FILE = os.getenv('TTSLO_LOG_FILE', 'logs.csv')
+CHECK_INTERVAL = int(os.getenv('TTSLO_CHECK_INTERVAL', '60'))  # Main monitor check interval in seconds
+DASHBOARD_REFRESH_INTERVAL = max(5, CHECK_INTERVAL // 2)  # Dashboard refresh = check_interval/2, minimum 5s
 
 # TTL cache decorator using native Python functools
 def ttl_cache(seconds=5):
@@ -83,8 +85,8 @@ except Exception as e:
 # Notification manager will be initialized in main() after environment is confirmed
 notification_manager = None
 
-# Cache for open orders (30s - aligns with dashboard refresh)
-@ttl_cache(seconds=30)
+# Cache for open orders - aligns with dashboard refresh interval
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_cached_open_orders():
     """Get open orders from Kraken with TTL caching."""
     if not kraken_api:
@@ -92,17 +94,17 @@ def get_cached_open_orders():
     result = kraken_api.query_open_orders()
     return result.get('open', {})
 
-# Longer TTL cache for closed orders (30s)
-@ttl_cache(seconds=30)
+# Cache for closed orders - aligns with dashboard refresh interval
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_cached_closed_orders():
-    """Get closed orders from Kraken with longer TTL caching."""
+    """Get closed orders from Kraken with TTL caching."""
     if not kraken_api:
         return {}
     result = kraken_api.query_closed_orders()
     return result.get('closed', {})
 
 
-@ttl_cache(seconds=30)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_cached_config():
     """Get config with TTL-based caching."""
     if not os.path.exists(CONFIG_FILE):
@@ -110,7 +112,7 @@ def get_cached_config():
     return config_manager.load_config()
 
 
-@ttl_cache(seconds=30)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_cached_state():
     """Get state with TTL-based caching."""
     if not os.path.exists(STATE_FILE):
@@ -118,7 +120,7 @@ def get_cached_state():
     return config_manager.load_state()
 
 
-@ttl_cache(seconds=30)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_current_prices():
     """Get current prices for all pairs in config with TTL-based caching."""
     start_time = time.time()
@@ -188,7 +190,7 @@ def calculate_distance_to_trigger(threshold_price, current_price, threshold_type
         return {'absolute': 0, 'percent': 0, 'triggered': False}
 
 
-@ttl_cache(seconds=30)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_pending_orders():
     """Get orders that haven't triggered yet."""
     start_time = time.time()
@@ -245,7 +247,7 @@ def get_pending_orders():
     return pending
 
 
-@ttl_cache(seconds=30)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_active_orders():
     """Get orders that have triggered and are active on Kraken."""
     start_time = time.time()
@@ -344,7 +346,7 @@ def get_active_orders():
     return active
 
 
-@ttl_cache(seconds=30)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_completed_orders():
     """Get orders that have executed."""
     start_time = time.time()
@@ -575,7 +577,7 @@ def _extract_quote_asset(pair: str) -> str:
     return ''
 
 
-@ttl_cache(seconds=30)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
 def get_balances_and_risks():
     """
     Get account balances and analyze risk for pending and active orders.
@@ -802,10 +804,10 @@ def api_status():
 
 # Summary of logical flow for dashboard endpoints
 #
-# 1. Config and state are loaded with 5s TTL cache (fast repeated access)
-# 2. Prices are fetched in batch and cached for 5s (minimize API calls)
-# 3. Open orders are fetched in one call and cached for 5s (minimize API calls)
-# 4. Closed orders are fetched in one call and cached for 30s (since they rarely change)
+# 1. Config and state are loaded with configurable TTL cache (aligns with monitor interval)
+# 2. Prices are fetched in batch and cached (aligns with monitor interval)
+# 3. Open orders are fetched in one call and cached (aligns with monitor interval)
+# 4. Closed orders are fetched in one call and cached (aligns with monitor interval)
 # 5. All matching/filtering is done in memory (fast)
 # 6. Dashboard JS preserves last known data if fetch fails or is slow
     return jsonify({
@@ -814,6 +816,8 @@ def api_status():
         'config_exists': os.path.exists(CONFIG_FILE),
         'state_exists': os.path.exists(STATE_FILE),
         'kraken_api_available': kraken_api is not None,
+        'check_interval': CHECK_INTERVAL,
+        'refresh_interval': DASHBOARD_REFRESH_INTERVAL,
         'timestamp': datetime.now(timezone.utc).isoformat()
     })
 

@@ -444,6 +444,7 @@
     console.log(`[DASHBOARD] JS Version: ${DASHBOARD_JS_VERSION}`);
     // Declare refreshInterval for auto-refresh
     let refreshInterval = null;
+    let dashboardRefreshIntervalMs = 30000; // Default 30s, will be updated from API
         // Store current data to compare for changes
         let currentPendingData = null;
         let currentActiveData = null;
@@ -1086,18 +1087,38 @@
             ]);
         }
 
-        // Auto-refresh every 30 seconds
+        // Auto-refresh based on backend configuration
         function startAutoRefresh() {
             if (refreshInterval) {
                 clearInterval(refreshInterval);
             }
-            refreshInterval = setInterval(refreshData, 30000);
+            console.log(`[DASHBOARD] Auto-refresh interval: ${dashboardRefreshIntervalMs}ms (${dashboardRefreshIntervalMs/1000}s)`);
+            refreshInterval = setInterval(refreshData, dashboardRefreshIntervalMs);
+        }
+
+        // Initialize dashboard configuration from backend
+        async function initializeDashboard() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                // Update refresh interval from backend configuration
+                if (status.refresh_interval) {
+                    dashboardRefreshIntervalMs = status.refresh_interval * 1000; // Convert seconds to milliseconds
+                    console.log(`[DASHBOARD] Using backend refresh interval: ${status.refresh_interval}s (check_interval: ${status.check_interval}s)`);
+                }
+            } catch (error) {
+                console.warn('[DASHBOARD] Could not fetch backend config, using default refresh interval:', error);
+            }
+            
+            // Start refreshing data
+            await refreshData();
+            startAutoRefresh();
         }
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
-            refreshData();
-            startAutoRefresh();
+            initializeDashboard();
         });
     </script>
 </body>
