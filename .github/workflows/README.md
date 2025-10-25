@@ -23,6 +23,16 @@ GitHub Copilot recognizes the special job name `copilot-setup-steps` and runs it
 - ✅ All dependencies available immediately
 - ✅ Agent can run tests with `uv run pytest`
 
+## Validation
+
+You can validate the setup locally by running:
+
+```bash
+./.github/workflows/validate-setup.sh
+```
+
+This script tests all the key components that the workflow sets up.
+
 ## Manual trigger
 
 You can manually trigger this workflow from GitHub Actions UI:
@@ -56,3 +66,4 @@ uv run python -c "import textual; print(textual.__version__)"
 - `AGENTS.md` - Agent instructions including environment setup
 - `LEARNINGS.md` - Lessons learned about Copilot workspace setup
 - `pyproject.toml` - Source of truth for dependencies
+- `validate-setup.sh` - Script to validate the setup locally
