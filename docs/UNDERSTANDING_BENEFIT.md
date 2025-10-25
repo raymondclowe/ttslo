@@ -139,6 +139,61 @@ The strategy is designed for:
 - Small consistent gains over time
 - NOT get-rich-quick, but steady profit accumulation
 
+### Should You Adjust the Strategy?
+
+The default bracket strategy uses:
+- **Bracket spacing**: ±2% from current price (trigger thresholds)
+- **Trailing offset**: 1% (TTSLO minimum)
+
+**When the strategy is working well:**
+- ✅ You see both buy and sell orders completing
+- ✅ Net profit positive after fees + slippage
+- ✅ Orders trigger within reasonable timeframes (hours to days)
+
+**Signs you might need adjustment:**
+
+1. **Too much slippage** (worse than -3%):
+   - Increase trailing offset to 1.5% or 2%
+   - Trade-off: Better protection, but less profit per cycle
+
+2. **Orders never trigger**:
+   - Bracket spacing too wide for the coin's volatility
+   - Run `tools/coin_stats.py` to analyze actual volatility
+   - Adjust brackets to match the coin's typical movement
+
+3. **Orders trigger too often**:
+   - You're capturing tiny movements but paying fees repeatedly
+   - Widen bracket spacing to 3% or 4%
+   - Trade-off: Less frequent trades, but better profit margins
+
+4. **Consistent losses**:
+   - Check if fees + slippage exceed bracket spacing
+   - Example: 2% bracket - 1% trailing - 0.5% fees = 0.5% profit margin
+   - Need at least 1.5-2% profit margin for safety
+   - Consider wider brackets (3-4%) or tighter trailing (if supported)
+
+### Optimizing Your Strategy
+
+**Use the coin_stats tool to analyze:**
+```bash
+# Analyze your coins to see typical volatility
+python3 tools/coin_stats.py --pairs RENDERUSD RAYUSD FILUSD --hours 48
+
+# Generate optimized bracket suggestions
+python3 tools/coin_stats.py --config-output suggested_config.csv
+```
+
+The tool will:
+- Show you typical price movements over 24-48 hours
+- Suggest bracket spacings that match volatility
+- Calculate probability of triggers within 24 hours
+- Recommend only pairs with sufficient movement
+
+**Key insight:** 
+- Low volatility coins: Need wider brackets (3-5%) but fewer triggers
+- High volatility coins: Can use tighter brackets (1-2%) with frequent triggers
+- Match your strategy to each coin's actual behavior!
+
 ## Key Takeaways
 
 1. **Negative benefit is normal** - it's the cost of using trailing stop loss protection
