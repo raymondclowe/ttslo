@@ -740,7 +740,7 @@ def get_balances_and_risks():
             'assets': [],
             'risk_summary': {
                 'status': 'error',
-                'message': f'Error fetching balances: {str(e)}'
+                'message': 'Error fetching balances. Check logs for details.'
             }
         }
 
