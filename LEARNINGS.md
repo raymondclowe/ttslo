@@ -2,6 +2,66 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Available Balance Decimal Formatting (2025-10-25)
+
+**Problem**: Notification messages showed Available Balance with inconsistent formatting:
+- Scientific notation for very small balances: `1.23E-9`
+- Too many decimals for medium balances: `123.1595217414`
+- No thousands separator for large amounts
+
+**Root Cause**:
+- `ttslo.py` line 520 used `str(available)` which converts small Decimal to scientific notation
+- Dashboard had `formatPrice()` with smart decimal handling but notifications didn't
+- Result: Users confused seeing "0" balance in notifications but "sufficient" in other places
+
+**Solution**:
+- Created `format_balance()` function in `notifications.py` (Python equivalent of `formatPrice()`)
+- Updated `notify_insufficient_balance()` to use formatted balance
+- Pass `Decimal` directly instead of converting to string prematurely
+
+**Formatting Logic**:
+```python
+def format_balance(value):
+    # Very small (< $0.01): up to 8 decimals, remove trailing zeros
+    if abs(price) < 0.01:
+        return f"{price:.8f}".rstrip('0').rstrip('.')
+    # Small (< $1): 4 decimals
+    elif abs(price) < 1:
+        return f"{price:.4f}"
+    # Medium (< $100): 2 decimals
+    elif abs(price) < 100:
+        return f"{price:.2f}"
+    # Large: 2 decimals with thousands separator
+    else:
+        return f"{price:,.2f}"
+```
+
+**Examples**:
+- `Decimal('1.23E-9')` → `"0"` (was `"1.23E-9"`)
+- `Decimal('0.000001679')` → `"0.00000168"` (was `"0.000001679"`)
+- `Decimal('123.1595217414')` → `"123.16"` (was `"123.1595217414"`)
+- `Decimal('1234.56')` → `"1,234.56"` (was `"1234.56"`)
+
+**Key Insights**:
+1. Always format Decimal values before display to avoid scientific notation
+2. Different value ranges need different decimal precision for readability
+3. Keep formatting consistent between dashboard UI and notifications
+4. Remove trailing zeros for cleaner display of small balances
+5. Pass native types (Decimal) through the chain, format only at display time
+
+**Testing**:
+- 17 new tests covering all value ranges and edge cases
+- All 377 tests passing
+- No regressions
+
+**Related Files**:
+- `notifications.py`: Lines 16-70 (format_balance function), 547-573 (notify_insufficient_balance)
+- `ttslo.py`: Line 520 (pass Decimal directly)
+- `templates/dashboard.html`: Line 1059 (already uses formatPrice)
+- `tests/test_balance_formatting.py`: Comprehensive test suite
+
+---
+
 ## Pytest Test Failures Investigation (2025-10-25)
 
 **Issue**: 4 test failures and 6 skips in pytest run.
