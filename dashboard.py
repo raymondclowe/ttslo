@@ -628,15 +628,15 @@ def get_balances_and_risks():
             
             # Track volume requirements
             if direction == 'sell':
-                # Selling base asset
+                # Selling base asset - need base asset balance
                 assets_needed[base_asset]['sell_volume'] += volume
                 assets_needed[base_asset]['pairs'].add(pair)
             elif direction == 'buy':
-                # Buying base asset (need quote asset)
-                assets_needed[base_asset]['buy_volume'] += volume
+                # Buying base asset - need quote currency balance (not base asset)
+                # Track the pair for the base asset but don't require base asset balance
                 assets_needed[base_asset]['pairs'].add(pair)
                 
-                # For buys, we also need the quote currency
+                # For buys, we need the quote currency
                 if quote_asset and pair in prices:
                     price = prices[pair]
                     quote_needed = volume * price

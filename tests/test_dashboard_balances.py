@@ -2,6 +2,7 @@
 Tests for dashboard asset balances and risk analysis functionality.
 """
 import pytest
+import time
 from unittest.mock import Mock, patch, MagicMock
 from dashboard import (
     app, _extract_base_asset, _extract_quote_asset
@@ -99,3 +100,87 @@ class TestBalancesAPI:
         if link_asset:
             assert link_asset['risk_status'] in ['danger', 'warning']
             assert link_asset['sell_requirement'] > link_asset['balance']
+    
+    @patch('dashboard.kraken_api')
+    @patch('dashboard.get_pending_orders')
+    @patch('dashboard.get_active_orders')
+    @patch('dashboard.get_current_prices')
+    def test_buy_order_checks_quote_currency_not_base(self, mock_prices, mock_active, mock_pending, mock_api, client):
+        """Test that BUY orders check quote currency (USD) balance, not base asset (ATOM) balance.
+        
+        This is the bug reported in the issue:
+        - ATOMUSD buy order should check USD balance (to buy ATOM)
+        - Should NOT check ATOM balance (you're buying ATOM, not selling it)
+        """
+        # Wait for cache to expire from previous test (DASHBOARD_REFRESH_INTERVAL = 30s)
+        time.sleep(31)
+        
+        # Import function directly to bypass caching
+        from dashboard import get_balances_and_risks
+        
+        # Setup: Buy 2.40 ATOM at $10 each = need $24 USD
+        mock_pending.return_value = [
+            {'pair': 'ATOMUSD', 'direction': 'buy', 'volume': 2.40}
+        ]
+        mock_active.return_value = []
+        mock_prices.return_value = {'ATOMUSD': 10.0}  # $10 per ATOM
+        
+        # User has 0 ATOM but $50 USD - should be SAFE for buy order
+        mock_api.get_balance.return_value = {'ATOM': 0.0, 'USD': 50.0}
+        
+        # Call function directly, bypassing Flask/cache
+        data = get_balances_and_risks()
+        
+        # Find ATOM and USD assets
+        atom_asset = next((a for a in data['assets'] if a['asset'] == 'ATOM'), None)
+        usd_asset = next((a for a in data['assets'] if a['asset'] == 'USD'), None)
+        
+        # ATOM should NOT show danger/warning (we're buying it, not selling)
+        # It should either not appear OR show as safe
+        if atom_asset:
+            assert atom_asset['risk_status'] == 'safe', \
+                f"ATOM should be safe for BUY order (not selling ATOM). Got: {atom_asset['risk_status']}, message: {atom_asset.get('risk_message')}"
+            # Main assertion: buy_requirement should be 0 for ATOM (we don't need ATOM to buy ATOM)
+            assert atom_asset['buy_requirement'] == 0, "Buy order should not require ATOM balance to buy ATOM"
+        
+        # USD should show as safe (we have $50, need $24)
+        assert usd_asset is not None, "USD asset should be tracked for buy order"
+        assert usd_asset['risk_status'] == 'safe', \
+            f"USD should be safe (have $50, need $24). Got: {usd_asset['risk_status']}, message: {usd_asset.get('risk_message')}"
+        assert usd_asset['buy_requirement'] == 24.0, "Should need $24 USD to buy 2.40 ATOM at $10"
+        assert usd_asset['balance'] >= usd_asset['buy_requirement'], "USD balance should be sufficient"
+    
+    @patch('dashboard.kraken_api')
+    @patch('dashboard.get_pending_orders')
+    @patch('dashboard.get_active_orders')
+    @patch('dashboard.get_current_prices')
+    def test_sell_order_checks_base_currency_not_quote(self, mock_prices, mock_active, mock_pending, mock_api, client):
+        """Test that SELL orders check base currency (ATOM) balance, not quote (USD)."""
+        # Wait for cache to expire from previous test (DASHBOARD_REFRESH_INTERVAL = 30s)
+        time.sleep(31)
+        
+        # Import function directly to bypass caching
+        from dashboard import get_balances_and_risks
+        
+        # Setup: Sell 2.40 ATOM
+        mock_pending.return_value = [
+            {'pair': 'ATOMUSD', 'direction': 'sell', 'volume': 2.40}
+        ]
+        mock_active.return_value = []
+        mock_prices.return_value = {'ATOMUSD': 10.0}
+        
+        # User has 0 ATOM but lots of USD - should be DANGER for sell order
+        mock_api.get_balance.return_value = {'ATOM': 0.0, 'USD': 5000.0}
+        
+        # Call function directly, bypassing Flask/cache
+        data = get_balances_and_risks()
+        
+        # Find ATOM asset
+        atom_asset = next((a for a in data['assets'] if a['asset'] == 'ATOM'), None)
+        
+        # ATOM should show danger (insufficient balance for sell)
+        assert atom_asset is not None, "ATOM asset should be tracked"
+        assert atom_asset['risk_status'] == 'danger', \
+            f"ATOM should be danger (0 ATOM < 2.40 needed). Got: {atom_asset['risk_status']}"
+        assert atom_asset['sell_requirement'] == 2.40, "Should need 2.40 ATOM to sell"
+        assert atom_asset['balance'] < atom_asset['sell_requirement'], "ATOM balance insufficient"
