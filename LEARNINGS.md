@@ -1489,14 +1489,26 @@ for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD'
 elif direction == 'buy':
     assets_needed[base_asset]['buy_volume'] += volume  # ❌ Wrong!
     assets_needed[base_asset]['pairs'].add(pair)
-    # ... calculate quote currency ...
+    
+    # For buys, we also need the quote currency
+    if quote_asset and pair in prices:
+        price = prices[pair]
+        quote_needed = volume * price
+        assets_needed[quote_asset]['buy_volume'] += quote_needed
+        assets_needed[quote_asset]['pairs'].add(pair)
 
 # AFTER (correct)
 elif direction == 'buy':
     # Buying base asset - need quote currency balance (not base asset)
     # Track the pair for the base asset but don't require base asset balance
     assets_needed[base_asset]['pairs'].add(pair)  # ✅ Only track pair
-    # ... calculate quote currency ... (unchanged)
+    
+    # For buys, we need the quote currency (unchanged)
+    if quote_asset and pair in prices:
+        price = prices[pair]
+        quote_needed = volume * price
+        assets_needed[quote_asset]['buy_volume'] += quote_needed
+        assets_needed[quote_asset]['pairs'].add(pair)
 ```
 
 **Key Insight**:
