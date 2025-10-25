@@ -1530,4 +1530,59 @@ elif direction == 'buy':
 
 ---
 
+## ZUSD vs USD Currency Normalization (2025-10-25)
+
+**Problem**: Dashboard showed two separate balance entries:
+- USD: 0 balance (critical warning)
+- ZUSD: 155.80 balance (sufficient)
+
+User confused: "Aren't USD and ZUSD the same thing?" Yes!
+
+**Root Cause**:
+- Trading pairs have inconsistent suffixes:
+  - ATOMUSD, DYDXUSD, FILUSD → extract "USD"
+  - XXBTZUSD, XETHZUSD → extract "ZUSD"
+- Kraken API returns balances with Z-prefixed fiat codes:
+  - `{'ZUSD': '155.80', 'ZEUR': '100.0'}` (NOT `{'USD': ..., 'EUR': ...}`)
+- Dashboard's `_extract_quote_asset()` returned raw suffix
+- Balance lookup: USD → 0 (not in API), ZUSD → 155.80
+
+**Why Z-prefix?**
+Kraken uses Z-prefix for fiat currencies in API responses:
+- USD → ZUSD
+- EUR → ZEUR  
+- GBP → ZGBP
+- JPY → ZJPY
+
+Stablecoins (USDT) don't get Z-prefix (they're crypto, not fiat).
+
+**Solution**:
+Updated `_extract_quote_asset()` to normalize all fiat to Z-prefix:
+```python
+if quote == 'USD':
+    return 'ZUSD'
+elif quote == 'EUR':
+    return 'ZEUR'
+# ... etc
+```
+
+**Result**:
+- Dashboard now shows single ZUSD entry
+- All USD and ZUSD pairs aggregate correctly
+- No more confusion about "sufficient ZUSD but insufficient USD"
+
+**Key Insight**: Always normalize currency codes to match API response format. Check actual API responses to understand the format used.
+
+**Testing**:
+- Created `test_zusd_usd_normalization.py` (8 tests)
+- Updated `test_dashboard_balances.py` to use ZUSD
+- All 354 tests passing
+
+**Related Files**:
+- `dashboard.py`: Lines 561-594 (_extract_quote_asset)
+- `tests/test_zusd_usd_normalization.py`: Comprehensive test suite
+- `tests/test_dashboard_balances.py`: Updated existing tests
+
+---
+
 ```
