@@ -29,7 +29,9 @@ def test_format_price_javascript_logic():
             # Remove trailing zeros for cleaner display, but keep at least one digit
             formatted = f"{price:.8f}"
             # Remove trailing zeros manually to avoid scientific notation
-            return formatted.rstrip('0').rstrip('.')
+            result = formatted.rstrip('0').rstrip('.')
+            # Safety check: ensure we never return empty string
+            return result or '0'
         # For small values (< 1), use 4 decimal places
         elif abs(price) < 1:
             return f"{price:.4f}"
@@ -83,7 +85,8 @@ def test_price_formatting_removes_trailing_zeros():
         
         if abs(price) < 0.01:
             formatted = f"{price:.8f}"
-            return formatted.rstrip('0').rstrip('.')
+            result = formatted.rstrip('0').rstrip('.')
+            return result or '0'
         elif abs(price) < 1:
             return f"{price:.4f}"
         elif abs(price) < 100:
@@ -119,7 +122,8 @@ def test_original_issue_meme_coin():
         
         if abs(price) < 0.01:
             formatted = f"{price:.8f}"
-            return formatted.rstrip('0').rstrip('.')
+            result = formatted.rstrip('0').rstrip('.')
+            return result or '0'
         elif abs(price) < 1:
             return f"{price:.4f}"
         elif abs(price) < 100:
@@ -157,7 +161,8 @@ def test_negative_prices():
         
         if abs(price) < 0.01:
             formatted = f"{price:.8f}"
-            return formatted.rstrip('0').rstrip('.')
+            result = formatted.rstrip('0').rstrip('.')
+            return result or '0'
         elif abs(price) < 1:
             return f"{price:.4f}"
         elif abs(price) < 100:

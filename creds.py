@@ -69,8 +69,8 @@ def get_env_var(name: str) -> Optional[str]:
     Order of precedence:
       1. Exact name in os.environ
       2. 'copilot_' prefixed name in os.environ (lowercase)
-      3. COPILOT_W_ prefixed variants (best-effort mapping)
-      4. COPILOT_KRAKEN_* and COPILOT_ prefixed fallbacks (for GitHub secrets)
+      3. COPILOT_W_ prefixed variants and COPILOT_KRAKEN_* (best-effort mapping for specific keys)
+      4. COPILOT_ prefixed name in os.environ (uppercase, generic fallback)
     """
     # Exact match
     val = os.environ.get(name)
