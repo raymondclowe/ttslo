@@ -83,10 +83,10 @@ except Exception as e:
 # Notification manager will be initialized in main() after environment is confirmed
 notification_manager = None
 
-# Short TTL cache for open orders (5s)
-@ttl_cache(seconds=5)
+# Cache for open orders (30s - aligns with dashboard refresh)
+@ttl_cache(seconds=30)
 def get_cached_open_orders():
-    """Get open orders from Kraken with short TTL caching."""
+    """Get open orders from Kraken with TTL caching."""
     if not kraken_api:
         return {}
     result = kraken_api.query_open_orders()
@@ -102,7 +102,7 @@ def get_cached_closed_orders():
     return result.get('closed', {})
 
 
-@ttl_cache(seconds=5)
+@ttl_cache(seconds=30)
 def get_cached_config():
     """Get config with TTL-based caching."""
     if not os.path.exists(CONFIG_FILE):
@@ -110,7 +110,7 @@ def get_cached_config():
     return config_manager.load_config()
 
 
-@ttl_cache(seconds=5)
+@ttl_cache(seconds=30)
 def get_cached_state():
     """Get state with TTL-based caching."""
     if not os.path.exists(STATE_FILE):
@@ -118,7 +118,7 @@ def get_cached_state():
     return config_manager.load_state()
 
 
-@ttl_cache(seconds=5)
+@ttl_cache(seconds=30)
 def get_current_prices():
     """Get current prices for all pairs in config with TTL-based caching."""
     start_time = time.time()
@@ -188,6 +188,7 @@ def calculate_distance_to_trigger(threshold_price, current_price, threshold_type
         return {'absolute': 0, 'percent': 0, 'triggered': False}
 
 
+@ttl_cache(seconds=30)
 def get_pending_orders():
     """Get orders that haven't triggered yet."""
     start_time = time.time()
@@ -244,7 +245,7 @@ def get_pending_orders():
     return pending
 
 
-@ttl_cache(seconds=5)
+@ttl_cache(seconds=30)
 def get_active_orders():
     """Get orders that have triggered and are active on Kraken."""
     start_time = time.time()
@@ -343,7 +344,7 @@ def get_active_orders():
     return active
 
 
-@ttl_cache(seconds=5)
+@ttl_cache(seconds=30)
 def get_completed_orders():
     """Get orders that have executed."""
     start_time = time.time()
@@ -574,7 +575,7 @@ def _extract_quote_asset(pair: str) -> str:
     return ''
 
 
-@ttl_cache(seconds=5)
+@ttl_cache(seconds=30)
 def get_balances_and_risks():
     """
     Get account balances and analyze risk for pending and active orders.
