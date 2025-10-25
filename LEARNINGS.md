@@ -1471,4 +1471,63 @@ for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD'
 
 ---
 
+## Buy Order Balance Check Logic Error (2025-10-25)
+
+**Problem**: Dashboard incorrectly checked base asset balance for buy orders.
+- Example: ATOMUSD buy order checked ATOM balance (should check USD)
+- User had 0 ATOM but plenty of USD → showed "Critical: Insufficient balance"
+- Error message: "Insufficient balance for buy orders (0.0000 < 2.4049)" for ATOM
+
+**Root Cause**: `dashboard.py` lines 630-644 in `get_balances_and_risks()`
+- Line 636 incorrectly added buy volume to base asset: `assets_needed[base_asset]['buy_volume'] += volume`
+- For buy orders, we need quote currency (USD), not base asset (ATOM)
+- Risk check at lines 681-684 then flagged insufficient ATOM balance for buy order
+
+**Fix**:
+```python
+# BEFORE (wrong)
+elif direction == 'buy':
+    assets_needed[base_asset]['buy_volume'] += volume  # ❌ Wrong!
+    assets_needed[base_asset]['pairs'].add(pair)
+    
+    # For buys, we also need the quote currency
+    if quote_asset and pair in prices:
+        price = prices[pair]
+        quote_needed = volume * price
+        assets_needed[quote_asset]['buy_volume'] += quote_needed
+        assets_needed[quote_asset]['pairs'].add(pair)
+
+# AFTER (correct)
+elif direction == 'buy':
+    # Buying base asset - need quote currency balance (not base asset)
+    # Track the pair for the base asset but don't require base asset balance
+    assets_needed[base_asset]['pairs'].add(pair)  # ✅ Only track pair
+    
+    # For buys, we need the quote currency (unchanged)
+    if quote_asset and pair in prices:
+        price = prices[pair]
+        quote_needed = volume * price
+        assets_needed[quote_asset]['buy_volume'] += quote_needed
+        assets_needed[quote_asset]['pairs'].add(pair)
+```
+
+**Key Insight**:
+- **Buy orders**: Need quote currency (USD to buy ATOM)
+- **Sell orders**: Need base asset (ATOM to sell)
+- Dashboard now correctly shows:
+  - Buy ATOMUSD: Check USD balance (not ATOM)
+  - Sell ATOMUSD: Check ATOM balance (not USD)
+
+**Testing**:
+- Added 2 comprehensive tests in `test_dashboard_balances.py`
+- `test_buy_order_checks_quote_currency_not_base`: Verifies buy logic
+- `test_sell_order_checks_base_currency_not_quote`: Verifies sell logic
+- Tests handle cache TTL (30s) to avoid cross-test pollution
+
+**Related Files**:
+- `dashboard.py`: Lines 630-644 (fix applied)
+- `tests/test_dashboard_balances.py`: New tests added
+
+---
+
 ```
