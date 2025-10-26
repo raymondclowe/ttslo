@@ -1052,8 +1052,6 @@ def main():
         print(f"  - Each pair gets TWO entries: buy bracket (-{args.suggestbracket}%) and sell bracket (+{args.suggestbracket}%)")
         print(f"  - Trailing offset: {args.suggestoffset}%")
         print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
-        print(f"  - Trailing offset: {args.suggestoffset}%")
-        print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
         print(f"  - Uses Student's t-distribution to account for fat tails")
         print(f"  - Random walk model: 24h volatility = minute volatility × sqrt(1440)")
         print(f"  - Decimal places adjusted based on coin value (more for low-value coins)")
