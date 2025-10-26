@@ -2,6 +2,49 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Coin Stats Configurable Bracket Parameters (2025-10-26)
+
+**Feature**: Added `--suggestbracket` and `--suggestoffset` parameters to `tools/coin_stats.py` for generating config suggestions with custom bracket and trailing offset values.
+
+**Problem**: The tool hardcoded 2% bracket offset and 1% trailing offset for generating suggested configs. Users wanted flexibility to specify different values like 10% bracket with 5% trailing offset.
+
+**Solution**:
+- Added `--suggestbracket` CLI argument (default: 2.0) for bracket offset percentage
+- Added `--suggestoffset` CLI argument (default: 1.0) for trailing offset percentage
+- Updated `generate_config_suggestions()` to accept these as parameters
+- Modified all hardcoded values to use the configurable parameters
+- Updated output messages to show actual values being used
+
+**Usage**:
+```bash
+# Default behavior (2% bracket, 1% trailing)
+uv run python tools/coin_stats.py
+
+# Custom 10% bracket with 5% trailing offset
+uv run python tools/coin_stats.py --suggestbracket 10 --suggestoffset 5
+
+# Custom 5% bracket with 2% trailing offset
+uv run python tools/coin_stats.py --suggestbracket 5 --suggestoffset 2
+```
+
+**Key Insights**:
+1. When adding parameters to existing functions, ensure backward compatibility with defaults
+2. Update ALL references to hardcoded values (function body, print statements, comments, docstrings)
+3. Test both default and custom parameter values
+4. Watch for duplicate print statements when merging changes
+5. Use `type=float` for percentage arguments to allow decimal values
+
+**Testing**:
+- Added 2 comprehensive tests: default params and custom params
+- Tests validate both the trailing offset AND the bracket offset calculations
+- All 378 tests passing
+
+**Related Files**:
+- `tools/coin_stats.py`: Lines 754-899 (generate_config_suggestions), 959-976 (argparse)
+- `tests/test_coin_stats.py`: Lines 303-400 (new tests)
+
+---
+
 ## Available Balance Decimal Formatting (2025-10-25)
 
 **Problem**: Notification messages showed Available Balance with inconsistent formatting:
