@@ -751,15 +751,16 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
     return html_path
 
 
-def generate_config_suggestions(results, analyzer, output_file='suggested_config.csv'):
+def generate_config_suggestions(results, analyzer, output_file='suggested_config.csv', 
+                               bracket_offset_pct=2.0, trailing_offset_pct=1.0):
     """
     Generate suggested config.csv entries using bracket strategy.
     
     BRACKET STRATEGY:
-    - Each pair gets TWO entries: buy bracket below (-2%) and sell bracket above (+2%)
-    - Fixed 2% offset from current price for both brackets
-    - Fixed 1% trailing offset (TTSLO minimum)
-    - Only includes pairs where 2% movement has reasonable probability within 24h
+    - Each pair gets TWO entries: buy bracket below and sell bracket above
+    - Configurable bracket offset from current price (default 2%)
+    - Configurable trailing offset (default 1%, TTSLO minimum)
+    - Only includes pairs where movement has reasonable probability within 24h
     
     PORTFOLIO OPTIMIZATION:
     - Target 95% probability that at least ONE entry triggers in portfolio
@@ -770,6 +771,8 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         results: List of analysis results
         analyzer: CoinStatsAnalyzer instance
         output_file: Path to suggested config CSV file
+        bracket_offset_pct: Percentage offset for brackets (default: 2.0)
+        trailing_offset_pct: Trailing offset percentage (default: 1.0)
     """
     if not results:
         return None
@@ -798,8 +801,8 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     print(f"Total entries (2 per pair): {n_total_entries}")
     print(f"Per-entry probability: {per_entry_probability*100:.2f}%")
     print(f"Portfolio probability (at least one triggers): 95.0%")
-    print(f"Bracket offset: ±2.0% from current price")
-    print(f"Trailing offset: 1.0% (TTSLO minimum)")
+    print(f"Bracket offset: ±{bracket_offset_pct:.1f}% from current price")
+    print(f"Trailing offset: {trailing_offset_pct:.1f}%")
     print(f"{'='*70}\n")
     
     with open(output_file, 'w', newline='') as csvfile:
@@ -819,25 +822,22 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             # Get current mean price
             current_price = stats['mean']
             
-            # Fixed 2% bracket offset
-            bracket_offset_pct = 2.0
-            
-            # Calculate threshold prices for 2% brackets
+            # Calculate threshold prices for brackets
             upper_bracket = current_price * (1 + bracket_offset_pct / 100)
             lower_bracket = current_price * (1 - bracket_offset_pct / 100)
             
-            # Check if 2% movement is achievable with required probability
-            # Calculate what probability the pair can achieve for 2% movement
+            # Check if movement is achievable with required probability
+            # Calculate what probability the pair can achieve for the bracket offset
             threshold = analyzer.calculate_probability_threshold(stats, probability=tail_probability)
             
             if not threshold:
                 pairs_excluded += 1
                 continue
             
-            # Check if the pair's volatility can achieve 2% with required probability
-            # If threshold_pct >= 2%, then 2% is achievable with this probability
+            # Check if the pair's volatility can achieve bracket offset with required probability
+            # If threshold_pct >= bracket_offset_pct, then movement is achievable with this probability
             if threshold['threshold_pct'] < bracket_offset_pct:
-                # This pair's volatility is too low for 2% to be probable enough
+                # This pair's volatility is too low for the bracket offset to be probable enough
                 pairs_excluded += 1
                 continue
             
@@ -861,9 +861,6 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             else:
                 volume = 0.1
             
-            # Fixed 1% trailing offset (TTSLO minimum)
-            trailing_offset = 1.0
-            
             # Create SELL bracket entry (price goes above +2%)
             entry_count += 1
             pair_short = analyzer.format_pair_name(pair).replace('/', '_').lower()
@@ -874,11 +871,11 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                 'threshold_type': 'above',
                 'direction': 'sell',
                 'volume': f"{volume:.4f}",
-                'trailing_offset_percent': f"{trailing_offset:.2f}",
+                'trailing_offset_percent': f"{trailing_offset_pct:.2f}",
                 'enabled': 'true'
             })
             
-            # Create BUY bracket entry (price goes below -2%)
+            # Create BUY bracket entry (price goes below)
             entry_count += 1
             writer.writerow({
                 'id': f"{pair_short}_buy_{entry_count}",
@@ -887,7 +884,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                 'threshold_type': 'below',
                 'direction': 'buy',
                 'volume': f"{volume:.4f}",
-                'trailing_offset_percent': f"{trailing_offset:.2f}",
+                'trailing_offset_percent': f"{trailing_offset_pct:.2f}",
                 'enabled': 'true'
             })
     
@@ -962,6 +959,18 @@ def main():
         default='suggested_config.csv',
         help='Generate suggested config.csv for TTSLO (default: suggested_config.csv)'
     )
+    parser.add_argument(
+        '--suggestbracket',
+        type=float,
+        default=2.0,
+        help='Bracket offset percentage for suggestions (default: 2.0)'
+    )
+    parser.add_argument(
+        '--suggestoffset',
+        type=float,
+        default=1.0,
+        help='Trailing offset percentage for suggestions (default: 1.0)'
+    )
     
     args = parser.parse_args()
     
@@ -1028,7 +1037,9 @@ def main():
             print(f"  Open in browser: file://{os.path.abspath(html_path)}")
     
     # Generate suggested config.csv entries with bracket strategy
-    config_path = generate_config_suggestions(results, analyzer, args.config_output)
+    config_path = generate_config_suggestions(results, analyzer, args.config_output,
+                                              bracket_offset_pct=args.suggestbracket,
+                                              trailing_offset_pct=args.suggestoffset)
     if config_path:
         print(f"\n{'='*70}")
         print(f"SUGGESTED CONFIG WITH BRACKET STRATEGY")
@@ -1038,8 +1049,8 @@ def main():
         print(f"\n✓ Suggested config saved to {config_path}")
         
         print(f"\nBracket Strategy Details:")
-        print(f"  - Each pair gets TWO entries: buy bracket (-2%) and sell bracket (+2%)")
-        print(f"  - Fixed 1% trailing offset (TTSLO minimum)")
+        print(f"  - Each pair gets TWO entries: buy bracket (-{args.suggestbracket}%) and sell bracket (+{args.suggestbracket}%)")
+        print(f"  - Trailing offset: {args.suggestoffset}%")
         print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
         print(f"  - Uses Student's t-distribution to account for fat tails")
         print(f"  - Random walk model: 24h volatility = minute volatility × sqrt(1440)")

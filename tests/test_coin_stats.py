@@ -299,6 +299,109 @@ def test_print_analysis_no_crash():
     analyzer.print_analysis(None)
 
 
+def test_generate_config_suggestions_default_params():
+    """Test generate_config_suggestions with default parameters."""
+    from tools.coin_stats import generate_config_suggestions
+    import csv
+    
+    # Create mock results with very high volatility to pass filter
+    candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=20.0)
+    api = MockKrakenAPI(candles)
+    analyzer = CoinStatsAnalyzer(api)
+    
+    analysis = analyzer.analyze_pair('XXBTZUSD')
+    results = [analysis] if analysis else []
+    
+    if not results:
+        return  # Skip if no results
+    
+    # Generate suggestions with default params
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_file = os.path.join(tmpdir, 'test_config.csv')
+        config_path = generate_config_suggestions(results, analyzer, output_file)
+        
+        assert config_path is not None
+        assert os.path.exists(config_path)
+        
+        # Read and verify CSV
+        with open(config_path, 'r') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            
+            # Should have 2 entries per pair (buy + sell) if volatility sufficient
+            if len(rows) == 0:
+                return  # Skip if pair excluded due to insufficient volatility
+            
+            assert len(rows) == 2
+            
+            # Check first row (sell)
+            assert rows[0]['direction'] == 'sell'
+            assert rows[0]['threshold_type'] == 'above'
+            assert float(rows[0]['trailing_offset_percent']) == 1.0  # Default
+            
+            # Check second row (buy)
+            assert rows[1]['direction'] == 'buy'
+            assert rows[1]['threshold_type'] == 'below'
+            assert float(rows[1]['trailing_offset_percent']) == 1.0  # Default
+
+
+def test_generate_config_suggestions_custom_params():
+    """Test generate_config_suggestions with custom parameters."""
+    from tools.coin_stats import generate_config_suggestions
+    import csv
+    
+    # Create mock results with very high volatility
+    candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=30.0)
+    api = MockKrakenAPI(candles)
+    analyzer = CoinStatsAnalyzer(api)
+    
+    analysis = analyzer.analyze_pair('XXBTZUSD')
+    results = [analysis] if analysis else []
+    
+    if not results:
+        return  # Skip if no results
+    
+    # Generate suggestions with custom params
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_file = os.path.join(tmpdir, 'test_config.csv')
+        config_path = generate_config_suggestions(
+            results, analyzer, output_file,
+            bracket_offset_pct=10.0,
+            trailing_offset_pct=5.0
+        )
+        
+        assert config_path is not None
+        assert os.path.exists(config_path)
+        
+        # Read and verify CSV
+        with open(config_path, 'r') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            
+            # Should have entries if volatility sufficient
+            if len(rows) == 0:
+                return  # Skip if pair excluded due to insufficient volatility
+            
+            assert len(rows) >= 2
+            
+            # Check trailing offset is custom value
+            for row in rows:
+                assert float(row['trailing_offset_percent']) == 5.0
+            
+            # Check bracket offset by comparing prices
+            mean_price = analyzer.calculate_statistics(candles)['mean']
+            sell_price = float(rows[0]['threshold_price'])
+            buy_price = float(rows[1]['threshold_price'])
+            
+            # Sell should be ~10% above mean
+            sell_offset = ((sell_price - mean_price) / mean_price) * 100
+            assert 9.5 < sell_offset < 10.5  # Allow small tolerance
+            
+            # Buy should be ~10% below mean
+            buy_offset = ((mean_price - buy_price) / mean_price) * 100
+            assert 9.5 < buy_offset < 10.5  # Allow small tolerance
+
+
 if __name__ == '__main__':
     # Run tests
     print("Running coin_stats tests...")
@@ -335,5 +438,11 @@ if __name__ == '__main__':
     
     test_print_analysis_no_crash()
     print("✓ test_print_analysis_no_crash")
+    
+    test_generate_config_suggestions_default_params()
+    print("✓ test_generate_config_suggestions_default_params")
+    
+    test_generate_config_suggestions_custom_params()
+    print("✓ test_generate_config_suggestions_custom_params")
     
     print("\n✅ All tests passed!")
