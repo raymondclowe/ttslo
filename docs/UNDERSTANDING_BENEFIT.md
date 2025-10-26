@@ -1,8 +1,18 @@
 # Understanding "Benefit" in TTSLO Dashboard
 
-## What Does "Benefit" Mean?
+## Two Types of Benefit Metrics
 
-The "Benefit" shown in the Completed Orders section measures **slippage** - the difference between when your order triggered and when it actually executed.
+The TTSLO dashboard shows **two different benefit metrics** to help you understand the true value of the triggered trailing stop loss order system:
+
+### 1. **Slippage** (Trigger vs Execution)
+Measures the difference between your trigger price and execution price. This is typically negative due to the trailing offset mechanism.
+
+### 2. **Total Benefit** (Initial vs Execution) 
+Measures the difference between the price when you **first created the config** and the final execution price. **This shows the true benefit of using the TSL system** to wait for better prices instead of executing a market order immediately.
+
+## What Does "Slippage" Mean?
+
+The "Slippage" (previously just called "Benefit") shown in the Completed Orders section measures the difference between when your order triggered and when it actually executed.
 
 ### Simple Explanation
 
@@ -113,6 +123,107 @@ Negative benefit is fine, but watch for these warning signs:
 - Con: Order might not fill if price moves away
 - **When**: Use for less time-sensitive trades
 
+## Understanding "Total Benefit" (The Real Benefit!)
+
+The **Total Benefit** metric shows the **true value of using the TTSLO system** - it compares the price when you **first decided to trade** versus the final execution price.
+
+### How It Works
+
+#### Three Key Price Points:
+
+1. **Initial Price**: Price when you first created/enabled the config
+   - This is when you decided "I want to trade this asset"
+   - Captured automatically on first run
+
+2. **Trigger Price**: Price when threshold is met and TSL order is created
+   - The price where your configured threshold was reached
+
+3. **Executed Price**: Final price when order filled on Kraken
+   - The actual price you bought/sold at
+
+### Why Initial Price Matters
+
+**The whole point of TTSLO** is that you get a better price by waiting for market volatility instead of executing a market order immediately.
+
+#### Without TTSLO:
+- Price now: $45,000
+- You decide to sell
+- Execute market order immediately → Sell at $45,000
+
+#### With TTSLO:
+- Price now: $45,000 (Initial Price)
+- You create config to sell when price goes above $48,000
+- Wait for market to move up
+- Trigger at $48,000 → TSL order created
+- Execute at $47,500 (after trailing offset)
+- **Total Benefit: +$2,500 (+5.56%)**
+
+Even with -$500 slippage, you're still **+$2,500 better off** than if you had sold immediately!
+
+### Example: Sell Order
+
+Let's say you wanted to sell BTC:
+
+```
+Initial Price:   $45,000  (when you created the config)
+Trigger Price:   $48,000  (when threshold was met)
+Executed Price:  $47,500  (when TSL order filled)
+
+Slippage:        -$500   (-1.04%) ← Normal TSL cost
+Total Benefit:   +$2,500 (+5.56%) ← Real benefit!
+```
+
+**Result**: You waited for the price to rise $3,000, then sold. Even after the -$500 trailing offset slippage, you're $2,500 better off than selling at the initial price.
+
+### Example: Buy Order
+
+Now for buying ETH:
+
+```
+Initial Price:   $3,500  (when you created the config)
+Trigger Price:   $3,200  (when threshold was met)
+Executed Price:  $3,230  (when TSL order filled)
+
+Slippage:        -$30    (-0.94%) ← Normal TSL cost
+Total Benefit:   +$270   (+7.71%) ← Real benefit!
+```
+
+**Result**: You waited for the price to drop $300, then bought. Even after the -$30 trailing offset slippage, you saved $270 compared to buying at the initial price.
+
+### When Total Benefit Shows "N/A"
+
+Total Benefit will show "N/A" in these cases:
+- Config was created before this feature was added (no initial_price recorded)
+- Manual orders created directly on Kraken (not tracked by TTSLO)
+
+For new configs created after this update, initial_price is automatically captured and Total Benefit will be calculated.
+
+### What's a Good Total Benefit?
+
+| Total Benefit | What It Means |
+|--------------|---------------|
+| **Positive** | ✅ You got a better price by waiting (system working!) |
+| **Negative** | ⚠️ Price moved against you after creating config |
+| **Near zero** | ↔️ Price hasn't moved much since you created config |
+
+**Note**: Even if slippage is negative (which is normal), Total Benefit should usually be positive - that's the whole point of using TTSLO!
+
+### Negative Total Benefit - What Does It Mean?
+
+If Total Benefit is negative, it means:
+- For sells: Price dropped after you created the config
+- For buys: Price rose after you created the config
+
+**This can happen when:**
+- Market trends changed direction after you set up the config
+- You're using a bracket strategy (buy low + sell high), so one side may have negative total benefit while the other side has positive
+- Your threshold was reached, but the overall price movement was unfavorable
+
+**What to do:**
+- Review your threshold settings
+- Consider if the market conditions have changed
+- Remember: In a bracket strategy, you want price oscillations - some orders will have negative total benefit, but the strategy profits from the oscillations overall
+
 ## About the Bracket Strategy
 
 The `tools/coin_stats.py` script uses a **bracket strategy**:
@@ -196,8 +307,25 @@ The tool will:
 
 ## Key Takeaways
 
-1. **Negative benefit is normal** - it's the cost of using trailing stop loss protection
-2. **Don't panic** - focus on your overall buy-low-sell-high profit, not the slippage
+### About Slippage:
+1. **Negative slippage is normal** - it's the cost of using trailing stop loss protection
+2. **Don't panic** - focus on your overall buy-low-sell-high profit, not just the slippage
+3. **Typical range: -0.5% to -2.0%** - roughly matching your trailing offset percentage
+4. **Think of it as insurance** - small cost for execution price protection
+
+### About Total Benefit:
+1. **This is the real metric** - shows how much better you did by waiting for the right price
+2. **Should usually be positive** - that's the whole point of TTSLO!
+3. **Compares initial decision vs execution** - not just trigger vs execution
+4. **Shows TTSLO's value** - even with negative slippage, you're better off than a market order
+
+### The Bottom Line:
+- **Slippage** = Cost of TSL protection (usually negative)
+- **Total Benefit** = Value of waiting for better prices (usually positive)
+- **Net result** = Total Benefit - Slippage - Fees = Your actual profit
+- **Focus on strategy success** = Are you profiting from price oscillations over time?
+
+Remember: A negative slippage of -1% combined with a total benefit of +5% means you're still **+4% better off** than if you had executed immediately!
 3. **Expect -1% to -2%** - roughly matching your trailing offset percentage
 4. **The bracket strategy works** - you're capturing price swings despite the slippage
 5. **Total return matters** - calculate: (sell price - buy price - fees - slippage)
