@@ -1330,6 +1330,67 @@ function formatPrice(value) {
 
 ---
 
+## Initial Price Tracking for Total Benefit Calculation (2025-10-26)
+
+**Feature**: Added tracking of initial price to show the true benefit of using the TTSLO system.
+
+**Problem**: Dashboard only showed "slippage" (trigger price vs executed price), which is typically negative due to the trailing offset mechanism. Users couldn't see the **real benefit** of waiting for better prices instead of executing a market order immediately.
+
+**Solution**: Added `initial_price` field that captures the price when a config is first created/enabled.
+
+**Implementation**:
+
+1. **State.csv**: Added `initial_price` field to state fieldnames
+   - Automatically populated on first run when config is processed
+   - Never overwritten - preserves the original decision price
+
+2. **ttslo.py**: Step 10 in `process_config()` populates initial_price
+   ```python
+   if not self.state[config_id].get('initial_price'):
+       self.state[config_id]['initial_price'] = str(current_price)
+   ```
+
+3. **dashboard.py**: Calculate two benefit metrics
+   - **Slippage** (existing): trigger_price vs executed_price (usually negative)
+   - **Total Benefit** (new): initial_price vs executed_price (usually positive!)
+
+4. **Dashboard UI**: Added two display rows
+   - "Initial Price" - shows price when config was created
+   - "Total Benefit" - shows real benefit with help tooltip
+
+**Example**:
+```
+Sell BTC:
+  Initial Price:   $45,000 (when user created config)
+  Trigger Price:   $48,000 (when threshold met)
+  Executed Price:  $47,500 (when TSL order filled)
+  
+  Slippage:        -$500   (-1.04%) ← Normal TSL cost
+  Total Benefit:   +$2,500 (+5.56%) ← Real benefit!
+```
+
+**Key Insight**: Even with negative slippage, the user is $2,500 better off than if they had sold immediately. This is the core value proposition of the TTSLO system.
+
+**Documentation**: Updated `docs/UNDERSTANDING_BENEFIT.md` with comprehensive explanation of both metrics and when each is useful.
+
+**Testing**: Added 4 new tests in `tests/test_initial_price.py`:
+- Test initial_price populated on first run
+- Test initial_price not overwritten on subsequent runs
+- Test total_benefit calculation for sell orders
+- Test total_benefit calculation for buy orders
+
+**Files Changed**:
+- `config.py`: Added initial_price to state fieldnames
+- `ttslo.py`: Auto-populate initial_price on first run
+- `dashboard.py`: Calculate and return total_benefit
+- `templates/dashboard.html`: Display initial_price and total_benefit
+- `docs/UNDERSTANDING_BENEFIT.md`: Comprehensive documentation
+- `tests/test_initial_price.py`: New test suite
+
+**Result**: All 358 tests passing. Feature ready for production use.
+
+---
+
 ## GitHub Environment Secrets Support (2025-10-24)
 
 **Implementation Date**: October 2025

@@ -423,7 +423,10 @@ def get_completed_orders():
                 config = config_map.get(config_id, {})
                 config_state = state.get(config_id, {})
                 trigger_price = float(config_state.get('trigger_price', 0))
+                initial_price = float(config_state.get('initial_price', 0))
                 executed_price = float(order_info.get('price', 0))
+                
+                # Calculate benefit from trigger_price (existing behavior)
                 benefit = 0
                 benefit_percent = 0
                 if trigger_price > 0:
@@ -434,11 +437,27 @@ def get_completed_orders():
                     else:  # buy
                         benefit = trigger_price - executed_price
                         benefit_percent = (benefit / trigger_price) * 100
+                
+                # Calculate total benefit from initial_price (new feature)
+                total_benefit = 0
+                total_benefit_percent = 0
+                if initial_price > 0 and executed_price > 0:
+                    direction = config.get('direction', 'sell')
+                    if direction == 'sell':
+                        # Selling: benefit if executed higher than initial
+                        total_benefit = executed_price - initial_price
+                        total_benefit_percent = (total_benefit / initial_price) * 100
+                    else:  # buy
+                        # Buying: benefit if executed lower than initial
+                        total_benefit = initial_price - executed_price
+                        total_benefit_percent = (total_benefit / initial_price) * 100
+                
                 completed.append({
                     'id': config_id,
                     'order_id': order_id,
                     'pair': config.get('pair'),
                     'trigger_price': trigger_price,
+                    'initial_price': initial_price,
                     'executed_price': executed_price,
                     'trigger_time': config_state.get('trigger_time'),
                     'close_time': datetime.fromtimestamp(
@@ -449,6 +468,8 @@ def get_completed_orders():
                     'direction': config.get('direction'),
                     'benefit': benefit,
                     'benefit_percent': benefit_percent,
+                    'total_benefit': total_benefit,
+                    'total_benefit_percent': total_benefit_percent,
                     'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
         
