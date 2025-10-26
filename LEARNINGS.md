@@ -1326,7 +1326,42 @@ function formatPrice(value) {
 
 ---
 
+## Dashboard Cancel Button Permission Fix (2025-10-26)
+
+**Problem**: Cancel buttons in dashboard (cancel pending, cancel active, cancel all) returned "permission denied" errors when users tried to cancel orders.
+
+**Root Cause**: Dashboard initialized Kraken API with `readwrite=False` (line 80 of dashboard.py), using read-only credentials. Cancel operations require write permissions to modify/cancel orders on Kraken.
+
+**Solution**: Changed dashboard initialization to use read-write credentials:
+```python
+# BEFORE (wrong - caused permission denied)
+kraken_api = KrakenAPI.from_env(readwrite=False)
+
+# AFTER (correct - allows cancellation)
+kraken_api = KrakenAPI.from_env(readwrite=True)
+```
+
+**Impact**:
+- Cancel All button now works
+- Individual "Cancel" buttons on pending orders now work
+- Individual "Cancel Order" buttons on active orders now work
+- Requires `KRAKEN_API_KEY_RW` and `KRAKEN_API_SECRET_RW` environment variables to be set
+
+**Key Insight**: Dashboard needs write permissions for cancel functionality, even though it only reads data most of the time. The cancel endpoints were already implemented correctly - only the API initialization was wrong.
+
+**Documentation Updated**:
+- README.md: Updated security note about credentials
+- docs/DASHBOARD_README.md: Updated security notes section
+
+**Related Files**:
+- `dashboard.py`: Line 80 (API initialization)
+- `tests/test_dashboard_cancel.py`: All 13 tests pass
+- Issue referenced in problem statement about cancel buttons not working
+
+---
+
 *Add new learnings here as we discover them*
+
 
 ---
 

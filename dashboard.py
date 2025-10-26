@@ -73,11 +73,11 @@ def ttl_cache(seconds=5):
 # Initialize managers
 config_manager = ConfigManager(CONFIG_FILE, STATE_FILE, LOG_FILE)
 
-# Initialize Kraken API (read-only)
+# Initialize Kraken API (read-write for cancel functionality)
 load_env()
 kraken_api = None
 try:
-    kraken_api = KrakenAPI.from_env(readwrite=False)
+    kraken_api = KrakenAPI.from_env(readwrite=True)
 except Exception as e:
     print(f"Warning: Could not initialize Kraken API: {e}")
     print("Dashboard will run in limited mode without live Kraken data.")

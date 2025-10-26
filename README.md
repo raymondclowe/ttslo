@@ -307,7 +307,7 @@ The dashboard exposes REST API endpoints for integration:
 
 ### Security Note
 
-The dashboard runs in read-only mode by default and only requires read-only Kraken API credentials. It's designed for local use and should not be exposed to the internet without additional security measures.
+The dashboard requires read-write Kraken API credentials to enable cancel functionality (cancel pending orders, cancel active orders, cancel all). It's designed for local use and should not be exposed to the internet without additional security measures.
 
 When running with `--host 0.0.0.0`, the dashboard binds to all network interfaces, making it accessible from your local network. To restrict access to your local subnet only, use firewall rules:
 
