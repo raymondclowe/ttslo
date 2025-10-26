@@ -1007,7 +1007,8 @@ class TTSLO:
                 'order_id': '',
                 'last_checked': '',
                 'last_error': '',
-                'error_notified': False
+                'error_notified': False,
+                'initial_price': ''  # Will be populated on first run
             }
         
         # Step 5: Check if config has already been triggered
@@ -1073,7 +1074,22 @@ class TTSLO:
         self.log('DEBUG', f"Current price for {pair}: {current_price}", 
                 config_id=config_id, pair=pair, price=current_price)
         
-        # Step 10: Update last checked time
+        # Step 10: Populate initial_price if it's blank (first run for this config)
+        # This tracks the price when the user first created/enabled the config
+        # Used to calculate the true benefit of the TSL system (initial vs executed price)
+        if not self.state[config_id].get('initial_price'):
+            try:
+                self.state[config_id]['initial_price'] = str(current_price)
+                self.log('INFO', 
+                        f"Set initial price for {config_id}: {current_price}",
+                        config_id=config_id, pair=pair, initial_price=current_price)
+            except Exception as e:
+                # Log error but continue - this doesn't affect order logic
+                self.log('WARNING', 
+                        f"Could not set initial_price: {str(e)}",
+                        config_id=config_id, error=str(e))
+        
+        # Step 11: Update last checked time
         try:
             current_time = datetime.now(timezone.utc).isoformat()
             self.state[config_id]['last_checked'] = current_time
@@ -1083,11 +1099,11 @@ class TTSLO:
                     f"Could not update last_checked time: {str(e)}",
                     config_id=config_id, error=str(e))
         
-        # Step 11: Check if threshold is met
+        # Step 12: Check if threshold is met
         # This returns False if anything is wrong, so it's safe
         threshold_is_met = self.check_threshold(config, current_price)
         
-        # Step 12: Decide whether to create order
+        # Step 13: Decide whether to create order
         if threshold_is_met:
             # Threshold is met - log it
             threshold_price = config.get('threshold_price', 'unknown')
@@ -1110,10 +1126,10 @@ class TTSLO:
                     self.log('WARNING', f'Failed to send trigger notification: {str(e)}',
                             config_id=config_id, error=str(e))
             
-            # Step 13: Attempt to create TSL order
+            # Step 14: Attempt to create TSL order
             order_id = self.create_tsl_order(config, current_price)
             
-            # Step 14: Check if order was created successfully
+            # Step 15: Check if order was created successfully
             if order_id:
                 # SAFETY: In dry-run mode, do not update state
                 # This ensures dry-run doesn't modify state.csv

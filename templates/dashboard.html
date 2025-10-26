@@ -892,6 +892,16 @@
                             benefitHTML = `${benefitSign}$${formatPrice(Math.abs(order.benefit))} (${benefitSign}${order.benefit_percent.toFixed(2)}%)`;
                         }
                         
+                        // Determine total benefit display (initial price vs executed price)
+                        let totalBenefitHTML = 'N/A';
+                        let totalBenefitClass = '';
+                        if (order.total_benefit !== null && order.total_benefit !== undefined && 
+                            order.initial_price !== null && order.initial_price !== undefined && order.initial_price > 0) {
+                            totalBenefitClass = order.total_benefit >= 0 ? 'benefit-positive' : 'benefit-negative';
+                            const totalBenefitSign = order.total_benefit >= 0 ? '+' : '';
+                            totalBenefitHTML = `${totalBenefitSign}$${formatPrice(Math.abs(order.total_benefit))} (${totalBenefitSign}${order.total_benefit_percent.toFixed(2)}%)`;
+                        }
+                        
                         // Build status tags
                         let statusTags = '';
                         if (order.manual) {
@@ -908,6 +918,13 @@
                                     <div class="order-pair">${order.pair || 'N/A'}</div>
                                 </div>
                                 <div class="order-details">
+                                    <div class="detail-row">
+                                        <span class="detail-label">
+                                            Initial Price:
+                                            <span class="help-icon" data-tooltip="Price when config was first created/enabled. Shows the starting point for benefit calculation.">?</span>
+                                        </span>
+                                        <span class="detail-value">${order.initial_price !== null && order.initial_price !== undefined && order.initial_price > 0 ? '$' + formatPrice(order.initial_price) : 'N/A'}</span>
+                                    </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Trigger Price:</span>
                                         <span class="detail-value">${order.trigger_price !== null && order.trigger_price !== undefined ? '$' + formatPrice(order.trigger_price) : 'N/A'}</span>
@@ -934,6 +951,13 @@
                                             <span class="help-icon" data-tooltip="Difference between trigger price and actual fill price. Negative is normal for TSL orders due to trailing offset. See docs/UNDERSTANDING_BENEFIT.md for details.">?</span>
                                         </span>
                                         <span class="detail-value ${benefitClass}">${benefitHTML}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">
+                                            Total Benefit:
+                                            <span class="help-icon" data-tooltip="Difference between initial price (when config created) and executed price. Shows the true benefit of using the TSL system to wait for better prices.">?</span>
+                                        </span>
+                                        <span class="detail-value ${totalBenefitClass}">${totalBenefitHTML}</span>
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Closed:</span>
