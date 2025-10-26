@@ -179,8 +179,8 @@ uv run python dashboard.py --debug
 
 ## Security Notes
 
-- Dashboard runs in **read-only mode** - it never modifies config or state files
-- Only requires **read-only Kraken API credentials**
+- Dashboard requires **read-write Kraken API credentials** for cancel functionality (cancel orders)
+- Cancel operations modify orders on Kraken but never modify local config or state files directly
 - Designed for **local use** (localhost by default)
 - Should not be exposed to the internet without additional security measures (authentication, HTTPS, etc.)
 
