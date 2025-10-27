@@ -751,11 +751,14 @@
                             `;
                         }
 
-                        // Warning icon for insufficient balance or volume too low
+                        // Warning icon for insufficient balance, volume too low, or cost too low
                         let warningMessage = '';
                         let showWarning = false;
                         if (order.volume_too_low) {
                             warningMessage = order.volume_message || 'Volume below minimum';
+                            showWarning = true;
+                        } else if (order.cost_too_low) {
+                            warningMessage = order.cost_message || 'Order cost below minimum purchase threshold';
                             showWarning = true;
                         } else if (order.insufficient_balance) {
                             warningMessage = order.balance_message || 'Insufficient balance';
@@ -766,9 +769,9 @@
                             ? `<span class="warning-icon" data-tooltip="${warningMessage}"><svg viewBox="0 0 16 14"><path d="M8 0L0 14h16L8 0zm0 3l5.5 9h-11L8 3zm-.5 3v3h1V6h-1zm0 4v1h1v-1h-1z"/></svg></span>`
                             : '';
 
-                        // Disable Force button if insufficient balance or volume too low
-                        const forceButtonDisabled = (order.insufficient_balance || order.volume_too_low) ? 'disabled' : '';
-                        const forceButtonClass = (order.insufficient_balance || order.volume_too_low) ? 'btn-small btn-success btn-disabled' : 'btn-small btn-success';
+                        // Disable Force button if insufficient balance, volume too low, or cost too low
+                        const forceButtonDisabled = (order.insufficient_balance || order.volume_too_low || order.cost_too_low) ? 'disabled' : '';
+                        const forceButtonClass = (order.insufficient_balance || order.volume_too_low || order.cost_too_low) ? 'btn-small btn-success btn-disabled' : 'btn-small btn-success';
 
                         return `
                             <div class="order-card">
@@ -838,11 +841,14 @@
                             `;
                         }
                         
-                        // Warning icon for insufficient balance or volume too low
+                        // Warning icon for insufficient balance, volume too low, or cost too low
                         let warningMessage = '';
                         let showWarning = false;
                         if (order.volume_too_low) {
                             warningMessage = order.volume_message || 'Volume below minimum';
+                            showWarning = true;
+                        } else if (order.cost_too_low) {
+                            warningMessage = order.cost_message || 'Order cost below minimum purchase threshold';
                             showWarning = true;
                         } else if (order.insufficient_balance) {
                             warningMessage = order.balance_message || 'Insufficient balance';
@@ -853,9 +859,9 @@
                             ? `<span class="warning-icon" data-tooltip="${warningMessage}"><svg viewBox="0 0 16 14"><path d="M8 0L0 14h16L8 0zm0 3l5.5 9h-11L8 3zm-.5 3v3h1V6h-1zm0 4v1h1v-1h-1z"/></svg></span>`
                             : '';
 
-                        // Disable Force button if insufficient balance or volume too low
-                        const forceButtonDisabled = (order.insufficient_balance || order.volume_too_low) ? 'disabled' : '';
-                        const forceButtonClass = (order.insufficient_balance || order.volume_too_low) ? 'btn-small btn-success btn-disabled' : 'btn-small btn-success';
+                        // Disable Force button if insufficient balance, volume too low, or cost too low
+                        const forceButtonDisabled = (order.insufficient_balance || order.volume_too_low || order.cost_too_low) ? 'disabled' : '';
+                        const forceButtonClass = (order.insufficient_balance || order.volume_too_low || order.cost_too_low) ? 'btn-small btn-success btn-disabled' : 'btn-small btn-success';
                         
                         return `
                             <div class="order-card">
