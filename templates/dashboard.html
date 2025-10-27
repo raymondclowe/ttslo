@@ -1291,8 +1291,46 @@
 
                 if (result.success) {
                     console.log(`[DASHBOARD] Canceled pending order ${configId}`);
+                    
+                    // Immediately update DOM to show canceled state
+                    const pendingContent = document.getElementById('pending-content');
+                    const pendingCount = document.getElementById('pending-count');
+                    
+                    // Find and remove the order card from DOM
+                    const orderCards = pendingContent.querySelectorAll('.order-card');
+                    orderCards.forEach(card => {
+                        const orderIdElement = card.querySelector('.order-id');
+                        if (orderIdElement && orderIdElement.textContent.includes(configId)) {
+                            card.style.opacity = '0.5';
+                            card.style.transition = 'opacity 0.3s';
+                            setTimeout(() => {
+                                card.remove();
+                                // Update count
+                                const remainingCards = pendingContent.querySelectorAll('.order-card').length;
+                                if (pendingCount) {
+                                    pendingCount.textContent = remainingCards;
+                                }
+                                // Show empty state if no cards left
+                                if (remainingCards === 0) {
+                                    pendingContent.innerHTML = `
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">✓</div>
+                                            <div>No pending orders</div>
+                                        </div>
+                                    `;
+                                }
+                            }, 300);
+                        }
+                    });
+                    
+                    // Update currentPendingData to reflect cancellation
+                    if (currentPendingData) {
+                        currentPendingData = currentPendingData.filter(order => order.id !== configId);
+                    }
+                    
                     alert(`Successfully canceled pending order ${configId}`);
-                    // Refresh data to show updated status
+                    
+                    // Refresh data in background to sync with backend
                     await refreshData();
                 } else {
                     alert(`Error canceling order: ${result.error}`);
@@ -1351,8 +1389,46 @@
 
                 if (result.success) {
                     console.log(`[DASHBOARD] Canceled active order ${orderId}`);
+                    
+                    // Immediately update DOM to show canceled state
+                    const activeContent = document.getElementById('active-content');
+                    const activeCount = document.getElementById('active-count');
+                    
+                    // Find and remove the order card from DOM
+                    const orderCards = activeContent.querySelectorAll('.order-card');
+                    orderCards.forEach(card => {
+                        const orderIdElement = card.querySelector('.detail-value');
+                        if (orderIdElement && orderIdElement.textContent.includes(orderId.substring(0, 12))) {
+                            card.style.opacity = '0.5';
+                            card.style.transition = 'opacity 0.3s';
+                            setTimeout(() => {
+                                card.remove();
+                                // Update count
+                                const remainingCards = activeContent.querySelectorAll('.order-card').length;
+                                if (activeCount) {
+                                    activeCount.textContent = remainingCards;
+                                }
+                                // Show empty state if no cards left
+                                if (remainingCards === 0) {
+                                    activeContent.innerHTML = `
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">○</div>
+                                            <div>No active orders</div>
+                                        </div>
+                                    `;
+                                }
+                            }, 300);
+                        }
+                    });
+                    
+                    // Update currentActiveData to reflect cancellation
+                    if (currentActiveData) {
+                        currentActiveData = currentActiveData.filter(order => order.order_id !== orderId);
+                    }
+                    
                     alert(`Successfully canceled active order ${orderId.substring(0, 12)}...`);
-                    // Refresh data to show updated status
+                    
+                    // Refresh data in background to sync with backend
                     await refreshData();
                 } else {
                     alert(`Error canceling order: ${result.error}`);
@@ -1384,16 +1460,48 @@
 
                 const result = await response.json();
 
-                if (result.success) {
+                if (result.success || result.canceled_count > 0) {
                     console.log(`[DASHBOARD] Canceled ${result.canceled_count} orders`);
-                    alert(`Successfully canceled ${result.canceled_count} orders`);
-                } else if (result.canceled_count > 0) {
-                    alert(`Canceled ${result.canceled_count} orders, but ${result.failed_count} failed:\n${result.failed_orders.map(f => f.error).join('\n')}`);
+                    
+                    // Immediately update DOM to clear all active orders
+                    const activeContent = document.getElementById('active-content');
+                    const activeCount = document.getElementById('active-count');
+                    
+                    if (result.canceled_count > 0) {
+                        // Fade out all cards
+                        const orderCards = activeContent.querySelectorAll('.order-card');
+                        orderCards.forEach(card => {
+                            card.style.opacity = '0.5';
+                            card.style.transition = 'opacity 0.3s';
+                        });
+                        
+                        // Remove after animation
+                        setTimeout(() => {
+                            activeContent.innerHTML = `
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">○</div>
+                                    <div>No active orders</div>
+                                </div>
+                            `;
+                            if (activeCount) {
+                                activeCount.textContent = '0';
+                            }
+                        }, 300);
+                        
+                        // Update currentActiveData
+                        currentActiveData = [];
+                    }
+                    
+                    if (result.success) {
+                        alert(`Successfully canceled ${result.canceled_count} orders`);
+                    } else {
+                        alert(`Canceled ${result.canceled_count} orders, but ${result.failed_count} failed:\n${result.failed_orders.map(f => f.error).join('\n')}`);
+                    }
                 } else {
                     alert(`Error: ${result.error || 'Failed to cancel orders'}`);
                 }
 
-                // Refresh data to show updated status
+                // Refresh data in background to sync with backend
                 await refreshData();
             } catch (error) {
                 console.error('[DASHBOARD] Error canceling all orders:', error);
