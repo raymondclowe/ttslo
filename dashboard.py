@@ -1607,8 +1607,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    # Set global debug flag
-    global DEBUG_MODE, kraken_api
+    # Set debug flag and reinitialize API if needed
     DEBUG_MODE = args.debug
     
     # Reinitialize Kraken API with debug flag if needed

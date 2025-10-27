@@ -268,7 +268,6 @@ class ConfigManager:
         """
         start_time = time.time()
         if not os.path.exists(self.config_file):
-            print(f"[PERF] load_config: file not found, elapsed {time.time() - start_time:.3f}s")
             return []
         
         # Check for editor coordination request
@@ -298,7 +297,6 @@ class ConfigManager:
                     continue
                 configs.append(row)
         elapsed = time.time() - start_time
-        print(f"[PERF] load_config: loaded {len(configs)} configs in {elapsed:.3f}s")
         return configs
     
     def load_state(self):
@@ -310,7 +308,6 @@ class ConfigManager:
         """
         start_time = time.time()
         if not os.path.exists(self.state_file):
-            print(f"[PERF] load_state: file not found, elapsed {time.time() - start_time:.3f}s")
             return {}
             
         state = {}
@@ -320,7 +317,6 @@ class ConfigManager:
                 if row.get('id'):
                     state[row['id']] = row
         elapsed = time.time() - start_time
-        print(f"[PERF] load_state: loaded {len(state)} state entries in {elapsed:.3f}s")
         return state
     
     def save_state(self, state):
