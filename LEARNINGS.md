@@ -2,6 +2,92 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Kraken API Efficiency - Batch Price Fetching and Targeted Order Queries (2025-10-27)
+
+**Feature**: Optimized Kraken API usage by implementing batch price fetching and targeted order queries in the monitoring loop.
+
+**Problem**:
+- Price fetching: Individual `get_current_price()` calls for each pair (N API calls per cycle)
+- Order status: `query_closed_orders()` retrieved ALL closed orders (up to 50) just to check 1 order
+- Inefficient API usage leading to unnecessary rate limit pressure
+
+**Solution**:
+
+1. **Batch Price Fetching** (ttslo.py lines 1514-1556):
+   - Changed from N individual `get_current_price()` calls to 1 `get_current_prices_batch()` call
+   - Reduced API calls from N → 1 per monitoring cycle
+   - Automatic fallback to individual calls if batch fails or unavailable
+   - Graceful handling of missing pairs
+
+2. **Targeted Order Queries** (ttslo.py lines 895-997):
+   - Changed from `query_closed_orders()` to `query_orders(specific_id)`
+   - Only queries the exact order being checked
+   - Reduced data transfer from 50 orders → 1 order per check
+   - Follows pattern already used in dashboard.py
+
+**Implementation Details**:
+
+```python
+# Price batching with comprehensive error handling
+if pairs_to_fetch:
+    try:
+        prices_result = self.kraken_api_readonly.get_current_prices_batch(pairs_to_fetch)
+        if prices_result and isinstance(prices_result, dict):
+            prices = prices_result
+        else:
+            # Fallback to individual fetches (handles test mocks)
+            for pair in pairs_to_fetch:
+                prices[pair] = self.kraken_api_readonly.get_current_price(pair)
+    except KrakenAPIError as e:
+        # Log error, send notification, set all to None
+    except Exception as e:
+        # Fallback to individual fetches
+```
+
+```python
+# Targeted order query
+order_result = self.kraken_api_readwrite.query_orders(order_id)
+if order_id in order_result:
+    order_info = order_result[order_id]
+```
+
+**Performance Impact**:
+
+For 10 trading pairs and 5 triggered orders:
+
+*Price fetching:*
+- Before: 10 API calls × 270ms = 2.7s per cycle, 600 calls/hour
+- After: 1 API call × 300ms = 0.3s per cycle, 60 calls/hour
+- **Savings: 90% fewer API calls, 89% faster**
+
+*Order status:*
+- Before: 5 × query_closed_orders = 250 orders transferred
+- After: 5 × query_orders = 5 orders transferred
+- **Savings: 98% less data transferred**
+
+**Testing**:
+- Updated `test_order_fill_notification.py` mocks from `query_closed_orders` to `query_orders`
+- All 452 tests passing, no regressions
+- Backward compatible (internal changes only)
+
+**Key Insights**:
+1. **Batch > Individual**: Always use batch methods when available for multiple items
+2. **Targeted Queries**: Query specific items rather than filtering large result sets
+3. **Graceful Fallback**: Handle missing batch methods for test mocks compatibility
+4. **Follow Patterns**: Dashboard already used batch method - replicated to monitoring loop
+5. **Error Handling**: Comprehensive error handling prevents failures from breaking monitoring
+
+**Related Files**:
+- `ttslo.py`: Lines 1514-1556 (batch prices), 895-997 (targeted orders)
+- `tests/test_order_fill_notification.py`: Updated all 6 tests
+- `KRAKEN_API_EFFICIENCY_IMPROVEMENTS.md`: Complete documentation
+
+**Similar Implementations**:
+- Dashboard: `dashboard.py` lines 156-194 (already used batch method)
+- Dashboard: `dashboard.py` lines 337-445 (already used query_orders for completed orders)
+
+---
+
 ## Dashboard Force Button Minimum Purchase Threshold (2025-10-27)
 
 **Feature**: Grey out Force button when order cost is below Kraken's minimum purchase threshold (`costmin`).

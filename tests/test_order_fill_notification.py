@@ -33,13 +33,12 @@ def test_check_order_filled_when_filled():
         
         # Mock API with read-write access
         mock_api_rw = Mock(spec=KrakenAPI)
-        mock_api_rw.query_closed_orders.return_value = {
-            'closed': {
-                'ORDER123': {
-                    'status': 'closed',
-                    'price': '51000.00',
-                    'descr': {'pair': 'XXBTZUSD'}
-                }
+        # Updated to use query_orders instead of query_closed_orders
+        mock_api_rw.query_orders.return_value = {
+            'ORDER123': {
+                'status': 'closed',
+                'price': '51000.00',
+                'descr': {'pair': 'XXBTZUSD'}
             }
         }
         
@@ -57,7 +56,7 @@ def test_check_order_filled_when_filled():
         
         assert is_filled == True, "Order should be marked as filled"
         assert fill_price == 51000.00, f"Fill price should be 51000.00, got {fill_price}"
-        assert mock_api_rw.query_closed_orders.called, "Should call query_closed_orders"
+        assert mock_api_rw.query_orders.called, "Should call query_orders"
         
         print("✓ Check order filled test passed")
 
@@ -79,9 +78,8 @@ def test_check_order_filled_when_not_filled():
         
         # Mock API - order not in closed orders
         mock_api_rw = Mock(spec=KrakenAPI)
-        mock_api_rw.query_closed_orders.return_value = {
-            'closed': {}
-        }
+        # Updated to use query_orders instead of query_closed_orders
+        mock_api_rw.query_orders.return_value = {}
         
         # Create TTSLO instance
         ttslo = TTSLO(
@@ -137,7 +135,7 @@ def test_check_order_filled_dry_run():
         assert fill_price is None, "Dry-run order should have no fill price"
         assert api_pair is None, "Dry-run order should have no API pair"
         assert filled_volume is None, "Dry-run order should have no filled volume"
-        assert not mock_api_rw.query_closed_orders.called, "Should not query API for dry-run orders"
+        assert not mock_api_rw.query_orders.called, "Should not query API for dry-run orders"
         
         print("✓ Dry-run order check test passed")
 
@@ -159,13 +157,12 @@ def test_check_triggered_orders_sends_notification():
         
         # Mock API
         mock_api_rw = Mock(spec=KrakenAPI)
-        mock_api_rw.query_closed_orders.return_value = {
-            'closed': {
-                'ORDER123': {
-                    'status': 'closed',
-                    'price': '51000.00',
-                    'descr': {'pair': 'XXBTZUSD'}
-                }
+        # Updated to use query_orders instead of query_closed_orders
+        mock_api_rw.query_orders.return_value = {
+            'ORDER123': {
+                'status': 'closed',
+                'price': '51000.00',
+                'descr': {'pair': 'XXBTZUSD'}
             }
         }
         
@@ -229,12 +226,11 @@ def test_check_triggered_orders_no_duplicate_notification():
         
         # Mock API
         mock_api_rw = Mock(spec=KrakenAPI)
-        mock_api_rw.query_closed_orders.return_value = {
-            'closed': {
-                'ORDER123': {
-                    'status': 'closed',
-                    'price': '51000.00'
-                }
+        # Updated to use query_orders instead of query_closed_orders
+        mock_api_rw.query_orders.return_value = {
+            'ORDER123': {
+                'status': 'closed',
+                'price': '51000.00'
             }
         }
         
@@ -312,7 +308,7 @@ def test_check_triggered_orders_skips_dry_run():
         ttslo.check_triggered_orders()
         
         # Verify API was not called in dry-run mode
-        assert not mock_api_rw.query_closed_orders.called, "Should not query orders in dry-run mode"
+        assert not mock_api_rw.query_orders.called, "Should not query orders in dry-run mode"
         
         print("✓ Dry-run mode skips order monitoring test passed")
 
