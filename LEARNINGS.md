@@ -2,6 +2,40 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Cancel Button Cache Invalidation (2025-10-27)
+
+**Problem**: When users clicked cancel button in pending/active panes, the cancel succeeded but screen didn't update - canceled items remained visible.
+
+**Root Cause**: TTL cache not invalidated after cancel operations. Frontend's `refreshData()` call fetched stale cached data.
+
+**Solution**: Added `invalidate()` method to ttl_cache decorator:
+```python
+def invalidate():
+    cache['result'] = None
+    cache['timestamp'] = 0
+    if disk_key:
+        disk_cache.delete(disk_key)
+```
+
+Call after successful cancels:
+- Pending cancel → invalidate `get_pending_orders` + `get_cached_config`
+- Active cancel → invalidate `get_active_orders`
+- Cancel-all → invalidate `get_active_orders`
+
+**Key Insights**:
+1. **Cache Invalidation Critical**: Modify operations MUST invalidate relevant caches
+2. **Dual Update Strategy**: Frontend manual DOM update (immediate) + backend refresh (consistency)
+3. **Decorator Enhancement**: Add methods to decorators for control (like `invalidate()`)
+4. **Test Cache Behavior**: Verify caches are cleared, not just that operations succeed
+5. **Invalidate Dependencies**: Pending cancel modifies config.csv → invalidate both pending AND config caches
+
+**Related Files**:
+- `dashboard.py`: Lines 52-60 (invalidate method), 1023-1028 (pending), 1277-1280 (active), 1334-1337 (cancel-all)
+- `tests/test_dashboard_cancel_cache_invalidation.py`: 5 tests
+- `DASHBOARD_CANCEL_FIX.md`: Full documentation
+
+---
+
 ## Dashboard Pending Panel Wording Improvement (2025-10-27)
 
 **Feature**: Improved clarity of Direction and Volume labels in pending orders panel.
