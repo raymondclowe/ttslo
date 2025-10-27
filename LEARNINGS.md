@@ -2,6 +2,66 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Disk Cache for Performance (2025-10-26)
+
+**Problem**: Dashboard slow to load (minutes lag), particularly completed orders pane. In-memory cache lost on restart.
+
+**Solution**: Implemented hybrid memory + disk cache system:
+- Memory cache (fastest, TTL-based)
+- Disk cache (persistent across restarts, JSON files in `.cache/`)
+- Automatic fallback: memory → disk → API call
+- Cache warming on startup from disk
+
+**Implementation**:
+- Created `disk_cache.py` module with `DiskCache` class
+- Modified `ttl_cache` decorator to support optional `disk_key` parameter
+- Updated all dashboard cache functions to use disk persistence
+- Added `/api/cache-stats` endpoint for monitoring
+
+**Key Features**:
+- Configurable cache directory via `TTSLO_CACHE_DIR` env var (default: `.cache`)
+- TTL-based expiration (aligns with `DASHBOARD_REFRESH_INTERVAL`)
+- Automatic cleanup of expired entries
+- Cache statistics (entry count, size)
+- JSON serialization for complex data structures
+
+**Performance Benefits**:
+- First load after restart: Uses disk cache (instant vs minutes)
+- Subsequent loads: Uses memory cache (microseconds)
+- Reduced Kraken API calls (rate limit friendly)
+- Persistent cache survives service restarts
+
+**Cache Keys**:
+- `open_orders` - Open orders from Kraken
+- `closed_orders` - Closed orders from Kraken
+- `config` - Config CSV data
+- `state` - State CSV data
+- `current_prices` - Current prices for all pairs
+- `pending_orders` - Calculated pending orders
+- `active_orders` - Calculated active orders
+- `completed_orders` - Calculated completed orders
+- `balances_and_risks` - Balance and risk analysis
+
+**Testing**:
+- 10 tests for `DiskCache` class (basic operations, TTL, persistence)
+- 4 tests for dashboard integration
+- All 398 tests passing
+
+**Related Files**:
+- `disk_cache.py`: Core disk cache module
+- `dashboard.py`: Lines 20-35 (imports, init), 38-77 (hybrid cache decorator), 91-125 (cache functions)
+- `tests/test_disk_cache.py`: DiskCache unit tests
+- `tests/test_dashboard_disk_cache.py`: Dashboard integration tests
+
+**Key Insights**:
+1. Hybrid caching (memory + disk) provides best of both worlds
+2. Disk cache must handle JSON serialization gracefully
+3. TTL should align with data freshness requirements
+4. Cache statistics help monitor performance
+5. Reuse existing patterns (e.g., kraken_pairs_util.py disk cache)
+
+---
+
 ## Coin Stats Configurable Bracket Parameters (2025-10-26)
 
 **Feature**: Added `--suggestbracket` and `--suggestoffset` parameters to `tools/coin_stats.py` for generating config suggestions with custom bracket and trailing offset values.
