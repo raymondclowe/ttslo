@@ -227,3 +227,4 @@ notifications.ini
 suggested_config.csv
 deliverables_48h/suggested_config.csv
 
+tools/graphs/*.png
