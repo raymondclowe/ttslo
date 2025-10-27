@@ -751,8 +751,53 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
     return html_path
 
 
+def calculate_volume_for_pair(api, pair, current_price, target_usd_volume=1.0):
+    """
+    Calculate appropriate volume for a trading pair.
+    
+    Uses either:
+    1. Target USD volume converted to coin units (volume = target_usd / price)
+    2. Kraken's minimum order volume (ordermin from AssetPairs API)
+    
+    Returns the maximum of the two to ensure Kraken requirements are met.
+    
+    Args:
+        api: KrakenAPI instance
+        pair: Trading pair (e.g., 'XXBTZUSD')
+        current_price: Current price of the asset
+        target_usd_volume: Target volume in USD (default: 1.0)
+    
+    Returns:
+        Calculated volume in coin units
+    """
+    import random
+    
+    # Calculate volume based on target USD value
+    # Add +/- 25% variance for diversity
+    variance = random.uniform(-0.25, 0.25)
+    adjusted_target = target_usd_volume * (1 + variance)
+    calculated_volume = adjusted_target / current_price
+    
+    # Get minimum order volume from Kraken API
+    try:
+        pair_info = api.get_asset_pair_info(pair)
+        if pair_info and 'ordermin' in pair_info:
+            ordermin = float(pair_info['ordermin'])
+            # Use the maximum of calculated volume and minimum required
+            volume = max(calculated_volume, ordermin)
+        else:
+            # If we can't get ordermin, use calculated volume
+            volume = calculated_volume
+    except Exception as e:
+        print(f"  Warning: Could not fetch ordermin for {pair}: {e}")
+        volume = calculated_volume
+    
+    return volume
+
+
 def generate_config_suggestions(results, analyzer, output_file='suggested_config.csv', 
-                               bracket_offset_pct=2.0, trailing_offset_pct=1.0):
+                               bracket_offset_pct=2.0, trailing_offset_pct=1.0,
+                               target_usd_volume=1.0):
     """
     Generate suggested config.csv entries using bracket strategy.
     
@@ -767,12 +812,19 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     - For n entries: per_entry_prob = 1 - (0.05)^(1/n)
     - Validates each pair can achieve this probability based on 24h volatility
     
+    VOLUME CALCULATION:
+    - Converts target USD volume to coin units (volume = USD / price)
+    - Adds +/- 25% variance for diversity
+    - Ensures Kraken minimum order volume (ordermin) is met
+    - Uses max(calculated, ordermin) for final volume
+    
     Args:
         results: List of analysis results
         analyzer: CoinStatsAnalyzer instance
         output_file: Path to suggested config CSV file
         bracket_offset_pct: Percentage offset for brackets (default: 2.0)
         trailing_offset_pct: Trailing offset percentage (default: 1.0)
+        target_usd_volume: Target volume in USD (default: 1.0)
     """
     if not results:
         return None
@@ -803,6 +855,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     print(f"Portfolio probability (at least one triggers): 95.0%")
     print(f"Bracket offset: ±{bracket_offset_pct:.1f}% from current price")
     print(f"Trailing offset: {trailing_offset_pct:.1f}%")
+    print(f"Target USD volume: ${target_usd_volume:.2f} +/- 25%")
     print(f"{'='*70}\n")
     
     with open(output_file, 'w', newline='') as csvfile:
@@ -853,13 +906,16 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             else:
                 price_format = '.8f'
             
-            # Suggest a small volume for testing
-            if current_price > 10000:  # BTC-like prices
-                volume = 0.001
-            elif current_price > 1000:  # ETH-like prices
-                volume = 0.01
+            # Calculate volume based on target USD value and Kraken minimums
+            volume = calculate_volume_for_pair(analyzer.api, pair, current_price, target_usd_volume)
+            
+            # Determine volume decimal places based on volume magnitude
+            if volume >= 1:
+                volume_format = '.4f'
+            elif volume >= 0.01:
+                volume_format = '.6f'
             else:
-                volume = 0.1
+                volume_format = '.8f'
             
             # Create SELL bracket entry (price goes above +2%)
             entry_count += 1
@@ -870,7 +926,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                 'threshold_price': f"{upper_bracket:{price_format}}",
                 'threshold_type': 'above',
                 'direction': 'sell',
-                'volume': f"{volume:.4f}",
+                'volume': f"{volume:{volume_format}}",
                 'trailing_offset_percent': f"{trailing_offset_pct:.2f}",
                 'enabled': 'true'
             })
@@ -883,7 +939,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                 'threshold_price': f"{lower_bracket:{price_format}}",
                 'threshold_type': 'below',
                 'direction': 'buy',
-                'volume': f"{volume:.4f}",
+                'volume': f"{volume:{volume_format}}",
                 'trailing_offset_percent': f"{trailing_offset_pct:.2f}",
                 'enabled': 'true'
             })
@@ -971,6 +1027,12 @@ def main():
         default=1.0,
         help='Trailing offset percentage for suggestions (default: 1.0)'
     )
+    parser.add_argument(
+        '--target-usd-volume',
+        type=float,
+        default=1.0,
+        help='Target volume in USD for suggested config (default: 1.0). Adds +/- 25%% variance and ensures Kraken minimums are met.'
+    )
     
     args = parser.parse_args()
     
@@ -1039,7 +1101,8 @@ def main():
     # Generate suggested config.csv entries with bracket strategy
     config_path = generate_config_suggestions(results, analyzer, args.config_output,
                                               bracket_offset_pct=args.suggestbracket,
-                                              trailing_offset_pct=args.suggestoffset)
+                                              trailing_offset_pct=args.suggestoffset,
+                                              target_usd_volume=args.target_usd_volume)
     if config_path:
         print(f"\n{'='*70}")
         print(f"SUGGESTED CONFIG WITH BRACKET STRATEGY")
@@ -1051,6 +1114,8 @@ def main():
         print(f"\nBracket Strategy Details:")
         print(f"  - Each pair gets TWO entries: buy bracket (-{args.suggestbracket}%) and sell bracket (+{args.suggestbracket}%)")
         print(f"  - Trailing offset: {args.suggestoffset}%")
+        print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
+        print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
         print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
         print(f"  - Uses Student's t-distribution to account for fat tails")
         print(f"  - Random walk model: 24h volatility = minute volatility × sqrt(1440)")

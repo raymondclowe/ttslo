@@ -42,8 +42,9 @@ def create_mock_candles(num_candles=100, base_price=100.0, volatility=1.0):
 class MockKrakenAPI:
     """Mock Kraken API for testing."""
     
-    def __init__(self, candles=None):
+    def __init__(self, candles=None, pair_info=None):
         self.candles = candles or create_mock_candles()
+        self.pair_info = pair_info or {}
     
     def get_ohlc(self, pair, interval=1):
         """Mock get_ohlc method."""
@@ -51,6 +52,10 @@ class MockKrakenAPI:
             pair: self.candles,
             'last': self.candles[-1][0] if self.candles else 0
         }
+    
+    def get_asset_pair_info(self, pair):
+        """Mock get_asset_pair_info method."""
+        return self.pair_info.get(pair, {'ordermin': '0.001'})
 
 
 def test_format_pair_name():
@@ -402,6 +407,158 @@ def test_generate_config_suggestions_custom_params():
             assert 9.5 < buy_offset < 10.5  # Allow small tolerance
 
 
+def test_calculate_volume_for_pair():
+    """Test volume calculation with USD target and ordermin."""
+    from tools.coin_stats import calculate_volume_for_pair
+    
+    # Test case 1: BTC-like price, $1 target should be very small volume
+    api = MockKrakenAPI(pair_info={'XXBTZUSD': {'ordermin': '0.0001'}})
+    volume = calculate_volume_for_pair(api, 'XXBTZUSD', 100000.0, target_usd_volume=1.0)
+    
+    # Volume should be roughly $1 / $100k = 0.00001, but with variance
+    # Since ordermin is 0.0001, should be max(calculated, 0.0001)
+    # Calculated: ~0.00001 +/- 25% = 0.0000075 to 0.0000125
+    # So should use ordermin = 0.0001
+    assert volume >= 0.0001
+    assert volume <= 0.01  # Reasonable upper bound
+    
+    # Test case 2: Low price coin, ordermin should dominate
+    api = MockKrakenAPI(pair_info={'PEPEUSD': {'ordermin': '1000'}})
+    volume = calculate_volume_for_pair(api, 'PEPEUSD', 0.0001, target_usd_volume=1.0)
+    
+    # $1 / $0.0001 = 10000 coins, but with variance could be 7500-12500
+    # ordermin is 1000, so should use max(calculated, 1000)
+    assert volume >= 1000  # At minimum, ordermin
+    assert volume <= 15000  # Upper bound with variance
+    
+    # Test case 3: Mid-price coin, calculated should be used
+    api = MockKrakenAPI(pair_info={'SOLUSD': {'ordermin': '0.01'}})
+    volume = calculate_volume_for_pair(api, 'SOLUSD', 200.0, target_usd_volume=1.0)
+    
+    # $1 / $200 = 0.005, with +/- 25% = 0.00375 to 0.00625
+    # ordermin is 0.01, so should use max(calculated, 0.01) = 0.01
+    assert volume >= 0.01  # ordermin
+    assert volume <= 0.02  # Reasonable upper bound
+
+
+def test_calculate_volume_for_pair_no_ordermin():
+    """Test volume calculation when ordermin is not available."""
+    from tools.coin_stats import calculate_volume_for_pair
+    
+    # API that fails to return ordermin
+    api = MockKrakenAPI(pair_info={'UNKNOWNPAIR': {}})
+    volume = calculate_volume_for_pair(api, 'UNKNOWNPAIR', 100.0, target_usd_volume=1.0)
+    
+    # Should use calculated volume: $1 / $100 = 0.01, with +/- 25%
+    assert 0.005 <= volume <= 0.02  # 0.01 +/- 25% with some tolerance
+
+
+def test_generate_config_suggestions_with_target_usd_volume():
+    """Test generate_config_suggestions with custom target USD volume."""
+    from tools.coin_stats import generate_config_suggestions
+    import csv
+    
+    # Create mock results with high volatility
+    candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=30.0)
+    pair_info = {'XXBTZUSD': {'ordermin': '0.001'}}
+    api = MockKrakenAPI(candles, pair_info)
+    analyzer = CoinStatsAnalyzer(api)
+    
+    analysis = analyzer.analyze_pair('XXBTZUSD')
+    results = [analysis] if analysis else []
+    
+    if not results:
+        return  # Skip if no results
+    
+    # Generate suggestions with $5 target volume
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_file = os.path.join(tmpdir, 'test_config.csv')
+        config_path = generate_config_suggestions(
+            results, analyzer, output_file,
+            target_usd_volume=5.0
+        )
+        
+        assert config_path is not None
+        assert os.path.exists(config_path)
+        
+        # Read and verify CSV
+        with open(config_path, 'r') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            
+            if len(rows) == 0:
+                return  # Skip if pair excluded
+            
+            # Check volume is reasonable
+            mean_price = analyzer.calculate_statistics(candles)['mean']
+            for row in rows:
+                volume = float(row['volume'])
+                # $5 / mean_price with +/- 25% variance, or ordermin (0.001)
+                expected_volume = 5.0 / mean_price
+                # Volume should be at least ordermin
+                assert volume >= 0.001
+                # Volume should be within reasonable range of expected
+                # (allowing for variance and ordermin)
+                assert volume <= expected_volume * 2.0
+
+
+def test_generate_config_suggestions_custom_params():
+    """Test generate_config_suggestions with custom parameters."""
+    from tools.coin_stats import generate_config_suggestions
+    import csv
+    
+    # Create mock results with very high volatility
+    candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=30.0)
+    api = MockKrakenAPI(candles)
+    analyzer = CoinStatsAnalyzer(api)
+    
+    analysis = analyzer.analyze_pair('XXBTZUSD')
+    results = [analysis] if analysis else []
+    
+    if not results:
+        return  # Skip if no results
+    
+    # Generate suggestions with custom params
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_file = os.path.join(tmpdir, 'test_config.csv')
+        config_path = generate_config_suggestions(
+            results, analyzer, output_file,
+            bracket_offset_pct=10.0,
+            trailing_offset_pct=5.0
+        )
+        
+        assert config_path is not None
+        assert os.path.exists(config_path)
+        
+        # Read and verify CSV
+        with open(config_path, 'r') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            
+            # Should have entries if volatility sufficient
+            if len(rows) == 0:
+                return  # Skip if pair excluded due to insufficient volatility
+            
+            assert len(rows) >= 2
+            
+            # Check trailing offset is custom value
+            for row in rows:
+                assert float(row['trailing_offset_percent']) == 5.0
+            
+            # Check bracket offset by comparing prices
+            mean_price = analyzer.calculate_statistics(candles)['mean']
+            sell_price = float(rows[0]['threshold_price'])
+            buy_price = float(rows[1]['threshold_price'])
+            
+            # Sell should be ~10% above mean
+            sell_offset = ((sell_price - mean_price) / mean_price) * 100
+            assert 9.5 < sell_offset < 10.5  # Allow small tolerance
+            
+            # Buy should be ~10% below mean
+            buy_offset = ((mean_price - buy_price) / mean_price) * 100
+            assert 9.5 < buy_offset < 10.5  # Allow small tolerance
+
+
 if __name__ == '__main__':
     # Run tests
     print("Running coin_stats tests...")
@@ -441,6 +598,15 @@ if __name__ == '__main__':
     
     test_generate_config_suggestions_default_params()
     print("✓ test_generate_config_suggestions_default_params")
+    
+    test_calculate_volume_for_pair()
+    print("✓ test_calculate_volume_for_pair")
+    
+    test_calculate_volume_for_pair_no_ordermin()
+    print("✓ test_calculate_volume_for_pair_no_ordermin")
+    
+    test_generate_config_suggestions_with_target_usd_volume()
+    print("✓ test_generate_config_suggestions_with_target_usd_volume")
     
     test_generate_config_suggestions_custom_params()
     print("✓ test_generate_config_suggestions_custom_params")
