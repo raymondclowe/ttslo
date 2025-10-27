@@ -136,7 +136,6 @@
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
         }
 
         .pane-header {
@@ -852,9 +851,11 @@
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const orders = await response.json();
+                console.log(`[DEBUG] Parsed ${orders.length} completed orders from API response`);
 
                 // Only update if data has changed
                 if (!dataHasChanged(currentCompletedData, orders)) {
+                    console.log(`[DEBUG] Completed orders data unchanged, skipping render`);
                     return;
                 }
                 
@@ -880,9 +881,17 @@
                 }
                 
                 currentCompletedData = orders;
+                console.log(`[DEBUG] Starting to render ${orders.length} completed orders`);
 
                 if (content) {
-                    content.innerHTML = orders.map(order => {
+                    const renderStart = performance.now();
+                    
+                    content.innerHTML = orders.map((order, index) => {
+                        // Log progress every 50 orders
+                        if (index > 0 && index % 50 === 0) {
+                            console.log(`[DEBUG] Rendered ${index}/${orders.length} completed orders so far`);
+                        }
+                        
                         // Determine benefit display; may be null for manual orders
                         let benefitHTML = 'N/A';
                         let benefitClass = '';
@@ -967,6 +976,9 @@
                             </div>
                         `;
                     }).join('');
+                    
+                    const renderEnd = performance.now();
+                    console.log(`[DEBUG] Completed rendering ${orders.length} orders in ${(renderEnd-renderStart).toFixed(2)} ms`);
                 }
             } catch (error) {
                 console.warn(`[DASHBOARD] Error loading completed orders:`, error);
