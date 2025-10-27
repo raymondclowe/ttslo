@@ -628,40 +628,44 @@ class TTSLO:
                     config_id=config_id, trigger_price=trigger_price, 
                     pair=pair, direction=direction, volume=volume)
             print(f"ERROR: Cannot create order for {config_id}: {balance_msg}")
-            # Notify user about insufficient balance (do this even if state entry not present)
-            if self.notification_manager:
-                try:
-                    # Prefer a dedicated insufficient-balance notification hook
-                    if hasattr(self.notification_manager, 'notify_insufficient_balance'):
-                        self.notification_manager.notify_insufficient_balance(
-                            config_id=config_id,
-                            pair=pair,
-                            direction=direction,
-                            volume=str(volume),
-                            available=available if available is not None else None,
-                            trigger_price=trigger_price_float
-                        )
-                    else:
-                        # Fallback to generic order failed notification
-                        self.notification_manager.notify_order_failed(
-                            config_id=config_id,
-                            pair=pair,
-                            direction=direction,
-                            volume=volume,
-                            error=balance_msg,
-                            trigger_price=trigger_price_float
-                        )
-                except Exception:
-                    pass
-            # Update state-based error handling only if state exists for this config
+            
+            # Send notification about insufficient balance
+            # If state exists, use _handle_order_error_state to prevent repeated notifications
+            # Otherwise, send notification directly (for cases where create_tsl_order is called standalone)
             if config_id in self.state:
+                # Use state-based handling (checks error_notified flag to prevent spam)
                 self._handle_order_error_state(config_id, balance_msg, notify_type='insufficient_balance', notify_args={
+                    'config_id': config_id,
                     'pair': pair,
                     'direction': direction,
                     'volume': volume,
                     'available': available,  # Pass Decimal directly for proper formatting
                     'trigger_price': trigger_price_float
                 })
+            else:
+                # No state entry - send notification directly (won't prevent repeated sends)
+                if self.notification_manager:
+                    try:
+                        if hasattr(self.notification_manager, 'notify_insufficient_balance'):
+                            self.notification_manager.notify_insufficient_balance(
+                                config_id=config_id,
+                                pair=pair,
+                                direction=direction,
+                                volume=str(volume),
+                                available=available,
+                                trigger_price=trigger_price_float
+                            )
+                        else:
+                            self.notification_manager.notify_order_failed(
+                                config_id=config_id,
+                                pair=pair,
+                                direction=direction,
+                                volume=volume,
+                                error=balance_msg,
+                                trigger_price=trigger_price_float
+                            )
+                    except Exception:
+                        pass
             return None
         else:
             # Log that balance check passed
@@ -1129,6 +1133,7 @@ class TTSLO:
                 'last_checked': '',
                 'last_error': '',
                 'error_notified': False,
+                'trigger_notified': False,  # Track if we've sent "trigger price reached" notification
                 'initial_price': ''  # Will be populated on first run
             }
         
@@ -1139,10 +1144,12 @@ class TTSLO:
             self.log('DEBUG', f"Config {config_id} already triggered, skipping")
             # Do not process already triggered configs - this prevents duplicate orders
             return
-        # Reset error state if config is re-enabled or changed
-        if self.state[config_id].get('last_error') and enabled_normalized == 'true':
-            self.state[config_id]['last_error'] = ''
-            self.state[config_id]['error_notified'] = False
+        
+        # Note: To retry after fixing an error (e.g., adding balance), user should:
+        # 1. Disable the config (set enabled=false)  
+        # 2. Fix the issue (add balance, adjust volume, etc.)
+        # 3. Re-enable the config (set enabled=true)
+        # This will create a fresh state entry when processed, clearing all error flags.
         
         # Step 6: Get the trading pair
         pair = config.get('pair')
@@ -1235,14 +1242,17 @@ class TTSLO:
                     f"threshold={threshold_price} ({threshold_type})",
                     config_id=config_id, pair=pair, price=current_price)
             
-            # Send notification about trigger price reached
-            if self.notification_manager:
+            # Send notification about trigger price reached (only once)
+            # Check if we've already notified about this trigger to prevent spam
+            if self.notification_manager and not self.state[config_id].get('trigger_notified'):
                 try:
                     threshold_price_float = float(threshold_price) if threshold_price != 'unknown' else 0
                     self.notification_manager.notify_trigger_price_reached(
                         config_id, pair, float(current_price), 
                         threshold_price_float, str(threshold_type)
                     )
+                    # Mark that we've sent the trigger notification
+                    self.state[config_id]['trigger_notified'] = True
                 except Exception as e:
                     self.log('WARNING', f'Failed to send trigger notification: {str(e)}',
                             config_id=config_id, error=str(e))

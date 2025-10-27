@@ -2293,7 +2293,99 @@ The application will automatically pick these up for read-only operations withou
 
 ---
 
-## Copilot Credential Discovery Fix (2025-10-24)
+## Repeated Notification Prevention (2025-10-27)
+
+**Feature**: Added `trigger_notified` flag to prevent repeated notifications when trigger price reached but order creation impossible.
+
+**Problem**: GitHub Issue - "Repeated errors when trigger price reached but no balance"
+- System sent "🎯 Trigger price reached!" notification EVERY monitoring cycle
+- System sent "⚠️ Cannot create order - Insufficient balance!" notification EVERY cycle
+- No order created → state NOT updated → notifications repeated forever
+- User spammed with identical messages every 60 seconds
+
+**Root Cause**:
+1. `process_config()` at line 1238: Sends "trigger price reached" when threshold met
+2. `create_tsl_order()` at line 625: Balance check fails, sends "insufficient balance", returns None
+3. `process_config()` at line 1254: If order_id is None, does NOT mark config as triggered
+4. Next cycle: threshold still met → repeat from step 1
+
+**Solution**: Track notification state to prevent spam
+
+**Implementation**:
+
+1. **State Field** (`config.py`):
+   ```python
+   fieldnames = [..., 'trigger_notified']  # Track trigger notification sent
+   ```
+
+2. **Initialize Flag** (`ttslo.py` line 1108):
+   ```python
+   self.state[config_id] = {
+       ...
+       'trigger_notified': False,  # Track if we've sent "trigger price reached"
+   }
+   ```
+
+3. **Check Before Sending** (`ttslo.py` line 1241):
+   ```python
+   if self.notification_manager and not self.state[config_id].get('trigger_notified'):
+       self.notification_manager.notify_trigger_price_reached(...)
+       self.state[config_id]['trigger_notified'] = True
+   ```
+
+4. **Balance Check Notification** (`ttslo.py` line 632):
+   - Uses `_handle_order_error_state` when state exists
+   - Checks `error_notified` flag to prevent repeated error notifications
+   - Falls back to direct notification for standalone calls
+
+**Behavior**:
+
+```
+Cycle 1 (Balance Insufficient):
+  ✓ Threshold met
+  ✓ Send "trigger price reached" notification
+  ✓ Set trigger_notified=True
+  ✓ Balance check fails
+  ✓ Send "insufficient balance" notification (via _handle_order_error_state)
+  ✓ Set error_notified=True
+  ✗ No order created
+
+Cycle 2+:
+  ✓ Threshold still met
+  ✗ Skip "trigger price reached" (trigger_notified=True)
+  ✓ Balance check still fails
+  ✗ Skip "insufficient balance" (error_notified=True)
+  ✗ No order created
+  → No spam!
+```
+
+**Retry Workflow**:
+- User must disable/re-enable config to reset flags
+- Or delete state entry for fresh start
+- Flags persist while issue unfixed (prevents spam)
+
+**Key Features**:
+1. **Single Notification**: Each error type sent only once
+2. **Persistent State**: Flags saved in state.csv across restarts
+3. **User Control**: Disable/re-enable to retry after fixing issue
+4. **Backward Compatible**: Existing configs work without changes
+
+**Testing**:
+- 4 new tests covering all scenarios
+- 1 updated test reflecting new behavior
+- All 449 tests passing
+
+**Related Files**:
+- `config.py`: Lines 345, 425 (fieldnames)
+- `ttslo.py`: Lines 1108, 1120-1127, 1241-1250 (implementation)
+- `tests/test_repeated_notification_fix.py`: Complete test suite
+- `tests/test_minimum_volume_validation.py`: Updated test
+
+**Similar Pattern**: Reuses `error_notified` pattern from minimum volume validation feature
+
+---
+
+
 
 **Problem**: Balance checks were failing with "Available Balance: unknown" for pairs like DYDXUSD because:
 1. GitHub Copilot agent sets credentials as `COPILOT_KRAKEN_API_KEY` (uppercase prefix)
