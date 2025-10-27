@@ -1343,7 +1343,7 @@
 
         // Force a pending order to trigger immediately
         async function forcePendingOrder(configId) {
-            if (!confirm(`Force order ${configId} to trigger?\n\nThis will set the threshold price to the current market price, causing the order to be created on the next monitoring check.\n\nNote: The order may fail if you have insufficient balance.`)) {
+            if (!confirm(`Force order ${configId} to trigger IMMEDIATELY?\n\nThis will:\n1. Set the threshold price to the current market price\n2. Immediately create a live TSL order on Kraken\n3. Update state to mark as triggered\n\nNote: The order may fail if you have insufficient balance.`)) {
                 return;
             }
 
@@ -1358,8 +1358,8 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    console.log(`[DASHBOARD] Forced pending order ${configId}`);
-                    alert(`Successfully forced order ${configId}!\n\nPair: ${result.pair}\nNew Threshold: $${formatPrice(result.new_threshold_price)}\n\n${result.message}`);
+                    console.log(`[DASHBOARD] Forced pending order ${configId}, order_id=${result.order_id}`);
+                    alert(`Successfully forced order ${configId}!\n\nPair: ${result.pair}\nTrigger Price: $${formatPrice(result.trigger_price)}\nOrder ID: ${result.order_id}\n\n${result.message}`);
                     // Refresh data to show updated status
                     await refreshData();
                 } else {

@@ -1019,10 +1019,13 @@ def api_cancel_pending(config_id):
 @app.route('/api/pending/<config_id>/force', methods=['POST'])
 def api_force_pending(config_id):
     """
-    Force a pending order to trigger by setting threshold_price = current_price.
+    Force a pending order to trigger immediately by creating a TSL order on Kraken.
     
-    This will cause the order to be created on the next monitoring check,
-    even if it doesn't make logical sense (e.g., trigger immediately).
+    This will:
+    1. Set threshold_price = current_price in config.csv
+    2. Immediately create the TSL order on Kraken
+    3. Update state.csv with trigger info
+    4. Return order ID and details
     
     Args:
         config_id: The ID of the config to force
@@ -1041,11 +1044,34 @@ def api_force_pending(config_id):
                 'error': f'Config ID not found: {config_id}'
             }), 404
         
+        # Validate config has all required fields
         pair = config.get('pair')
+        direction = config.get('direction')
+        volume = config.get('volume')
+        trailing_offset_percent = config.get('trailing_offset_percent')
+        
         if not pair:
             return jsonify({
                 'success': False,
                 'error': 'Config has no trading pair'
+            }), 400
+        
+        if not direction:
+            return jsonify({
+                'success': False,
+                'error': 'Config has no direction (buy/sell)'
+            }), 400
+            
+        if not volume:
+            return jsonify({
+                'success': False,
+                'error': 'Config has no volume'
+            }), 400
+            
+        if not trailing_offset_percent:
+            return jsonify({
+                'success': False,
+                'error': 'Config has no trailing_offset_percent'
             }), 400
         
         # Get current price for the pair
@@ -1061,7 +1087,7 @@ def api_force_pending(config_id):
             print(f"[DASHBOARD] Error getting current price for {pair}: {e}")
             return jsonify({
                 'success': False,
-                'error': 'Could not get current price from Kraken API'
+                'error': f'Could not get current price from Kraken API: {str(e)}'
             }), 500
         
         if current_price is None:
@@ -1073,14 +1099,128 @@ def api_force_pending(config_id):
         # Update the threshold_price to current_price
         config_manager.update_config_threshold_price(config_id, current_price)
         
-        print(f"[DASHBOARD] Forced order {config_id}: threshold_price set to {current_price}")
+        print(f"[DASHBOARD] Forcing order {config_id}: threshold_price set to {current_price}")
+        
+        # Now immediately create the TSL order on Kraken
+        try:
+            # Prepare API kwargs (same logic as ttslo.py)
+            api_kwargs = {'trigger': 'index'}
+            
+            # Determine base asset and prefer NOT to pay fees in BTC
+            try:
+                base_asset = _extract_base_asset(pair)
+                # Simple normalization for BTC check
+                canonical_base = base_asset.lstrip('XZ') if base_asset else ''
+                
+                # Normalized BTC token
+                if canonical_base and canonical_base.upper() == 'BT':
+                    api_kwargs['oflags'] = 'fciq'  # prefer fee in quote currency (not BTC)
+            except Exception:
+                pass  # Ignore errors in fee optimization
+            
+            # Create the TSL order
+            result = kraken_api.add_trailing_stop_loss(
+                pair=pair,
+                direction=direction,
+                volume=volume,
+                trailing_offset_percent=trailing_offset_percent,
+                **api_kwargs
+            )
+            
+        except Exception as e:
+            error_msg = str(e)
+            
+            # If index price unavailable, retry with last trade price
+            if 'index unavailable' in error_msg.lower():
+                print(f"[DASHBOARD] Index price unavailable for {pair}, retrying with last trade price")
+                try:
+                    api_kwargs['trigger'] = 'last'
+                    result = kraken_api.add_trailing_stop_loss(
+                        pair=pair,
+                        direction=direction,
+                        volume=volume,
+                        trailing_offset_percent=trailing_offset_percent,
+                        **api_kwargs
+                    )
+                    print(f"[DASHBOARD] TSL order created successfully using last price trigger for {pair}")
+                except Exception as retry_e:
+                    print(f"[DASHBOARD] Error creating TSL order (after retry): {str(retry_e)}")
+                    import traceback
+                    traceback.print_exc()
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to create TSL order: {str(retry_e)}'
+                    }), 500
+            else:
+                print(f"[DASHBOARD] Error creating TSL order: {error_msg}")
+                import traceback
+                traceback.print_exc()
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to create TSL order: {error_msg}'
+                }), 500
+        
+        # Extract order ID from result
+        if not isinstance(result, dict):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid API response: expected dictionary'
+            }), 500
+        
+        txid_list = result.get('txid')
+        if not txid_list or not isinstance(txid_list, list) or len(txid_list) == 0:
+            return jsonify({
+                'success': False,
+                'error': f'No transaction ID in response: {result}'
+            }), 500
+        
+        order_id = txid_list[0]
+        if not order_id:
+            return jsonify({
+                'success': False,
+                'error': f'Empty transaction ID: {result}'
+            }), 500
+        
+        # Update state.csv to mark as triggered
+        trigger_time = datetime.now(timezone.utc).isoformat()
+        state = config_manager.load_state()
+        
+        if config_id not in state:
+            state[config_id] = {}
+        
+        state[config_id].update({
+            'id': config_id,
+            'triggered': 'true',
+            'trigger_price': str(current_price),
+            'trigger_time': trigger_time,
+            'order_id': order_id,
+            'activated_on': trigger_time,
+            'initial_price': state[config_id].get('initial_price', str(current_price))  # Preserve or set initial price
+        })
+        
+        config_manager.save_state(state)
+        
+        # Update config.csv with trigger information
+        try:
+            config_manager.update_config_on_trigger(
+                config_id=config_id,
+                order_id=order_id,
+                trigger_time=trigger_time,
+                trigger_price=str(current_price)
+            )
+        except Exception as e:
+            print(f"[DASHBOARD] Warning: Failed to update config.csv: {str(e)}")
+            # Not fatal - state was updated successfully
+        
+        print(f"[DASHBOARD] Successfully forced order {config_id}: order_id={order_id}")
         
         return jsonify({
             'success': True,
             'config_id': config_id,
             'pair': pair,
-            'new_threshold_price': float(current_price),
-            'message': 'Order will trigger on next check cycle'
+            'order_id': order_id,
+            'trigger_price': float(current_price),
+            'message': f'TSL order created successfully! Order ID: {order_id[:12]}...'
         })
         
     except Exception as e:
@@ -1089,7 +1229,7 @@ def api_force_pending(config_id):
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': 'An error occurred while forcing the order'
+            'error': f'An error occurred while forcing the order: {str(e)}'
         }), 500
 
 
