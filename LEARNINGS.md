@@ -2,6 +2,60 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Force Button Implementation (2025-10-27)
+
+**Feature**: Added "Force" button to pending orders in dashboard that forces immediate order creation by setting threshold_price = current_price.
+
+**Implementation Details**:
+1. **Backend** (`config.py`): Added `update_config_threshold_price()` method
+   - Atomically updates threshold_price field in config.csv
+   - Preserves all other fields and CSV structure
+   
+2. **Backend** (`dashboard.py`): Added `/api/pending/<config_id>/force` POST endpoint
+   - Fetches current market price from Kraken API
+   - Updates config's threshold_price to current_price
+   - Returns success with details or error messages
+   - Handles edge cases: API unavailable, price fetch failure, config not found
+   
+3. **Frontend**: Green "Force" button on right side of pending order cards
+   - Red "Cancel" button on left, green "Force" button on right
+   - Uses `justify-content: space-between` for button layout
+   - Confirmation dialog explains what will happen
+   - Success dialog shows new threshold price and next steps
+   
+4. **Error Handling**: Surfaces Kraken API errors in UI
+   - Insufficient balance will show when order creation is attempted
+   - Error messages displayed in alert dialogs
+   - Logs written to console for debugging
+
+**How It Works**:
+1. User clicks green "Force" button
+2. Confirmation: "This will set threshold price to current market price..."
+3. Backend: GET current price, UPDATE config.csv
+4. Success alert: "New Threshold: $X.XX, Order will trigger on next check cycle"
+5. Next monitoring cycle (60s default): threshold met → order created
+6. Any errors (e.g., insufficient balance) surface in order creation logs
+
+**Key Insights**:
+- Works even if trigger doesn't make sense (as requested)
+- No validation - just sets threshold = current_price
+- Safe: uses atomic CSV write to prevent data corruption
+- Testing: 7 comprehensive tests for force functionality
+- All 409 existing tests still pass
+
+**UI Design**:
+- Red Cancel (left) vs Green Force (right) = clear visual distinction
+- Progress bar shows "READY TO TRIGGER" or distance to threshold
+- After forcing, progress updates to show near-zero distance
+
+**Related Files**:
+- `config.py`: Lines 546-583 (update_config_threshold_price)
+- `dashboard.py`: Lines 983-1055 (api_force_pending endpoint)
+- `templates/dashboard.html`: CSS, HTML, JavaScript for Force button
+- `tests/test_dashboard_force.py`: Complete test suite (7 tests)
+
+---
+
 ## Validator Price Formatting for Log Messages (2025-10-27)
 
 **Problem**: Validator log messages showed very small cryptocurrency prices as "(0.00)" making them unreadable.

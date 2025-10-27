@@ -97,6 +97,18 @@
             background-color: #a93226;
         }
 
+        button.btn-success {
+            background-color: #27ae60;
+        }
+
+        button.btn-success:hover {
+            background-color: #229954;
+        }
+
+        button.btn-success:active {
+            background-color: #1e8449;
+        }
+
         button.btn-small {
             padding: 4px 10px;
             font-size: 12px;
@@ -119,6 +131,7 @@
 
         .order-actions {
             display: flex;
+            justify-content: space-between;
             gap: 8px;
             margin-top: 10px;
         }
@@ -667,6 +680,7 @@
                                 ${progressHTML}
                                 <div class="order-actions">
                                     <button class="btn-small btn-danger" onclick="cancelPendingOrder('${order.id}')">Cancel</button>
+                                    <button class="btn-small btn-success" onclick="forcePendingOrder('${order.id}')">Force</button>
                                 </div>
                             </div>
                         `;
@@ -731,6 +745,10 @@
                                     </div>
                                 </div>
                                 ${progressHTML}
+                                <div class="order-actions">
+                                    <button class="btn-small btn-danger" onclick="cancelPendingOrder('${order.id}')">Cancel</button>
+                                    <button class="btn-small btn-success" onclick="forcePendingOrder('${order.id}')">Force</button>
+                                </div>
                             </div>
                         `;
                     }).join('');
@@ -1205,6 +1223,36 @@
             } catch (error) {
                 console.error('[DASHBOARD] Error canceling pending order:', error);
                 alert(`Error canceling order: ${error.message}`);
+            }
+        }
+
+        // Force a pending order to trigger immediately
+        async function forcePendingOrder(configId) {
+            if (!confirm(`Force order ${configId} to trigger?\n\nThis will set the threshold price to the current market price, causing the order to be created on the next monitoring check.\n\nNote: The order may fail if you have insufficient balance.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/pending/${configId}/force`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log(`[DASHBOARD] Forced pending order ${configId}`);
+                    alert(`Successfully forced order ${configId}!\n\nPair: ${result.pair}\nNew Threshold: $${formatPrice(result.new_threshold_price)}\n\n${result.message}`);
+                    // Refresh data to show updated status
+                    await refreshData();
+                } else {
+                    alert(`Error forcing order: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('[DASHBOARD] Error forcing pending order:', error);
+                alert(`Error forcing order: ${error.message}`);
             }
         }
 

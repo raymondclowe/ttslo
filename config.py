@@ -543,3 +543,40 @@ class ConfigManager:
         
         # Write atomically to prevent data loss
         self._atomic_write_csv(self.config_file, fieldnames, all_rows)
+    
+    def update_config_threshold_price(self, config_id, new_threshold_price):
+        """
+        Update threshold_price for a specific configuration.
+        
+        This is used by the "force" functionality to set current price as threshold,
+        causing the order to trigger immediately on next check.
+        
+        SAFETY: Uses atomic write to prevent data loss during concurrent access.
+        Preserves ALL lines including comments and empty rows.
+        
+        Args:
+            config_id: ID of configuration to update
+            new_threshold_price: New threshold price value (as string or number)
+        """
+        if not os.path.exists(self.config_file):
+            raise FileNotFoundError(f"Config file not found: {self.config_file}")
+        
+        # Read all rows using the preserving method
+        fieldnames, all_rows = self._read_csv_preserving_all_lines(self.config_file)
+        
+        if not fieldnames:
+            raise ValueError("Config file has no headers")
+        
+        # Find and update matching row
+        found = False
+        for row in all_rows:
+            if row.get('id') == config_id:
+                row['threshold_price'] = str(new_threshold_price)
+                found = True
+                break
+        
+        if not found:
+            raise ValueError(f"Config ID not found: {config_id}")
+        
+        # Write atomically to prevent data loss
+        self._atomic_write_csv(self.config_file, fieldnames, all_rows)

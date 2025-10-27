@@ -981,6 +981,83 @@ def api_cancel_pending(config_id):
         }), 500
 
 
+@app.route('/api/pending/<config_id>/force', methods=['POST'])
+def api_force_pending(config_id):
+    """
+    Force a pending order to trigger by setting threshold_price = current_price.
+    
+    This will cause the order to be created on the next monitoring check,
+    even if it doesn't make logical sense (e.g., trigger immediately).
+    
+    Args:
+        config_id: The ID of the config to force
+        
+    Returns:
+        JSON response with success/error status
+    """
+    try:
+        # Get the current config to find the pair
+        configs = get_cached_config()
+        config = next((c for c in configs if c.get('id') == config_id), None)
+        
+        if not config:
+            return jsonify({
+                'success': False,
+                'error': f'Config ID not found: {config_id}'
+            }), 404
+        
+        pair = config.get('pair')
+        if not pair:
+            return jsonify({
+                'success': False,
+                'error': 'Config has no trading pair'
+            }), 400
+        
+        # Get current price for the pair
+        if not kraken_api:
+            return jsonify({
+                'success': False,
+                'error': 'Kraken API not available'
+            }), 503
+        
+        try:
+            current_price = kraken_api.get_current_price(pair)
+        except Exception as e:
+            print(f"[DASHBOARD] Error getting current price for {pair}: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Could not get current price from Kraken API'
+            }), 500
+        
+        if current_price is None:
+            return jsonify({
+                'success': False,
+                'error': f'Could not get current price for {pair}'
+            }), 500
+        
+        # Update the threshold_price to current_price
+        config_manager.update_config_threshold_price(config_id, current_price)
+        
+        print(f"[DASHBOARD] Forced order {config_id}: threshold_price set to {current_price}")
+        
+        return jsonify({
+            'success': True,
+            'config_id': config_id,
+            'pair': pair,
+            'new_threshold_price': float(current_price),
+            'message': 'Order will trigger on next check cycle'
+        })
+        
+    except Exception as e:
+        print(f"[DASHBOARD] Error forcing pending order {config_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while forcing the order'
+        }), 500
+
+
 @app.route('/api/active/<order_id>/cancel', methods=['POST'])
 def api_cancel_active(order_id):
     """
