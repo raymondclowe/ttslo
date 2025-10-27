@@ -279,11 +279,13 @@ def get_pending_orders():
         balance_message = None
         volume_too_low = False
         volume_message = None
+        cost_too_low = False
+        cost_message = None
         
         volume = float(config.get('volume', 0))
         direction = config.get('direction', '')
         
-        # Check minimum volume requirement
+        # Check minimum volume and cost requirements
         if pair and kraken_api:
             try:
                 pair_info = kraken_api.get_asset_pair_info(pair)
@@ -292,8 +294,16 @@ def get_pending_orders():
                     if volume < ordermin:
                         volume_too_low = True
                         volume_message = f"Volume {volume} is below minimum {ordermin} for {pair}"
+                
+                # Check minimum cost (purchase threshold)
+                if pair_info and 'costmin' in pair_info and current_price:
+                    costmin = float(pair_info['costmin'])
+                    order_cost = volume * current_price
+                    if order_cost < costmin:
+                        cost_too_low = True
+                        cost_message = f"Order cost ${order_cost:.2f} is below minimum ${costmin:.2f} for {pair}"
             except Exception as e:
-                print(f"[DEBUG] Could not check minimum volume for {pair}: {e}")
+                print(f"[DEBUG] Could not check minimum volume/cost for {pair}: {e}")
         
         if balances and pair and current_price:
             if direction == 'sell' and base_asset:
@@ -325,7 +335,9 @@ def get_pending_orders():
             'insufficient_balance': insufficient_balance,
             'balance_message': balance_message,
             'volume_too_low': volume_too_low,
-            'volume_message': volume_message
+            'volume_message': volume_message,
+            'cost_too_low': cost_too_low,
+            'cost_message': cost_message
         })
     
     elapsed = time.time() - start_time
