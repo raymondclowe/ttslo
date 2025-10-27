@@ -383,7 +383,8 @@ python3 tools/coin_stats.py \
   --hours 48 \
   --csv-output summary.csv \
   --html-output index.html \
-  --config-output suggested_config.csv
+  --config-output suggested_config.csv \
+  --target-usd-volume 2.0
 ```
 
 The tool:
@@ -394,6 +395,10 @@ The tool:
 - **NEW:** Exports summary to CSV for spreadsheet analysis
 - **NEW:** Creates HTML viewer for easy browser viewing of all graphs
 - **NEW:** Generates suggested config.csv entries for TTSLO
+- **NEW:** Intelligent volume calculation based on target USD value
+  - Converts USD target to coin units with +/- 25% variance
+  - Ensures Kraken minimum order requirements (ordermin) are met
+  - Customizable via `--target-usd-volume` (default: $1.00)
 - Predicts 95% probability thresholds for 24-hour price movements
 
 **Example Output**:
