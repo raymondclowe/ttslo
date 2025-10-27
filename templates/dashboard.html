@@ -322,6 +322,64 @@
             z-index: 1000;
         }
 
+        .warning-icon {
+            display: inline-block;
+            position: relative;
+            margin-left: 8px;
+            cursor: help;
+            vertical-align: middle;
+        }
+
+        .warning-icon svg {
+            width: 16px;
+            height: 14px;
+            fill: #f39c12;
+        }
+
+        .warning-icon:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2c3e50;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: normal;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            max-width: 350px;
+            white-space: normal;
+            width: max-content;
+            line-height: 1.4;
+        }
+
+        .warning-icon:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 115%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #2c3e50;
+            z-index: 1000;
+        }
+
+        button:disabled,
+        button.btn-disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        button:disabled:hover,
+        button.btn-disabled:hover {
+            background-color: #95a5a6;
+        }
+
         .empty-state {
             text-align: center;
             color: #95a5a6;
@@ -649,10 +707,19 @@
                             `;
                         }
 
+                        // Warning icon for insufficient balance
+                        const warningIcon = order.insufficient_balance 
+                            ? `<span class="warning-icon" data-tooltip="${order.balance_message || 'Insufficient balance'}"><svg viewBox="0 0 16 14"><path d="M8 0L0 14h16L8 0zm0 3l5.5 9h-11L8 3zm-.5 3v3h1V6h-1zm0 4v1h1v-1h-1z"/></svg></span>`
+                            : '';
+
+                        // Disable Force button if insufficient balance
+                        const forceButtonDisabled = order.insufficient_balance ? 'disabled' : '';
+                        const forceButtonClass = order.insufficient_balance ? 'btn-small btn-success btn-disabled' : 'btn-small btn-success';
+
                         return `
                             <div class="order-card">
                                 <div class="order-header">
-                                            <div class="order-id">${order.id} ${order.manual ? '<span style="font-size:12px;color:#fff;background:#e67e22;padding:2px 6px;border-radius:10px;margin-left:8px;font-weight:600;">MANUAL</span>' : ''}</div>
+                                            <div class="order-id">${order.id}${warningIcon} ${order.manual ? '<span style="font-size:12px;color:#fff;background:#e67e22;padding:2px 6px;border-radius:10px;margin-left:8px;font-weight:600;">MANUAL</span>' : ''}</div>
                                             <div class="order-pair">${order.pair || 'N/A'}</div>
                                         </div>
                                 <div class="order-details">
@@ -680,7 +747,7 @@
                                 ${progressHTML}
                                 <div class="order-actions">
                                     <button class="btn-small btn-danger" onclick="cancelPendingOrder('${order.id}')">Cancel</button>
-                                    <button class="btn-small btn-success" onclick="forcePendingOrder('${order.id}')">Force</button>
+                                    <button class="${forceButtonClass}" onclick="forcePendingOrder('${order.id}')" ${forceButtonDisabled}>Force</button>
                                 </div>
                             </div>
                         `;
@@ -716,10 +783,20 @@
                                 <div class="progress-text">Price data unavailable</div>
                             `;
                         }
+                        
+                        // Warning icon for insufficient balance
+                        const warningIcon = order.insufficient_balance 
+                            ? `<span class="warning-icon" data-tooltip="${order.balance_message || 'Insufficient balance'}"><svg viewBox="0 0 16 14"><path d="M8 0L0 14h16L8 0zm0 3l5.5 9h-11L8 3zm-.5 3v3h1V6h-1zm0 4v1h1v-1h-1z"/></svg></span>`
+                            : '';
+
+                        // Disable Force button if insufficient balance
+                        const forceButtonDisabled = order.insufficient_balance ? 'disabled' : '';
+                        const forceButtonClass = order.insufficient_balance ? 'btn-small btn-success btn-disabled' : 'btn-small btn-success';
+                        
                         return `
                             <div class="order-card">
                                 <div class="order-header">
-                                    <div class="order-id">${order.id}</div>
+                                    <div class="order-id">${order.id}${warningIcon}</div>
                                     <div class="order-pair">${order.pair || 'N/A'}</div>
                                 </div>
                                 <div class="order-details">
@@ -747,7 +824,7 @@
                                 ${progressHTML}
                                 <div class="order-actions">
                                     <button class="btn-small btn-danger" onclick="cancelPendingOrder('${order.id}')">Cancel</button>
-                                    <button class="btn-small btn-success" onclick="forcePendingOrder('${order.id}')">Force</button>
+                                    <button class="${forceButtonClass}" onclick="forcePendingOrder('${order.id}')" ${forceButtonDisabled}>Force</button>
                                 </div>
                             </div>
                         `;
