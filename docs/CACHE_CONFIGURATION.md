@@ -92,10 +92,10 @@ To clear the disk cache:
 rm -rf .cache/*.json
 ```
 
-Or programmatically via Python:
+Or programmatically from the project directory:
 
 ```python
-from disk_cache import DiskCache
+from disk_cache import DiskCache  # From project root
 
 cache = DiskCache()
 cache.clear()
@@ -262,4 +262,4 @@ Cache files may contain:
 
 - [disk_cache.py](../disk_cache.py) - Core cache module
 - [dashboard.py](../dashboard.py) - Dashboard with hybrid caching
-- [LEARNINGS.md](../LEARNINGS.md#dashboard-disk-cache-for-performance-2025-10-26) - Implementation notes
+- [LEARNINGS.md](../LEARNINGS.md) - Implementation notes (search for "Dashboard Disk Cache")
