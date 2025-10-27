@@ -40,8 +40,8 @@ jobs:
         run: |
           uv run pytest --version
       
-      - name: Run test suite to validate environment
+      - name: Run single smoke test to validate pytest
         run: |
-          uv run pytest -q --tb=short || true
-        # We allow tests to fail (|| true) since some may depend on secrets
-        # The important thing is that pytest runs successfully
+          uv run pytest -q tests/test_smoke.py --tb=short || true
+        # Run just a single fast smoke test so this setup step stays quick
+        # We still allow failure (|| true) because some downstream tests depend on secrets
