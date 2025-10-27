@@ -1257,6 +1257,11 @@ def api_force_pending(config_id):
             print(f"[DASHBOARD] Warning: Failed to update config.csv: {str(e)}")
             # Not fatal - state was updated successfully
         
+        # Invalidate caches so next request gets fresh data
+        get_cached_state.invalidate()  # State was modified (order_id added)
+        get_active_orders.invalidate()  # Active orders will now match via state
+        get_cached_config.invalidate()  # Config was modified (trigger info added)
+        
         print(f"[DASHBOARD] Successfully forced order {config_id}: order_id={order_id}")
         
         return jsonify({

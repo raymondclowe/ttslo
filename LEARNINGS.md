@@ -2059,6 +2059,42 @@ Cycle 2+:
 
 ---
 
+## Dashboard Force Button Cache Invalidation (2025-10-27)
+
+**Problem**: After clicking Force button on pending order, order initially showed "Manual" tag incorrectly. Tag disappeared after ~30 seconds.
+
+**Root Cause**: `api_force_pending` endpoint updated state.csv with order_id but didn't invalidate caches:
+- `get_cached_state()` returned stale data (no order_id)
+- `get_active_orders()` couldn't match order to state
+- Order incorrectly marked as "Manual" (line 434)
+- After cache expired, fresh state loaded with order_id
+- Order then matched via state, "Manual" tag disappeared
+
+**Solution**: Added cache invalidation after state update (lines 1260-1262):
+```python
+# Invalidate caches so next request gets fresh data
+get_cached_state.invalidate()  # State was modified (order_id added)
+get_active_orders.invalidate()  # Active orders will now match via state
+get_cached_config.invalidate()  # Config was modified (trigger info added)
+```
+
+**Key Insights**:
+1. **Cache Invalidation is Critical**: Any endpoint that modifies state/config MUST invalidate relevant caches
+2. **Consistency Pattern**: Follow same pattern as `api_cancel_pending` (lines 1045-1046)
+3. **Multiple Caches**: Force button affects 3 caches: state, active orders, and config
+4. **Order Matching Logic**: Orders marked "Manual" when in Kraken but NOT in cached state
+5. **Test Coverage**: Add regression test to prevent future cache invalidation bugs
+
+**Related Files**:
+- `dashboard.py`: Lines 1260-1262 (fix), 434 (manual flag logic), 1045-1046 (reference pattern)
+- `tests/test_force_button_cache_invalidation.py`: Regression test
+- Issue description: User workflow that exposed the bug
+
+**Similar Issues Fixed Previously**:
+- Cancel button cache invalidation (2025-10-27) - same root cause, same pattern
+
+---
+
 *Add new learnings here as we discover them*
 
 
