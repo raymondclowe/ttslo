@@ -277,7 +277,7 @@ class KrakenAPI:
     _ws_provider = None
     _ws_provider_lock = threading.Lock()
     
-    def __init__(self, api_key=None, api_secret=None, base_url="https://api.kraken.com", use_websocket=True):
+    def __init__(self, api_key=None, api_secret=None, base_url="https://api.kraken.com", use_websocket=True, debug=False):
         """
         Initialize Kraken API client.
         
@@ -286,6 +286,7 @@ class KrakenAPI:
             api_secret: Kraken API secret
             base_url: Base URL for Kraken API
             use_websocket: If True, use WebSocket for price data (default: True)
+            debug: If True, enable debug logging (default: False)
         """
         # Do not auto-discover credentials in the constructor to preserve
         # predictable behavior for unit tests. Use `from_env` to create a
@@ -294,6 +295,7 @@ class KrakenAPI:
         self.api_secret = api_secret
         self.base_url = base_url
         self.use_websocket = use_websocket and WEBSOCKET_AVAILABLE
+        self.debug = debug
         
         # Initialize WebSocket provider if needed
         if self.use_websocket:
@@ -302,7 +304,7 @@ class KrakenAPI:
                     KrakenAPI._ws_provider = WebSocketPriceProvider()
 
     @classmethod
-    def from_env(cls, readwrite: bool = False, env_file: str = '.env', base_url: str = "https://api.kraken.com", use_websocket: bool = True):
+    def from_env(cls, readwrite: bool = False, env_file: str = '.env', base_url: str = "https://api.kraken.com", use_websocket: bool = True, debug: bool = False):
         """Construct a KrakenAPI using credentials discovered from env/.env/copilot.
 
         This keeps the constructor side-effect free for unit tests while
@@ -313,9 +315,10 @@ class KrakenAPI:
             env_file: Path to .env file
             base_url: Base URL for Kraken API
             use_websocket: If True, use WebSocket for price data (default: True)
+            debug: If True, enable debug logging (default: False)
         """
         key, secret = find_kraken_credentials(readwrite=readwrite, env_file=env_file)
-        return cls(api_key=key, api_secret=secret, base_url=base_url, use_websocket=use_websocket)
+        return cls(api_key=key, api_secret=secret, base_url=base_url, use_websocket=use_websocket, debug=debug)
     def _get_kraken_signature(self, urlpath, data, nonce):
         """
         Generate Kraken API signature for authentication.
@@ -356,11 +359,13 @@ class KrakenAPI:
             KrakenAPIError: For other API errors
         """
         url = f"{self.base_url}/0/public/{method}"
-        print(f"[DEBUG] KrakenAPI._query_public: Calling {url} with params={params}")
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI._query_public: Calling {url} with params={params}")
         
         try:
             response = requests.get(url, params=params or {}, timeout=timeout)
-            print(f"[DEBUG] KrakenAPI._query_public: Response status={response.status_code}")
+            if self.debug:
+                print(f"[DEBUG] KrakenAPI._query_public: Response status={response.status_code}")
             
             # Check for rate limiting
             if response.status_code == 429:
@@ -440,11 +445,13 @@ class KrakenAPI:
             'Content-Type': 'application/json'
         }
         
-        print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
         
         try:
             response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
-            print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
+            if self.debug:
+                print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
             
             # Check for rate limiting
             if response.status_code == 429:
@@ -496,7 +503,8 @@ class KrakenAPI:
         Returns:
             Ticker information dictionary
         """
-        print(f"[DEBUG] KrakenAPI.get_ticker: pair={pair}")
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.get_ticker: pair={pair}")
         result = self._query_public('Ticker', {'pair': pair})
         
         if result.get('error'):
@@ -524,7 +532,8 @@ class KrakenAPI:
                 'last': timestamp
             }
         """
-        print(f"[DEBUG] KrakenAPI.get_ohlc: pair={pair}, interval={interval}, since={since}")
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.get_ohlc: pair={pair}, interval={interval}, since={since}")
         params = {'pair': pair, 'interval': interval}
         if since is not None:
             params['since'] = since
@@ -537,7 +546,6 @@ class KrakenAPI:
         return result.get('result', {})
     
     def get_current_price(self, pair):
-        print(f"[DEBUG] KrakenAPI.get_current_price: pair={pair}")
         """
         Get current price for a trading pair.
         
@@ -657,7 +665,8 @@ class KrakenAPI:
             Dictionary mapping pairs to their current prices
             Example: {'XXBTZUSD': 50000.0, 'XETHZUSD': 3000.0}
         """
-        print(f"[DEBUG] KrakenAPI.get_current_prices_batch: fetching {len(pairs)} pairs")
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.get_current_prices_batch: fetching {len(pairs)} pairs")
         start_time = time.time()
         
         if not pairs:
@@ -687,14 +696,17 @@ class KrakenAPI:
                         if price > 0:
                             prices[pair_key] = price
                     except (ValueError, TypeError) as e:
-                        print(f"[DEBUG] Could not parse price for {pair_key}: {e}")
+                        if self.debug:
+                            print(f"[DEBUG] Could not parse price for {pair_key}: {e}")
             
             elapsed = time.time() - start_time
-            print(f"[DEBUG] KrakenAPI.get_current_prices_batch: fetched {len(prices)} prices in {elapsed:.3f}s")
+            if self.debug:
+                print(f"[DEBUG] KrakenAPI.get_current_prices_batch: fetched {len(prices)} prices in {elapsed:.3f}s")
             return prices
             
         except Exception as e:
-            print(f"[DEBUG] Error in get_current_prices_batch: {e}")
+            if self.debug:
+                print(f"[DEBUG] Error in get_current_prices_batch: {e}")
             # On error, return empty dict - caller can fall back to individual requests
             return {}
     
@@ -739,11 +751,11 @@ class KrakenAPI:
             return None
             
         except Exception as e:
-            print(f"[DEBUG] Error fetching pair info for {pair}: {e}")
+            if self.debug:
+                print(f"[DEBUG] Error fetching pair info for {pair}: {e}")
             return None
     
     def add_order(self, pair, order_type, direction, volume, **kwargs):
-        print(f"[DEBUG] KrakenAPI.add_order: pair={pair}, order_type={order_type}, direction={direction}, volume={volume}, kwargs={kwargs}")
         """
         Add a new order.
         
@@ -757,6 +769,8 @@ class KrakenAPI:
         Returns:
             Order response dictionary
         """
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.add_order: pair={pair}, order_type={order_type}, direction={direction}, volume={volume}, kwargs={kwargs}")
         params = {
             'pair': pair,
             'type': direction,
@@ -773,7 +787,6 @@ class KrakenAPI:
         return result.get('result', {})
     
     def add_trailing_stop_loss(self, pair, direction, volume, trailing_offset_percent, **kwargs):
-        print(f"[DEBUG] KrakenAPI.add_trailing_stop_loss: pair={pair}, direction={direction}, volume={volume}, trailing_offset_percent={trailing_offset_percent}, kwargs={kwargs}")
         """
         Add a trailing stop loss order.
         
@@ -798,6 +811,8 @@ class KrakenAPI:
             ValueError: If parameters are invalid
             Exception: If API call fails
         """
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.add_trailing_stop_loss: pair={pair}, direction={direction}, volume={volume}, trailing_offset_percent={trailing_offset_percent}, kwargs={kwargs}")
         # Step 1: Validate pair parameter
         if not pair:
             raise ValueError("pair parameter is required and cannot be empty")
@@ -890,18 +905,18 @@ class KrakenAPI:
         # Validate result exists
         if not order_result:
             raise Exception("Kraken API returned empty result")
-        
         # Return the order result dictionary
         return order_result
     
     def get_balance(self):
-        print(f"[DEBUG] KrakenAPI.get_balance: calling Balance endpoint")
         """
         Get account balance.
         
         Returns:
             Balance dictionary
         """
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.get_balance: calling Balance endpoint")
         result = self._query_private('Balance')
         
         if result.get('error'):
@@ -910,7 +925,6 @@ class KrakenAPI:
         return result.get('result', {})
     
     def get_trade_balance(self, asset='ZUSD'):
-        print(f"[DEBUG] KrakenAPI.get_trade_balance: asset={asset}")
         """
         Get trade balance information including margin, equity, and available funds.
         
@@ -931,6 +945,8 @@ class KrakenAPI:
                 - ml: Margin level = (equity / initial margin) * 100
                 - uv: Unexecuted value
         """
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.get_trade_balance: asset={asset}")
         params = {}
         if asset:
             params['asset'] = asset
@@ -943,7 +959,6 @@ class KrakenAPI:
         return result.get('result', {})
     
     def query_open_orders(self, trades=False, userref=None):
-        print(f"[DEBUG] KrakenAPI.query_open_orders: trades={trades}, userref={userref}")
         """
         Query information about currently open orders.
         
@@ -954,6 +969,8 @@ class KrakenAPI:
         Returns:
             Dictionary containing open orders information
         """
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.query_open_orders: trades={trades}, userref={userref}")
         params = {}
         if trades:
             params['trades'] = trades
@@ -968,7 +985,6 @@ class KrakenAPI:
         return result.get('result', {})
     
     def query_closed_orders(self, trades=False, userref=None, start=None, end=None, ofs=None, closetime='both'):
-        print(f"[DEBUG] KrakenAPI.query_closed_orders: trades={trades}, userref={userref}, start={start}, end={end}, ofs={ofs}, closetime={closetime}")
         """
         Query information about closed orders.
         
@@ -983,6 +999,8 @@ class KrakenAPI:
         Returns:
             Dictionary containing closed orders information
         """
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.query_closed_orders: trades={trades}, userref={userref}, start={start}, end={end}, ofs={ofs}, closetime={closetime}")
         params = {'closetime': closetime}
         if trades:
             params['trades'] = trades
@@ -1032,7 +1050,6 @@ class KrakenAPI:
         return result.get('result', {})
     
     def cancel_order(self, txid):
-        print(f"[DEBUG] KrakenAPI.cancel_order: txid={txid}")
         """
         Cancel an open order.
         
@@ -1042,6 +1059,8 @@ class KrakenAPI:
         Returns:
             Dictionary containing cancellation result
         """
+        if self.debug:
+            print(f"[DEBUG] KrakenAPI.cancel_order: txid={txid}")
         if not txid:
             raise ValueError("txid parameter is required")
             

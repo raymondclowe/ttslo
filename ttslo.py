@@ -1759,7 +1759,7 @@ Environment variables:
         # Create API instance if credentials available
         kraken_api = None
         if api_key_ro and api_secret_ro:
-            kraken_api = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+            kraken_api = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro, debug=args.debug)
             print("Note: Validating with current market prices from Kraken API\n")
         else:
             print("Note: API credentials not found. Skipping market price validation.")
@@ -1862,9 +1862,9 @@ Environment variables:
     try:
         # Use explicit constructor if we have creds, otherwise use from_env to try discover
         if api_key_ro and api_secret_ro:
-            kraken_api_readonly = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro)
+            kraken_api_readonly = KrakenAPI(api_key=api_key_ro, api_secret=api_secret_ro, debug=args.debug)
         else:
-            kraken_api_readonly = KrakenAPI.from_env(readwrite=False, env_file=args.env_file)
+            kraken_api_readonly = KrakenAPI.from_env(readwrite=False, env_file=args.env_file, debug=args.debug)
     except Exception as e:
         print(f"ERROR: Failed to initialize read-only API: {str(e)}", file=sys.stderr)
         sys.exit(1)
@@ -1875,9 +1875,9 @@ Environment variables:
         try:
             # Prefer explicit credentials but allow discovery as fallback
             if api_key_rw and api_secret_rw:
-                kraken_api_readwrite = KrakenAPI(api_key=api_key_rw, api_secret=api_secret_rw)
+                kraken_api_readwrite = KrakenAPI(api_key=api_key_rw, api_secret=api_secret_rw, debug=args.debug)
             else:
-                kraken_api_readwrite = KrakenAPI.from_env(readwrite=True, env_file=args.env_file)
+                kraken_api_readwrite = KrakenAPI.from_env(readwrite=True, env_file=args.env_file, debug=args.debug)
         except Exception as e:
             print(f"ERROR: Failed to initialize read-write API: {str(e)}", file=sys.stderr)
             # This is not fatal - we can still run in read-only mode

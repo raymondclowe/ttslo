@@ -34,6 +34,14 @@ CHECK_INTERVAL = int(os.getenv('TTSLO_CHECK_INTERVAL', '60'))  # Main monitor ch
 DASHBOARD_REFRESH_INTERVAL = max(5, CHECK_INTERVAL // 2)  # Dashboard refresh = check_interval/2, minimum 5s
 CACHE_DIR = os.getenv('TTSLO_CACHE_DIR', '.cache')  # Disk cache directory
 
+# Global debug flag (set from command line args)
+DEBUG_MODE = False
+
+def debug_print(message):
+    """Print message only if DEBUG_MODE is enabled."""
+    if DEBUG_MODE:
+        print(message)
+
 # Initialize disk cache for persistence across restarts
 disk_cache = DiskCache(cache_dir=CACHE_DIR, default_ttl=DASHBOARD_REFRESH_INTERVAL)
 
@@ -59,21 +67,24 @@ def ttl_cache(seconds=5, disk_key=None):
             
             # Check memory cache first (fastest)
             if cache['result'] is not None and cache_age < seconds:
-                print(f"[PERF] {func.__name__}: using memory cache (age {cache_age:.3f}s)")
+                if DEBUG_MODE:
+                    debug_print(f"[PERF] {func.__name__}: using memory cache (age {cache_age:.3f}s)")
                 return cache['result']
             
             # Check disk cache if key provided (survives restarts)
             if disk_key:
                 disk_result = disk_cache.get(disk_key, ttl=seconds)
                 if disk_result is not None:
-                    print(f"[PERF] {func.__name__}: using disk cache")
+                    if DEBUG_MODE:
+                        debug_print(f"[PERF] {func.__name__}: using disk cache")
                     # Populate memory cache
                     cache['result'] = disk_result
                     cache['timestamp'] = current_time
                     return disk_result
             
             # Cache miss - call function
-            print(f"[PERF] {func.__name__}: cache miss, executing function")
+            if DEBUG_MODE:
+                debug_print(f"[PERF] {func.__name__}: cache miss, executing function")
             start_time = time.time()
             result = func(*args, **kwargs)
             elapsed = time.time() - start_time
@@ -86,7 +97,8 @@ def ttl_cache(seconds=5, disk_key=None):
             if disk_key:
                 disk_cache.set(disk_key, result)
             
-            print(f"[PERF] {func.__name__}: completed in {elapsed:.3f}s")
+            if DEBUG_MODE:
+                debug_print(f"[PERF] {func.__name__}: completed in {elapsed:.3f}s")
             return result
         
         # Add invalidate method to wrapper for manual cache clearing
@@ -156,41 +168,49 @@ def get_cached_state():
 def get_current_prices():
     """Get current prices for all pairs in config with hybrid memory + disk caching."""
     start_time = time.time()
-    print(f"[PERF] get_current_prices started at {datetime.now(timezone.utc).isoformat()}")
+    if DEBUG_MODE:
+        debug_print(f"[PERF] get_current_prices started at {datetime.now(timezone.utc).isoformat()}")
     
     prices = {}
     if not kraken_api:
-        print(f"[PERF] get_current_prices: no kraken_api, elapsed {time.time() - start_time:.3f}s")
+        if DEBUG_MODE:
+            debug_print(f"[PERF] get_current_prices: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return prices
     
     # Use cached config
     configs = get_cached_config()
     
     pairs = set(config.get('pair') for config in configs if config.get('pair'))
-    print(f"[PERF] Found {len(pairs)} unique pairs to fetch prices for")
+    if DEBUG_MODE:
+        debug_print(f"[PERF] Found {len(pairs)} unique pairs to fetch prices for")
     
     # Batch fetch all prices in a single API call (much faster!)
     if pairs:
         batch_start = time.time()
         prices = kraken_api.get_current_prices_batch(pairs)
-        print(f"[PERF] Batch fetch of {len(pairs)} pairs took {time.time() - batch_start:.3f}s, got {len(prices)} prices")
+        if DEBUG_MODE:
+            debug_print(f"[PERF] Batch fetch of {len(pairs)} pairs took {time.time() - batch_start:.3f}s, got {len(prices)} prices")
         
         # If batch fetch didn't return all prices, fall back to individual fetches for missing ones
         missing_pairs = pairs - set(prices.keys())
         if missing_pairs:
-            print(f"[PERF] Batch fetch missed {len(missing_pairs)} pairs, fetching individually")
+            if DEBUG_MODE:
+                debug_print(f"[PERF] Batch fetch missed {len(missing_pairs)} pairs, fetching individually")
             for pair in missing_pairs:
                 try:
                     pair_start = time.time()
                     price = kraken_api.get_current_price(pair)
                     if price:
                         prices[pair] = price
-                    print(f"[PERF] get_current_price({pair}) took {time.time() - pair_start:.3f}s")
+                    if DEBUG_MODE:
+                        debug_print(f"[PERF] get_current_price({pair}) took {time.time() - pair_start:.3f}s")
                 except Exception as e:
-                    print(f"[PERF] Error getting price for {pair}: {e}")
+                    if DEBUG_MODE:
+                        debug_print(f"[PERF] Error getting price for {pair}: {e}")
     
     elapsed = time.time() - start_time
-    print(f"[PERF] get_current_prices completed in {elapsed:.3f}s, returned {len(prices)} prices")
+    if DEBUG_MODE:
+        debug_print(f"[PERF] get_current_prices completed in {elapsed:.3f}s, returned {len(prices)} prices")
     return prices
 
 
@@ -226,7 +246,7 @@ def calculate_distance_to_trigger(threshold_price, current_price, threshold_type
 def get_pending_orders():
     """Get orders that haven't triggered yet with hybrid caching."""
     start_time = time.time()
-    print(f"[PERF] get_pending_orders started at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] get_pending_orders started at {datetime.now(timezone.utc).isoformat()}")
     
     # Use cached config and state
     configs = get_cached_config()
@@ -234,7 +254,7 @@ def get_pending_orders():
     
     price_start = time.time()
     prices = get_current_prices()
-    print(f"[PERF] get_current_prices took {time.time() - price_start:.3f}s")
+    debug_print(f"[PERF] get_current_prices took {time.time() - price_start:.3f}s")
     
     # Get balances for insufficient balance checking
     balances = {}
@@ -242,7 +262,7 @@ def get_pending_orders():
         try:
             balances = kraken_api.get_balance()
         except Exception as e:
-            print(f"[PERF] Could not fetch balances for pending orders: {e}")
+            debug_print(f"[PERF] Could not fetch balances for pending orders: {e}")
     
     pending = []
     for config in configs:
@@ -303,7 +323,7 @@ def get_pending_orders():
                         cost_too_low = True
                         cost_message = f"Order cost ${order_cost:.2f} is below minimum ${costmin:.2f} for {pair}"
             except Exception as e:
-                print(f"[DEBUG] Could not check minimum volume/cost for {pair}: {e}")
+                debug_print(f"[DEBUG] Could not check minimum volume/cost for {pair}: {e}")
         
         if balances and pair and current_price:
             if direction == 'sell' and base_asset:
@@ -341,7 +361,7 @@ def get_pending_orders():
         })
     
     elapsed = time.time() - start_time
-    print(f"[PERF] get_pending_orders completed in {elapsed:.3f}s, returned {len(pending)} orders")
+    debug_print(f"[PERF] get_pending_orders completed in {elapsed:.3f}s, returned {len(pending)} orders")
     return pending
 
 
@@ -349,10 +369,10 @@ def get_pending_orders():
 def get_active_orders():
     """Get orders that have triggered and are active on Kraken with hybrid caching."""
     start_time = time.time()
-    print(f"[PERF] get_active_orders started at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] get_active_orders started at {datetime.now(timezone.utc).isoformat()}")
     
     if not kraken_api:
-        print(f"[PERF] get_active_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
+        debug_print(f"[PERF] get_active_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return []
     
     # Use cached config and state
@@ -367,7 +387,7 @@ def get_active_orders():
     try:
         # Use cached open orders (5s TTL)
         open_orders = get_cached_open_orders()
-        print(f"[PERF] Cached open orders: {len(open_orders)}")
+        debug_print(f"[PERF] Cached open orders: {len(open_orders)}")
         filter_start = time.time()
         for config_id, config_state in state.items():
             if config_state.get('triggered') != 'true':
@@ -392,7 +412,7 @@ def get_active_orders():
                     'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
         filter_elapsed = time.time() - filter_start
-        print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
+        debug_print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
         # Note: previously this function attempted to add 'manual closed orders'
         # by iterating over a variable named `closed_orders` and appending to
         # a `completed` list. Those variables are not defined in this
@@ -435,12 +455,12 @@ def get_active_orders():
                     'source': 'kraken'
                 })
         except Exception as e:
-            print(f"[PERF] Error adding manual open orders: {e}")
+            debug_print(f"[PERF] Error adding manual open orders: {e}")
     except Exception as e:
-        print(f"[PERF] Error getting active orders: {e}")
+        debug_print(f"[PERF] Error getting active orders: {e}")
     
     elapsed = time.time() - start_time
-    print(f"[PERF] get_active_orders completed in {elapsed:.3f}s, returned {len(active)} orders")
+    debug_print(f"[PERF] get_active_orders completed in {elapsed:.3f}s, returned {len(active)} orders")
     return active
 
 
@@ -448,31 +468,31 @@ def get_active_orders():
 def get_completed_orders():
     """Get orders that have executed with hybrid caching."""
     start_time = time.time()
-    print(f"[PERF] get_completed_orders started at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] get_completed_orders started at {datetime.now(timezone.utc).isoformat()}")
     
     if not kraken_api:
-        print(f"[PERF] get_completed_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
+        debug_print(f"[PERF] get_completed_orders: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return []
     
     # Use cached config and state
-    print(f"[PERF] get_completed_orders: fetching cached state and config")
+    debug_print(f"[PERF] get_completed_orders: fetching cached state and config")
     state_start = time.time()
     state = get_cached_state()
     configs = get_cached_config()
     state_elapsed = time.time() - state_start
-    print(f"[PERF] get_completed_orders: cached data fetched in {state_elapsed:.3f}s (state: {len(state)} entries, configs: {len(configs)} entries)")
+    debug_print(f"[PERF] get_completed_orders: cached data fetched in {state_elapsed:.3f}s (state: {len(state)} entries, configs: {len(configs)} entries)")
     
     # Create a map of config IDs to their configs
     config_map_start = time.time()
     config_map = {c.get('id'): c for c in configs}
     config_map_elapsed = time.time() - config_map_start
-    print(f"[PERF] get_completed_orders: config map created in {config_map_elapsed:.3f}s ({len(config_map)} configs)")
+    debug_print(f"[PERF] get_completed_orders: config map created in {config_map_elapsed:.3f}s ({len(config_map)} configs)")
     
     completed = []
     
     try:
         # Collect order IDs from triggered state entries
-        print(f"[PERF] get_completed_orders: collecting order IDs from state")
+        debug_print(f"[PERF] get_completed_orders: collecting order IDs from state")
         collect_start = time.time()
         order_ids = []
         config_id_by_order = {}  # Map order_id -> config_id
@@ -487,48 +507,48 @@ def get_completed_orders():
             config_id_by_order[order_id] = config_id
         
         collect_elapsed = time.time() - collect_start
-        print(f"[PERF] get_completed_orders: collected {len(order_ids)} triggered orders in {collect_elapsed:.3f}s")
+        debug_print(f"[PERF] get_completed_orders: collected {len(order_ids)} triggered orders in {collect_elapsed:.3f}s")
         
         if not order_ids:
-            print(f"[PERF] No triggered orders to query")
+            debug_print(f"[PERF] No triggered orders to query")
             return []
         
         # Query specific order IDs directly (more efficient than fetching all closed orders)
         # Kraken's QueryOrders endpoint can query up to 50 orders at once
-        print(f"[PERF] get_completed_orders: querying specific orders from Kraken API")
+        debug_print(f"[PERF] get_completed_orders: querying specific orders from Kraken API")
         query_start = time.time()
         try:
             closed_orders = kraken_api.query_orders(order_ids)
             query_elapsed = time.time() - query_start
-            print(f"[PERF] Queried {len(order_ids)} specific orders in {query_elapsed:.3f}s, got {len(closed_orders)} results")
+            debug_print(f"[PERF] Queried {len(order_ids)} specific orders in {query_elapsed:.3f}s, got {len(closed_orders)} results")
             
             # Check if query_orders returned all expected orders
             missing_orders = set(order_ids) - set(closed_orders.keys())
             if missing_orders:
-                print(f"[PERF] WARNING: query_orders missing {len(missing_orders)} orders: {list(missing_orders)[:3]}...")
+                debug_print(f"[PERF] WARNING: query_orders missing {len(missing_orders)} orders: {list(missing_orders)[:3]}...")
                 # Query closed orders to find missing ones
-                print(f"[PERF] get_completed_orders: fetching all cached closed orders for missing orders")
+                debug_print(f"[PERF] get_completed_orders: fetching all cached closed orders for missing orders")
                 all_closed_start = time.time()
                 all_closed = get_cached_closed_orders()
                 all_closed_elapsed = time.time() - all_closed_start
-                print(f"[PERF] get_completed_orders: fetched {len(all_closed)} cached closed orders in {all_closed_elapsed:.3f}s")
+                debug_print(f"[PERF] get_completed_orders: fetched {len(all_closed)} cached closed orders in {all_closed_elapsed:.3f}s")
                 
                 for oid in missing_orders:
                     if oid in all_closed:
                         closed_orders[oid] = all_closed[oid]
-                        print(f"[PERF] Found missing order {oid[:12]}... in closed orders")
+                        debug_print(f"[PERF] Found missing order {oid[:12]}... in closed orders")
         except Exception as e:
-            print(f"[PERF] Error querying specific orders: {type(e).__name__}: {e}")
+            debug_print(f"[PERF] Error querying specific orders: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
             # Fallback to the old method if query_orders fails
-            print(f"[PERF] get_completed_orders: fallback - fetching all cached closed orders")
+            debug_print(f"[PERF] get_completed_orders: fallback - fetching all cached closed orders")
             fallback_start = time.time()
             closed_orders = get_cached_closed_orders()
             fallback_elapsed = time.time() - fallback_start
-            print(f"[PERF] Fallback: using cached closed orders, got {len(closed_orders)} orders in {fallback_elapsed:.3f}s")
+            debug_print(f"[PERF] Fallback: using cached closed orders, got {len(closed_orders)} orders in {fallback_elapsed:.3f}s")
         
-        print(f"[PERF] get_completed_orders: starting filtering/matching of {len(closed_orders)} orders")
+        debug_print(f"[PERF] get_completed_orders: starting filtering/matching of {len(closed_orders)} orders")
         filter_start = time.time()
         processed_count = 0
         skipped_count = 0
@@ -538,7 +558,7 @@ def get_completed_orders():
             
             # Log progress every 100 orders
             if processed_count % 100 == 0:
-                print(f"[PERF] get_completed_orders: processed {processed_count}/{len(closed_orders)} orders so far")
+                debug_print(f"[PERF] get_completed_orders: processed {processed_count}/{len(closed_orders)} orders so far")
             
             config_id = config_id_by_order.get(order_id)
             if not config_id:
@@ -601,15 +621,15 @@ def get_completed_orders():
                     'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
         
-        print(f"[PERF] get_completed_orders: processed {processed_count} orders, skipped {skipped_count} manual orders")
+        debug_print(f"[PERF] get_completed_orders: processed {processed_count} orders, skipped {skipped_count} manual orders")
         
         # Include manual closed trailing-stop orders from Kraken not in state
-        print(f"[PERF] get_completed_orders: checking for manual trailing-stop orders")
+        debug_print(f"[PERF] get_completed_orders: checking for manual trailing-stop orders")
         manual_start = time.time()
         manual_count = 0
         try:
             all_closed = get_cached_closed_orders()
-            print(f"[PERF] get_completed_orders: scanning {len(all_closed)} total closed orders for manual trailing-stops")
+            debug_print(f"[PERF] get_completed_orders: scanning {len(all_closed)} total closed orders for manual trailing-stops")
             
             for order_id, order_info in all_closed.items():
                 # Skip if already included
@@ -652,18 +672,18 @@ def get_completed_orders():
                 manual_count += 1
                 
         except Exception as e:
-            print(f"[PERF] Error adding manual completed orders: {e}")
+            debug_print(f"[PERF] Error adding manual completed orders: {e}")
         
         manual_elapsed = time.time() - manual_start
-        print(f"[PERF] get_completed_orders: added {manual_count} manual orders in {manual_elapsed:.3f}s")
+        debug_print(f"[PERF] get_completed_orders: added {manual_count} manual orders in {manual_elapsed:.3f}s")
         
         filter_elapsed = time.time() - filter_start
-        print(f"[PERF] Filtering/matching {len(closed_orders)} orders took {filter_elapsed:.3f}s")
+        debug_print(f"[PERF] Filtering/matching {len(closed_orders)} orders took {filter_elapsed:.3f}s")
     except Exception as e:
-        print(f"[PERF] Error getting completed orders: {e}")
+        debug_print(f"[PERF] Error getting completed orders: {e}")
     
     elapsed = time.time() - start_time
-    print(f"[PERF] get_completed_orders completed in {elapsed:.3f}s, returned {len(completed)} orders")
+    debug_print(f"[PERF] get_completed_orders completed in {elapsed:.3f}s, returned {len(completed)} orders")
     return completed
 
 
@@ -766,10 +786,10 @@ def get_balances_and_risks():
         - risk_summary: Overall risk assessment
     """
     start_time = time.time()
-    print(f"[PERF] get_balances_and_risks started at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] get_balances_and_risks started at {datetime.now(timezone.utc).isoformat()}")
     
     if not kraken_api:
-        print(f"[PERF] get_balances_and_risks: no kraken_api, elapsed {time.time() - start_time:.3f}s")
+        debug_print(f"[PERF] get_balances_and_risks: no kraken_api, elapsed {time.time() - start_time:.3f}s")
         return {'assets': [], 'risk_summary': {'status': 'unknown', 'message': 'Kraken API not available'}}
     
     try:
@@ -906,7 +926,7 @@ def get_balances_and_risks():
             }
         
         elapsed = time.time() - start_time
-        print(f"[PERF] get_balances_and_risks completed in {elapsed:.3f}s, analyzed {len(asset_list)} assets")
+        debug_print(f"[PERF] get_balances_and_risks completed in {elapsed:.3f}s, analyzed {len(asset_list)} assets")
         
         return {
             'assets': asset_list,
@@ -914,7 +934,7 @@ def get_balances_and_risks():
         }
         
     except Exception as e:
-        print(f"[PERF] Error in get_balances_and_risks: {e}")
+        debug_print(f"[PERF] Error in get_balances_and_risks: {e}")
         import traceback
         traceback.print_exc()
         return {
@@ -936,10 +956,10 @@ def index():
 def api_pending():
     """API endpoint for pending orders."""
     start_time = time.time()
-    print(f"[PERF] /api/pending endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] /api/pending endpoint called at {datetime.now(timezone.utc).isoformat()}")
     result = jsonify(get_pending_orders())
     elapsed = time.time() - start_time
-    print(f"[PERF] /api/pending endpoint completed in {elapsed:.3f}s")
+    debug_print(f"[PERF] /api/pending endpoint completed in {elapsed:.3f}s")
     return result
 
 
@@ -947,10 +967,10 @@ def api_pending():
 def api_active():
     """API endpoint for active orders."""
     start_time = time.time()
-    print(f"[PERF] /api/active endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] /api/active endpoint called at {datetime.now(timezone.utc).isoformat()}")
     result = jsonify(get_active_orders())
     elapsed = time.time() - start_time
-    print(f"[PERF] /api/active endpoint completed in {elapsed:.3f}s")
+    debug_print(f"[PERF] /api/active endpoint completed in {elapsed:.3f}s")
     return result
 
 
@@ -958,10 +978,10 @@ def api_active():
 def api_completed():
     """API endpoint for completed orders."""
     start_time = time.time()
-    print(f"[PERF] /api/completed endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] /api/completed endpoint called at {datetime.now(timezone.utc).isoformat()}")
     result = jsonify(get_completed_orders())
     elapsed = time.time() - start_time
-    print(f"[PERF] /api/completed endpoint completed in {elapsed:.3f}s")
+    debug_print(f"[PERF] /api/completed endpoint completed in {elapsed:.3f}s")
     return result
 
 
@@ -969,10 +989,10 @@ def api_completed():
 def api_balances():
     """API endpoint for asset balances and risk analysis."""
     start_time = time.time()
-    print(f"[PERF] /api/balances endpoint called at {datetime.now(timezone.utc).isoformat()}")
+    debug_print(f"[PERF] /api/balances endpoint called at {datetime.now(timezone.utc).isoformat()}")
     result = jsonify(get_balances_and_risks())
     elapsed = time.time() - start_time
-    print(f"[PERF] /api/balances endpoint completed in {elapsed:.3f}s")
+    debug_print(f"[PERF] /api/balances endpoint completed in {elapsed:.3f}s")
     return result
 
 
@@ -1586,6 +1606,17 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     
     args = parser.parse_args()
+    
+    # Set global debug flag
+    global DEBUG_MODE, kraken_api
+    DEBUG_MODE = args.debug
+    
+    # Reinitialize Kraken API with debug flag if needed
+    if DEBUG_MODE and kraken_api:
+        try:
+            kraken_api = KrakenAPI.from_env(readwrite=True, debug=True)
+        except Exception as e:
+            print(f"Warning: Could not reinitialize Kraken API with debug: {e}")
     
     print(f"Starting TTSLO Dashboard on http://{args.host}:{args.port}")
     print(f"Config file: {CONFIG_FILE}")
