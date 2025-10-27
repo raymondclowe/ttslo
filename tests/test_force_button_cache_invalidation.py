@@ -76,10 +76,12 @@ def test_force_button_invalidates_caches():
                     # Track invalidation calls
                     state_invalidate_called = False
                     active_invalidate_called = False
+                    pending_invalidate_called = False
                     config_invalidate_called = False
                     
                     original_state_invalidate = dashboard.get_cached_state.invalidate
                     original_active_invalidate = dashboard.get_active_orders.invalidate
+                    original_pending_invalidate = dashboard.get_pending_orders.invalidate
                     original_config_invalidate = dashboard.get_cached_config.invalidate
                     
                     def track_state_invalidate():
@@ -92,6 +94,11 @@ def test_force_button_invalidates_caches():
                         active_invalidate_called = True
                         original_active_invalidate()
                     
+                    def track_pending_invalidate():
+                        nonlocal pending_invalidate_called
+                        pending_invalidate_called = True
+                        original_pending_invalidate()
+                    
                     def track_config_invalidate():
                         nonlocal config_invalidate_called
                         config_invalidate_called = True
@@ -100,26 +107,29 @@ def test_force_button_invalidates_caches():
                     # Patch invalidate methods
                     with patch.object(dashboard.get_cached_state, 'invalidate', side_effect=track_state_invalidate):
                         with patch.object(dashboard.get_active_orders, 'invalidate', side_effect=track_active_invalidate):
-                            with patch.object(dashboard.get_cached_config, 'invalidate', side_effect=track_config_invalidate):
-                                # Create test client and force the order
-                                with dashboard.app.test_client() as client:
-                                    response = client.post('/api/pending/btc_test/force')
-                                    
-                                    # Check response
-                                    assert response.status_code == 200
-                                    data = response.get_json()
-                                    assert data['success'] is True
-                                    assert data['order_id'] == 'OTEST-12345-ABCDE'
-                                    
-                                    # CRITICAL: Verify all caches were invalidated
-                                    assert state_invalidate_called, \
-                                        "get_cached_state.invalidate() must be called after force"
-                                    assert active_invalidate_called, \
-                                        "get_active_orders.invalidate() must be called after force"
-                                    assert config_invalidate_called, \
-                                        "get_cached_config.invalidate() must be called after force"
-                                    
-                                    print("✓ All caches invalidated after force button")
+                            with patch.object(dashboard.get_pending_orders, 'invalidate', side_effect=track_pending_invalidate):
+                                with patch.object(dashboard.get_cached_config, 'invalidate', side_effect=track_config_invalidate):
+                                    # Create test client and force the order
+                                    with dashboard.app.test_client() as client:
+                                        response = client.post('/api/pending/btc_test/force')
+                                        
+                                        # Check response
+                                        assert response.status_code == 200
+                                        data = response.get_json()
+                                        assert data['success'] is True
+                                        assert data['order_id'] == 'OTEST-12345-ABCDE'
+                                        
+                                        # CRITICAL: Verify all 4 caches were invalidated
+                                        assert state_invalidate_called, \
+                                            "get_cached_state.invalidate() must be called after force"
+                                        assert active_invalidate_called, \
+                                            "get_active_orders.invalidate() must be called after force"
+                                        assert pending_invalidate_called, \
+                                            "get_pending_orders.invalidate() must be called after force"
+                                        assert config_invalidate_called, \
+                                            "get_cached_config.invalidate() must be called after force"
+                                        
+                                        print("✓ All 4 caches invalidated after force button")
         
         # Verify state was updated with order_id
         state = config_manager.load_state()

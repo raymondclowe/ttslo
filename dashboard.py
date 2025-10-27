@@ -1258,8 +1258,14 @@ def api_force_pending(config_id):
             # Not fatal - state was updated successfully
         
         # Invalidate caches so next request gets fresh data
+        # Force button affects multiple views:
+        # - Pending: order moves from pending to active (triggered=true in state)
+        # - Active: order now appears here (matched via order_id in state)  
+        # - State: contains new order_id, triggered flag, trigger_time
+        # - Config: contains updated threshold_price and trigger info
         get_cached_state.invalidate()  # State was modified (order_id added)
         get_active_orders.invalidate()  # Active orders will now match via state
+        get_pending_orders.invalidate()  # Order no longer pending (triggered=true)
         get_cached_config.invalidate()  # Config was modified (trigger info added)
         
         print(f"[DASHBOARD] Successfully forced order {config_id}: order_id={order_id}")

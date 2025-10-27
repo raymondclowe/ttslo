@@ -2070,24 +2070,37 @@ Cycle 2+:
 - After cache expired, fresh state loaded with order_id
 - Order then matched via state, "Manual" tag disappeared
 
-**Solution**: Added cache invalidation after state update (lines 1260-1262):
+**Solution**: Added cache invalidation after state update (lines 1260-1267):
 ```python
 # Invalidate caches so next request gets fresh data
+# Force button affects multiple views:
+# - Pending: order moves from pending to active (triggered=true in state)
+# - Active: order now appears here (matched via order_id in state)  
+# - State: contains new order_id, triggered flag, trigger_time
+# - Config: contains updated threshold_price and trigger info
 get_cached_state.invalidate()  # State was modified (order_id added)
 get_active_orders.invalidate()  # Active orders will now match via state
+get_pending_orders.invalidate()  # Order no longer pending (triggered=true)
 get_cached_config.invalidate()  # Config was modified (trigger info added)
 ```
 
+**Why 4 Caches?**:
+1. **get_cached_state**: Contains order_id, triggered flag, trigger_time (changed)
+2. **get_active_orders**: Now matches order via state (must refresh to show)
+3. **get_pending_orders**: Order no longer pending (must refresh to remove)
+4. **get_cached_config**: Contains updated threshold_price and trigger info (changed)
+
 **Key Insights**:
-1. **Cache Invalidation is Critical**: Any endpoint that modifies state/config MUST invalidate relevant caches
+1. **Cache Invalidation is Critical**: Any endpoint that modifies state/config MUST invalidate ALL affected caches
 2. **Consistency Pattern**: Follow same pattern as `api_cancel_pending` (lines 1045-1046)
-3. **Multiple Caches**: Force button affects 3 caches: state, active orders, and config
+3. **Multiple Views**: Force button affects pending, active, state, and config views - invalidate all
 4. **Order Matching Logic**: Orders marked "Manual" when in Kraken but NOT in cached state
 5. **Test Coverage**: Add regression test to prevent future cache invalidation bugs
+6. **Document Why**: Add comments explaining which caches need invalidation and why
 
 **Related Files**:
-- `dashboard.py`: Lines 1260-1262 (fix), 434 (manual flag logic), 1045-1046 (reference pattern)
-- `tests/test_force_button_cache_invalidation.py`: Regression test
+- `dashboard.py`: Lines 1260-1267 (fix), 434 (manual flag logic), 1045-1046 (reference pattern)
+- `tests/test_force_button_cache_invalidation.py`: Regression test verifies all 4 caches
 - Issue description: User workflow that exposed the bug
 
 **Similar Issues Fixed Previously**:
