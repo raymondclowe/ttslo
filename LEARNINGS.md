@@ -81,9 +81,110 @@ Buttons: [Cancel]  [Force - greyed out, disabled]
 
 ---
 
+## Dashboard Force Button Immediate Execution (2025-10-27)
+
+**Enhancement**: Force button now immediately creates TSL order on Kraken instead of waiting for next monitoring cycle.
+
+**Problem with Original Implementation**:
+- Force button only updated threshold_price in config.csv
+- Had to wait for next monitoring cycle (60s default) for order to be created
+- No immediate feedback to user
+- User couldn't be sure order was actually created
+
+**New Behavior**:
+1. Updates threshold_price to current_price
+2. **Immediately calls Kraken API** to create TSL order
+3. Updates state.csv with trigger info (order_id, trigger_price, trigger_time)
+4. Returns order ID to user instantly
+
+**Implementation Details**:
+
+1. **Backend** (`dashboard.py`): Enhanced `/api/pending/<config_id>/force` endpoint
+   - Validates all required fields (pair, direction, volume, trailing_offset_percent)
+   - Fetches current price from Kraken API
+   - Updates threshold_price in config.csv
+   - **NEW**: Directly calls `kraken_api.add_trailing_stop_loss()`
+   - **NEW**: Updates state.csv to mark as triggered
+   - **NEW**: Updates config.csv with trigger info
+   - Handles index price unavailable (retries with last price)
+   - Returns order ID and details to UI
+
+2. **Frontend** (`templates/dashboard.html`): Updated confirmation message
+   - Dialog now says "IMMEDIATELY" to clarify new behavior
+   - Success message includes order ID
+   - Shows trigger price and order details
+
+3. **State Management**: Properly tracks order lifecycle
+   - Creates/updates state entry with triggered='true'
+   - Stores order_id, trigger_price, trigger_time
+   - Preserves initial_price if already set
+
+**Error Handling**:
+- Missing required fields → 400 Bad Request with clear error
+- Kraken API unavailable → 503 Service Unavailable
+- Price fetch failure → 500 with details
+- TSL order creation failure → 500 with error message
+- Index price unavailable → Automatic retry with last price
+
+**Key Architectural Insights**:
+
+1. **Reused ttslo.py Logic**: Dashboard now has same order creation logic as monitoring service
+   - Same API call pattern
+   - Same index→last fallback
+   - Same fee optimization (fciq for BTC)
+
+2. **State Consistency**: Both paths (dashboard force vs. monitoring trigger) update state identically
+   - Same state fields
+   - Same timing
+   - No drift between dashboard and monitoring
+
+3. **No Code Duplication**: Dashboard imports logic, doesn't reimplement
+   - Uses same `_extract_base_asset()` helper
+   - Uses same Kraken API methods
+   - Follows same error handling patterns
+
+**Testing**:
+- 10 comprehensive tests (updated from 7)
+- All scenarios covered:
+  - ✅ Successful order creation
+  - ✅ Missing config fields  
+  - ✅ Config not found
+  - ✅ Kraken API unavailable
+  - ✅ Price fetch errors
+  - ✅ TSL order creation failures
+  - ✅ Index price unavailable fallback
+  - ✅ State and config updates verified
+- All 419 tests passing
+
+**Performance**:
+- Old: 60s wait for next cycle → order created
+- New: <2s for API call → order created immediately
+- 30x faster user experience
+
+**UI Impact**:
+```
+Before: "Order will trigger on next check cycle"
+After:  "TSL order created successfully! Order ID: OIZXVF-N5TQ5..."
+```
+
+**Related Files**:
+- `dashboard.py`: Lines 1019-1245 (api_force_pending endpoint - completely rewritten)
+- `templates/dashboard.html`: Lines 1344-1372 (forcePendingOrder JS - updated messages)
+- `tests/test_dashboard_force.py`: All 10 tests updated/added
+
+**Migration Notes**:
+- Backward compatible - existing configs work
+- No database migration needed
+- State.csv format unchanged
+- Dashboard can now create orders independently of monitoring service
+
+---
+
 ## Dashboard Force Button Implementation (2025-10-27)
 
 **Feature**: Added "Force" button to pending orders in dashboard that forces immediate order creation by setting threshold_price = current_price.
+
+**DEPRECATED**: This section describes the original implementation. See "Dashboard Force Button Immediate Execution" above for current behavior.
 
 **Implementation Details**:
 1. **Backend** (`config.py`): Added `update_config_threshold_price()` method
@@ -107,7 +208,7 @@ Buttons: [Cancel]  [Force - greyed out, disabled]
    - Error messages displayed in alert dialogs
    - Logs written to console for debugging
 
-**How It Works**:
+**How It Works** (OLD):
 1. User clicks green "Force" button
 2. Confirmation: "This will set threshold price to current market price..."
 3. Backend: GET current price, UPDATE config.csv
@@ -129,9 +230,9 @@ Buttons: [Cancel]  [Force - greyed out, disabled]
 
 **Related Files**:
 - `config.py`: Lines 546-583 (update_config_threshold_price)
-- `dashboard.py`: Lines 983-1055 (api_force_pending endpoint)
+- `dashboard.py`: Lines 983-1055 (api_force_pending endpoint - OLD VERSION)
 - `templates/dashboard.html`: CSS, HTML, JavaScript for Force button
-- `tests/test_dashboard_force.py`: Complete test suite (7 tests)
+- `tests/test_dashboard_force.py`: Complete test suite (7 tests - OLD VERSION)
 
 ---
 
