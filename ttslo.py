@@ -271,6 +271,62 @@ class TTSLO:
         
         return ''
     
+    def check_minimum_volume(self, pair: str, volume: float, config_id: str = None) -> tuple:
+        """
+        Check if the volume meets Kraken's minimum order size for the pair.
+        
+        Args:
+            pair: Trading pair (e.g., 'NEARUSD')
+            volume: Order volume
+            config_id: Configuration ID for logging (optional)
+            
+        Returns:
+            Tuple of (is_sufficient: bool, message: str, minimum: str or None)
+        """
+        try:
+            # Fetch pair info from Kraken API
+            pair_info = self.kraken_api_readonly.get_asset_pair_info(pair)
+            
+            if not pair_info:
+                # Could not get pair info - allow order to proceed
+                # The actual error will be caught when creating the order
+                return (True, 'Could not verify minimum volume (pair info unavailable)', None)
+            
+            # Extract ordermin field
+            ordermin_str = pair_info.get('ordermin')
+            if not ordermin_str:
+                # No minimum specified - allow order
+                return (True, 'No minimum volume specified for pair', None)
+            
+            try:
+                # Convert to Decimal for comparison
+                ordermin = Decimal(str(ordermin_str))
+                volume_decimal = Decimal(str(volume))
+                
+                # Check if volume meets minimum
+                if volume_decimal < ordermin:
+                    return (False, 
+                            f'Volume {volume} is below minimum {ordermin} for {pair}',
+                            str(ordermin))
+                else:
+                    return (True, 
+                            f'Volume {volume} meets minimum {ordermin} for {pair}',
+                            str(ordermin))
+                            
+            except (ValueError, InvalidOperation) as e:
+                self.log('WARNING', 
+                        f'Could not parse ordermin value "{ordermin_str}" for {pair}: {e}',
+                        config_id=config_id, error=str(e))
+                # Allow order to proceed if we can't parse
+                return (True, 'Could not parse minimum volume', None)
+                
+        except Exception as e:
+            self.log('WARNING',
+                    f'Error checking minimum volume for {pair}: {e}',
+                    config_id=config_id, error=str(e))
+            # On error, allow order to proceed - actual validation happens at Kraken
+            return (True, 'Error checking minimum volume', None)
+    
     def check_sufficient_balance(self, pair: str, direction: str, volume: float, config_id: str = None) -> tuple:
         """
         Check if there is sufficient balance to create an order.
@@ -370,6 +426,41 @@ class TTSLO:
         except Exception as e:
             error_msg = f'Error checking balance: {str(e)}'
             return (False, error_msg, None)
+    
+    def _handle_order_error_state(self, config_id: str, error_msg: str, notify_type: str = None, notify_args: dict = None):
+        """
+        Handle order creation errors by updating state and optionally sending notifications.
+        
+        This method:
+        1. Updates last_error in state.csv
+        2. Sends notification only if not already notified (prevents spam)
+        3. Sets error_notified flag to prevent repeated notifications
+        
+        Args:
+            config_id: Configuration ID
+            error_msg: Error message to store
+            notify_type: Type of notification ('order_failed', 'insufficient_balance', etc.)
+            notify_args: Arguments to pass to notification method
+        """
+        if config_id not in self.state:
+            return
+        
+        # Update error state
+        self.state[config_id]['last_error'] = error_msg
+        
+        # Send notification only if not already notified for this error
+        if not self.state[config_id].get('error_notified') and self.notification_manager and notify_type:
+            try:
+                if notify_type == 'insufficient_balance' and hasattr(self.notification_manager, 'notify_insufficient_balance'):
+                    self.notification_manager.notify_insufficient_balance(**notify_args)
+                elif notify_type == 'order_failed' and hasattr(self.notification_manager, 'notify_order_failed'):
+                    self.notification_manager.notify_order_failed(**notify_args)
+                
+                # Mark as notified to prevent repeated notifications
+                self.state[config_id]['error_notified'] = True
+            except Exception as e:
+                self.log('WARNING', f'Failed to send error notification: {str(e)}',
+                        config_id=config_id, error=str(e))
     
     def create_tsl_order(self, config, trigger_price):
         """
@@ -492,7 +583,37 @@ class TTSLO:
                 self._handle_order_error_state(config_id, 'Missing read-write API credentials')
             return None
         
-        # Step 10: Check if we have sufficient balance before creating the order
+        # Step 10: Check if volume meets Kraken's minimum order size for the pair
+        # This prevents sending orders that will fail with "volume minimum not met"
+        volume_ok, volume_msg, minimum = self.check_minimum_volume(
+            pair=pair,
+            volume=volume,
+            config_id=config_id
+        )
+        
+        if not volume_ok:
+            self.log('ERROR',
+                    f"Cannot create TSL order: {volume_msg}",
+                    config_id=config_id, trigger_price=trigger_price,
+                    pair=pair, direction=direction, volume=volume, minimum=minimum)
+            print(f"ERROR: Cannot create order for {config_id}: {volume_msg}")
+            # Notify user about volume minimum issue (only once via state tracking)
+            if config_id in self.state:
+                self._handle_order_error_state(config_id, volume_msg, notify_type='order_failed', notify_args={
+                    'pair': pair,
+                    'direction': direction,
+                    'volume': volume,
+                    'error': volume_msg,
+                    'trigger_price': trigger_price_float
+                })
+            return None
+        else:
+            # Log that volume check passed
+            self.log('DEBUG',
+                    f"Volume check passed: {volume_msg}",
+                    config_id=config_id)
+        
+        # Step 11: Check if we have sufficient balance before creating the order
         # This prevents sending orders to Kraken that will fail due to insufficient funds
         is_sufficient, balance_msg, available = self.check_sufficient_balance(
             pair=pair,
