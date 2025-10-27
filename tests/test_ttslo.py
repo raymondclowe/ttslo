@@ -351,7 +351,7 @@ def test_config_validator():
     result = validator_with_api.validate_config_file(already_met_configs)
     assert not result.is_valid(), "Threshold already met should be an error"
     
-    # Test insufficient gap (error)
+    # Test insufficient gap (now a WARNING to allow transactions)
     insufficient_gap_configs = [
         {
             'id': 'test6',
@@ -366,7 +366,10 @@ def test_config_validator():
     ]
     
     result = validator_with_api.validate_config_file(insufficient_gap_configs)
-    assert not result.is_valid(), "Insufficient gap should be an error"
+    assert result.is_valid(), "Insufficient gap should be a warning (changed to allow transactions)"
+    assert len(result.warnings) > 0, "Should have warnings for insufficient gap"
+    gap_warnings = [w for w in result.warnings if 'Insufficient gap' in w['message']]
+    assert len(gap_warnings) > 0, "Should have warning about insufficient gap"
     
     print("✓ Config validator tests passed")
 

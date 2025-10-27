@@ -437,11 +437,9 @@ class ConfigValidator:
         if price_diff_percent < trailing_offset:
             msg = (f'Insufficient gap between threshold ({self._format_decimal(threshold_price)}) and current price ({self._format_decimal(current_price)}). '
                    f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
-                   f'Order would trigger immediately or not work as intended.')
-            if self.debug_mode:
-                result.add_warning(config_id, 'threshold_price', f'[DEBUG MODE] {msg}')
-            else:
-                result.add_error(config_id, 'threshold_price', msg)
+                   f'Order may trigger immediately. Consider: (1) increase threshold price, (2) reduce trailing offset, or (3) wait for price to move away.')
+            # Changed from ERROR to WARNING to allow transactions while still alerting user
+            result.add_warning(config_id, 'threshold_price', msg)
         elif price_diff_percent < min_gap_percent:
             result.add_warning(config_id, 'threshold_price',
                              f'Small gap between threshold ({self._format_decimal(threshold_price)}) and current price ({self._format_decimal(current_price)}). '
