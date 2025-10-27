@@ -31,6 +31,13 @@ import sys
 import time
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+# Ensure project root is on sys.path so scripts run via `uv run tools/...` can
+# import project modules like `kraken_api`.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.abspath(os.path.join(_HERE, '..'))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from kraken_api import KrakenAPI
 
 
