@@ -717,8 +717,14 @@ class KrakenAPI:
         """
         try:
             # Query the AssetPairs endpoint
-            result = self._query_public('AssetPairs', {'pair': pair})
+            response = self._query_public('AssetPairs', {'pair': pair})
             
+            # Check for API errors
+            if response.get('error'):
+                raise Exception(f"Kraken API error: {response['error']}")
+            
+            # Extract result field
+            result = response.get('result', {})
             if not result or not isinstance(result, dict):
                 return None
             
