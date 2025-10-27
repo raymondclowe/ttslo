@@ -113,14 +113,15 @@ python3 tools/coin_stats.py \
   --csv-output summary.csv \
   --html-output index.html \
   --config-output suggested_triggers.csv \
-  --json-output full_data.json
+  --json-output full_data.json \
+  --target-usd-volume 2.5
 ```
 
 This will create:
 - Distribution graphs in `./analysis_results/`
 - HTML viewer at `./analysis_results/index.html`
 - CSV summary table at `summary.csv`
-- Suggested config entries at `suggested_triggers.csv`
+- Suggested config entries at `suggested_triggers.csv` with $2.50 USD volume target
 - Complete JSON data at `full_data.json`
 
 ### Skip Graph Generation
@@ -164,6 +165,16 @@ python3 tools/coin_stats.py --output-dir /path/to/graphs
 --config-output CONFIG_OUTPUT
     Generate suggested config.csv for TTSLO (default: suggested_config.csv)
     
+--suggestbracket SUGGESTBRACKET
+    Bracket offset percentage for suggestions (default: 2.0)
+    
+--suggestoffset SUGGESTOFFSET
+    Trailing offset percentage for suggestions (default: 1.0)
+    
+--target-usd-volume TARGET_USD_VOLUME
+    Target volume in USD for suggested config (default: 1.0)
+    Adds +/- 25% variance and ensures Kraken minimums are met
+    
 --json-output JSON_OUTPUT
     Save complete results to JSON file for further processing
 ```
@@ -204,14 +215,36 @@ Interactive HTML page with:
 Ready-to-use config.csv entries for TTSLO with:
 - High-probability trigger thresholds (based on 95% analysis)
 - Both above and below entries for each pair
-- Conservative volumes suitable for testing
+- **Volume Calculation**: Intelligent volume sizing based on target USD value
+  - Converts target USD to coin units (e.g., $1 @ $100 = 0.01 coins)
+  - Adds +/- 25% variance for diversity across entries
+  - Ensures Kraken minimum order requirements (ordermin) are met
+  - Uses `max(calculated_volume, ordermin)` for final volume
 - Trailing offsets calculated from volatility
+
+**Volume Calculation Examples**:
+```
+BTC @ $115,000 with $1 target:
+  Calculated: $1 / $115,000 = 0.0000087
+  Ordermin: 0.00005
+  Final volume: 0.00005 (uses ordermin)
+
+SOL @ $200 with $1 target:
+  Calculated: $1 / $200 = 0.005 (with +/- 25% variance)
+  Ordermin: 0.02
+  Final volume: 0.02 (uses ordermin)
+
+NEAR @ $2.40 with $1 target:
+  Calculated: $1 / $2.40 = 0.417 (with +/- 25% variance)
+  Ordermin: 0.7
+  Final volume: 0.7 (uses ordermin)
+```
 
 **Format (compatible with TTSLO config.csv):**
 ```csv
 id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_usd_above_1,XXBTZUSD,109958.73,above,sell,0.0010,1.00,true
-btc_usd_below_2,XXBTZUSD,109834.91,below,buy,0.0010,1.00,true
+btc_usd_above_1,XXBTZUSD,109958.73,above,sell,0.00005000,1.00,true
+btc_usd_below_2,XXBTZUSD,109834.91,below,buy,0.00005000,1.00,true
 ```
 
 **How to use:**

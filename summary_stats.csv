@@ -1,0 +1,2 @@
+Pair,Pair_Name,Mean,Median,StdDev,Min,Max,Range,Pct_Mean,Pct_Median,Pct_StdDev,Normal_Distribution,Normality_PValue,Threshold_95_Pct,Threshold_Price_Up,Threshold_Price_Down,Confidence,Data_Points
+XXBTZUSD,BTC/USD,115363.84916666667,115312.2,340.2140254590935,114842.6,116200.0,1357.3999999999942,0,0,0,False,0,0,0,0,N/A,360
