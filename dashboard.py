@@ -1029,8 +1029,9 @@ def api_cancel_pending(config_id):
         # Update the config file
         config_manager.update_config_enabled(config_id, new_status)
         
-        # Invalidate pending orders cache so next request gets fresh data
+        # Invalidate caches so next request gets fresh data
         get_pending_orders.invalidate()
+        get_cached_config.invalidate()  # Config was modified
         
         print(f"[DASHBOARD] Pending order {config_id} set to enabled={new_status}")
         
