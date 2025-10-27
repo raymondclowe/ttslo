@@ -2,6 +2,56 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Pending Panel Wording Improvement (2025-10-27)
+
+**Feature**: Improved clarity of Direction and Volume labels in pending orders panel.
+
+**Problem**: Users found the pending panel confusing:
+- "Direction: sell" - unclear whether selling the base asset or quote currency
+- "Volume: 0.1000" - unclear which asset the volume refers to
+- Example: For WALUSD pair, is it selling WAL or USD? Volume of WAL or USD?
+
+**Solution**: Enhanced wording to be explicit and user-friendly:
+- Direction: "Sell WAL to buy USD" (instead of "sell")
+- Volume: "Volume WAL: 0.1000" (instead of "Volume: 0.1000")
+
+**Implementation Details**:
+
+1. **Backend** (`dashboard.py`):
+   - Extract base_asset and quote_asset early in `get_pending_orders()`
+   - Reuse extraction for both display and balance checking (efficiency)
+   - Include `base_asset` and `quote_asset` fields in API response
+
+2. **Frontend** (`templates/dashboard.html`):
+   - `formatDirection(direction, baseAsset, quoteAsset)`: Creates descriptive text
+     - "sell" + WAL/USD → "Sell WAL to buy USD"
+     - "buy" + WAL/USD → "Buy WAL with USD"
+   - `formatVolumeLabel(direction, baseAsset)`: Specifies asset in label
+     - "Volume:" → "Volume WAL:"
+   - Removes X and Z prefixes for cleaner display (XXBT → BTC, ZUSD → USD)
+   - Applied to both normal rendering and error-handling re-render paths
+
+**Key Insights**:
+
+1. **User-Friendly Labels**: Technical terms (sell/buy) need context for non-experts
+2. **Asset Name Cleaning**: Remove Kraken's internal prefixes (X, Z) for display
+3. **Consistency**: Apply same formatting in all render paths (normal + error)
+4. **Reuse Code**: Extract assets once, use for multiple purposes (display + validation)
+
+**Example**:
+```
+Before:  Direction: sell          Volume: 0.1000
+After:   Direction: Sell WAL to buy USD    Volume WAL: 0.1000
+```
+
+**Related Files**:
+- `dashboard.py`: Lines 263-265, 291-292 (asset extraction and response)
+- `templates/dashboard.html`: Lines 612-654 (helper functions), 780-788, 857-865 (rendering)
+
+**Testing**: All 419 existing tests pass, no new tests needed (UI-only change)
+
+---
+
 ## Dashboard Insufficient Balance Warning Icons (2025-10-27)
 
 **Feature**: Added warning triangle icons to pending orders when there's insufficient balance to execute them.
