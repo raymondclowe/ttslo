@@ -58,4 +58,5 @@ def test_balance_normalization_sums_spot_and_funding():
     assert balance_infos, "Expected balance info message to be present"
     # The message should contain the summed BTC approx value
     msg = balance_infos[0]['message']
-    assert '0.01069060' in msg or '0.0106906064' in msg
+    # With smart formatting, values between 0.01 and 1.0 show 4 decimals
+    assert '0.0106' in msg or '0.01069060' in msg or '0.0106906064' in msg

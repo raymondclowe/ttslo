@@ -409,7 +409,7 @@ class ConfigValidator:
         
         # Check if threshold already met (trigger would fire immediately)
         if threshold_type == 'above' and current_price >= threshold_price:
-            msg = (f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
+            msg = (f'Threshold price {self._format_decimal(threshold_price)} is already met (current price: {self._format_decimal(current_price)}). '
                    f'For "above" threshold, set price higher than current market price.')
             if self.debug_mode:
                 result.add_warning(config_id, 'threshold_price', f'[DEBUG MODE] {msg}')
@@ -417,7 +417,7 @@ class ConfigValidator:
                 result.add_error(config_id, 'threshold_price', msg)
 
         if threshold_type == 'below' and current_price <= threshold_price:
-            msg = (f'Threshold price {self._format_decimal(threshold_price, 2)} is already met (current price: {self._format_decimal(current_price, 2)}). '
+            msg = (f'Threshold price {self._format_decimal(threshold_price)} is already met (current price: {self._format_decimal(current_price)}). '
                    f'For "below" threshold, set price lower than current market price.')
             if self.debug_mode:
                 result.add_warning(config_id, 'threshold_price', f'[DEBUG MODE] {msg}')
@@ -435,7 +435,7 @@ class ConfigValidator:
         min_gap_percent = trailing_offset * Decimal('2')
 
         if price_diff_percent < trailing_offset:
-            msg = (f'Insufficient gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '
+            msg = (f'Insufficient gap between threshold ({self._format_decimal(threshold_price)}) and current price ({self._format_decimal(current_price)}). '
                    f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
                    f'Order would trigger immediately or not work as intended.')
             if self.debug_mode:
@@ -444,7 +444,7 @@ class ConfigValidator:
                 result.add_error(config_id, 'threshold_price', msg)
         elif price_diff_percent < min_gap_percent:
             result.add_warning(config_id, 'threshold_price',
-                             f'Small gap between threshold ({self._format_decimal(threshold_price, 2)}) and current price ({self._format_decimal(current_price, 2)}). '
+                             f'Small gap between threshold ({self._format_decimal(threshold_price)}) and current price ({self._format_decimal(current_price)}). '
                              f'Gap is {self._format_decimal(price_diff_percent, 2)}% but trailing offset is {self._format_decimal(trailing_offset, 2)}%. '
                              f'Consider a gap of at least {self._format_decimal(min_gap_percent, 1)}% for best results.')
         
@@ -518,16 +518,16 @@ class ConfigValidator:
             # Check if threshold is 10x above recent high
             if threshold_price > recent_high * Decimal('10'):
                 result.add_warning(config_id, 'threshold_price',
-                                 f'Threshold price {self._format_decimal(threshold_price, 2)} is more than 10x the recent 7-day high '
-                                 f'({self._format_decimal(recent_high, 2)}). This may indicate a typo (extra zero or misplaced decimal). '
-                                 f'Current price: {self._format_decimal(current_price, 2)}')
+                                 f'Threshold price {self._format_decimal(threshold_price)} is more than 10x the recent 7-day high '
+                                 f'({self._format_decimal(recent_high)}). This may indicate a typo (extra zero or misplaced decimal). '
+                                 f'Current price: {self._format_decimal(current_price)}')
             
             # Check if threshold is 0.1x (10x less than) below recent low
             elif threshold_price < recent_low * Decimal('0.1'):
                 result.add_warning(config_id, 'threshold_price',
-                                 f'Threshold price {self._format_decimal(threshold_price, 2)} is less than 0.1x the recent 7-day low '
-                                 f'({self._format_decimal(recent_low, 2)}). This may indicate a typo (missing zero or misplaced decimal). '
-                                 f'Current price: {self._format_decimal(current_price, 2)}')
+                                 f'Threshold price {self._format_decimal(threshold_price)} is less than 0.1x the recent 7-day low '
+                                 f'({self._format_decimal(recent_low)}). This may indicate a typo (missing zero or misplaced decimal). '
+                                 f'Current price: {self._format_decimal(current_price)}')
         
         except Exception:
             # Don't fail validation if historical data check fails
@@ -595,15 +595,15 @@ class ConfigValidator:
                 # Warn if threshold is 10x above max existing order price
                 if threshold_price > max_price * Decimal('10'):
                     result.add_warning(config_id, 'threshold_price',
-                                     f'Threshold price {self._format_decimal(threshold_price, 2)} is more than 10x the highest '
-                                     f'price in your existing {pair} orders ({self._format_decimal(max_price, 2)}). '
+                                     f'Threshold price {self._format_decimal(threshold_price)} is more than 10x the highest '
+                                     f'price in your existing {pair} orders ({self._format_decimal(max_price)}). '
                                      f'This may indicate a typo.')
                 
                 # Warn if threshold is 0.1x (10x less) below min existing order price
                 elif min_price > 0 and threshold_price < min_price * Decimal('0.1'):
                     result.add_warning(config_id, 'threshold_price',
-                                     f'Threshold price {self._format_decimal(threshold_price, 2)} is less than 0.1x the lowest '
-                                     f'price in your existing {pair} orders ({self._format_decimal(min_price, 2)}). '
+                                     f'Threshold price {self._format_decimal(threshold_price)} is less than 0.1x the lowest '
+                                     f'price in your existing {pair} orders ({self._format_decimal(min_price)}). '
                                      f'This may indicate a typo.')
             
             # Check volume against existing order volumes
@@ -772,12 +772,52 @@ class ConfigValidator:
         asset = asset.lstrip('XZ')
         return asset
 
-    def _format_decimal(self, value: Decimal, places: int = 8) -> str:
-        """Format a Decimal to a fixed number of decimal places as a string."""
+    def _format_decimal(self, value: Decimal, places: int = None) -> str:
+        """
+        Format a Decimal to an appropriate number of decimal places based on magnitude.
+        
+        If places is specified, uses that many decimal places.
+        If places is None (default), uses smart formatting based on value:
+        - Very small (< 0.01): up to 8 decimals, trailing zeros removed
+        - Small (< 1): 4 decimals
+        - Medium (< 100): 2 decimals
+        - Large (>= 100): 2 decimals
+        
+        Args:
+            value: Decimal value to format
+            places: Optional fixed number of decimal places. If None, uses smart formatting.
+            
+        Returns:
+            Formatted string representation
+        """
         try:
-            quant = Decimal(f'1e-{places}')
-            q = value.quantize(quant, rounding=ROUND_DOWN)
-            return format(q, 'f')
+            # If places explicitly specified, use fixed decimal places
+            if places is not None:
+                quant = Decimal(f'1e-{places}')
+                q = value.quantize(quant, rounding=ROUND_DOWN)
+                return format(q, 'f')
+            
+            # Smart formatting based on magnitude
+            abs_value = abs(value)
+            
+            if abs_value < Decimal('0.01'):
+                # Very small: up to 8 decimals, remove trailing zeros
+                quant = Decimal('1e-8')
+                q = value.quantize(quant, rounding=ROUND_DOWN)
+                formatted = format(q, 'f')
+                # Remove trailing zeros and decimal point if not needed
+                formatted = formatted.rstrip('0').rstrip('.')
+                return formatted if formatted else '0'
+            elif abs_value < Decimal('1'):
+                # Small: 4 decimals
+                quant = Decimal('1e-4')
+                q = value.quantize(quant, rounding=ROUND_DOWN)
+                return format(q, 'f')
+            else:
+                # Medium/Large: 2 decimals
+                quant = Decimal('1e-2')
+                q = value.quantize(quant, rounding=ROUND_DOWN)
+                return format(q, 'f')
         except Exception:
             # Fallback to plain string conversion
             return format(value, 'f')
