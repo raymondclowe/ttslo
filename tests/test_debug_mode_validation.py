@@ -98,8 +98,8 @@ def test_threshold_already_met_warning_in_debug_mode():
     assert len(threshold_warnings) >= 1, f"Expected warning about threshold already met with DEBUG MODE tag, got warnings: {result.warnings}"
 
 
-def test_insufficient_gap_error_in_normal_mode():
-    """Test that insufficient gap is an ERROR in normal mode."""
+def test_insufficient_gap_warning_in_normal_mode():
+    """Test that insufficient gap is a WARNING in normal mode (changed from ERROR to allow transactions)."""
     # Current price: 50000, Threshold: 50500 (1% gap), Trailing offset: 5% (needs at least 5% gap)
     api = FakeKrakenAPI(current_price=Decimal('50000'))
     
@@ -119,17 +119,17 @@ def test_insufficient_gap_error_in_normal_mode():
     
     result = validator.validate_config_file(configs)
     
-    # Should have an ERROR for insufficient gap
-    assert not result.is_valid(), "Expected validation to fail"
-    assert len(result.errors) > 0, "Expected at least one error"
+    # Should be VALID (no errors, only warnings) - changed to allow users to transact
+    assert result.is_valid(), f"Expected validation to pass (WARNING not ERROR), got errors: {result.errors}"
+    assert len(result.warnings) > 0, "Expected at least one warning"
     
-    # Check that the error is about insufficient gap
-    gap_errors = [e for e in result.errors if 'Insufficient gap' in e['message']]
-    assert len(gap_errors) >= 1, f"Expected error about insufficient gap, got errors: {result.errors}"
+    # Check that the warning is about insufficient gap
+    gap_warnings = [w for w in result.warnings if 'Insufficient gap' in w['message']]
+    assert len(gap_warnings) >= 1, f"Expected warning about insufficient gap, got warnings: {result.warnings}"
 
 
 def test_insufficient_gap_warning_in_debug_mode():
-    """Test that insufficient gap is a WARNING in debug mode."""
+    """Test that insufficient gap is a WARNING in debug mode (same behavior as normal mode now)."""
     # Current price: 50000, Threshold: 50500 (1% gap), Trailing offset: 5% (needs at least 5% gap)
     api = FakeKrakenAPI(current_price=Decimal('50000'))
     
@@ -155,9 +155,9 @@ def test_insufficient_gap_warning_in_debug_mode():
     # Should have a WARNING for insufficient gap
     assert len(result.warnings) > 0, "Expected at least one warning"
     
-    # Check that the warning is about insufficient gap and mentions DEBUG MODE
-    gap_warnings = [w for w in result.warnings if 'Insufficient gap' in w['message'] and 'DEBUG MODE' in w['message']]
-    assert len(gap_warnings) >= 1, f"Expected warning about insufficient gap with DEBUG MODE tag, got warnings: {result.warnings}"
+    # Check that the warning is about insufficient gap (no longer needs DEBUG MODE tag)
+    gap_warnings = [w for w in result.warnings if 'Insufficient gap' in w['message']]
+    assert len(gap_warnings) >= 1, f"Expected warning about insufficient gap, got warnings: {result.warnings}"
 
 
 def test_below_threshold_already_met_error_in_normal_mode():
@@ -259,9 +259,14 @@ def test_multiple_configs_debug_mode():
     # Should have warnings for both configs
     assert len(result.warnings) >= 2, f"Expected at least 2 warnings, got: {len(result.warnings)}"
     
-    # Both warnings should mention DEBUG MODE
-    debug_warnings = [w for w in result.warnings if 'DEBUG MODE' in w['message']]
-    assert len(debug_warnings) >= 2, f"Expected at least 2 warnings with DEBUG MODE tag, got: {len(debug_warnings)}"
+    # First config (threshold already met) should have DEBUG MODE tag in debug mode
+    already_met_warnings = [w for w in result.warnings if 'already met' in w['message']]
+    assert len(already_met_warnings) >= 1, "Expected warning about threshold already met"
+    assert 'DEBUG MODE' in already_met_warnings[0]['message'], "Threshold already met should have DEBUG MODE tag in debug mode"
+    
+    # Second config (insufficient gap) should have warning (no DEBUG MODE tag anymore)
+    gap_warnings = [w for w in result.warnings if 'Insufficient gap' in w['message']]
+    assert len(gap_warnings) >= 1, "Expected warning about insufficient gap"
 
 
 if __name__ == '__main__':
@@ -271,8 +276,8 @@ if __name__ == '__main__':
     test_threshold_already_met_warning_in_debug_mode()
     print("✓ test_threshold_already_met_warning_in_debug_mode passed")
     
-    test_insufficient_gap_error_in_normal_mode()
-    print("✓ test_insufficient_gap_error_in_normal_mode passed")
+    test_insufficient_gap_warning_in_normal_mode()
+    print("✓ test_insufficient_gap_warning_in_normal_mode passed")
     
     test_insufficient_gap_warning_in_debug_mode()
     print("✓ test_insufficient_gap_warning_in_debug_mode passed")

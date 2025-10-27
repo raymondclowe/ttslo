@@ -2582,3 +2582,53 @@ elif quote == 'EUR':
 ---
 
 ```
+
+---
+
+## Insufficient Gap Validation Change (2025-10-27)
+
+**Issue**: Validator blocked orders when gap between threshold and current price was less than trailing offset. Users couldn't transact even though they wanted to.
+
+**Examples from Issue**:
+- DYDXUSD: Gap 0.96% < trailing 2.00% → Blocked
+- PONKEUSD: Gap 1.11% < trailing 2.00% → Blocked  
+- ATHUSD: Gap 1.97% < trailing 2.00% → Blocked
+
+**Root Cause**: Validation was too strict, assuming insufficient gap was always wrong. But users might WANT to trigger orders immediately.
+
+**Solution**: Changed insufficient gap from ERROR to WARNING
+- Gap < trailing_offset: Now WARNING (was ERROR)
+- Allows transactions while still alerting user
+- Added actionable suggestions in warning message
+
+**Code Changes**:
+1. `validator.py` line 437-443: Changed from conditional ERROR/WARNING to always WARNING
+2. Added helpful suggestions: "(1) increase threshold price, (2) reduce trailing offset, or (3) wait for price to move away"
+3. Updated 3 existing tests to expect WARNING instead of ERROR
+4. Added 3 comprehensive tests in `test_insufficient_gap_fix.py`
+
+**Warning Levels** (unchanged):
+- Gap < trailing_offset: "Insufficient gap" WARNING
+- Gap >= trailing_offset and < 2×trailing_offset: "Small gap" WARNING  
+- Gap >= 2×trailing_offset: No warning
+
+**Key Insights**:
+1. **User Intent Matters**: Validation should warn but not block when user wants immediate execution
+2. **Actionable Warnings**: Include suggestions on how to fix issues
+3. **Minimal Changes**: Simple change from ERROR to WARNING solves the problem
+4. **Debug Mode**: Already had mechanism for this (debug_mode), just needed to apply it to normal mode too
+
+**Testing**:
+- 3 new tests covering exact examples from issue
+- All existing tests updated and passing
+- 448 total tests passing
+
+**Related Files**:
+- `validator.py`: Lines 437-443 (fix)
+- `tests/test_insufficient_gap_fix.py`: New comprehensive tests
+- `tests/test_debug_mode_validation.py`: Updated tests
+- `tests/test_ttslo.py`: Updated test_config_validator
+
+**User Impact**: Users can now transact with small gaps (with warnings) instead of being completely blocked.
+
+---
