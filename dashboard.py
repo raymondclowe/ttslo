@@ -379,16 +379,25 @@ def get_completed_orders():
         return []
     
     # Use cached config and state
+    print(f"[PERF] get_completed_orders: fetching cached state and config")
+    state_start = time.time()
     state = get_cached_state()
     configs = get_cached_config()
+    state_elapsed = time.time() - state_start
+    print(f"[PERF] get_completed_orders: cached data fetched in {state_elapsed:.3f}s (state: {len(state)} entries, configs: {len(configs)} entries)")
     
     # Create a map of config IDs to their configs
+    config_map_start = time.time()
     config_map = {c.get('id'): c for c in configs}
+    config_map_elapsed = time.time() - config_map_start
+    print(f"[PERF] get_completed_orders: config map created in {config_map_elapsed:.3f}s ({len(config_map)} configs)")
     
     completed = []
     
     try:
         # Collect order IDs from triggered state entries
+        print(f"[PERF] get_completed_orders: collecting order IDs from state")
+        collect_start = time.time()
         order_ids = []
         config_id_by_order = {}  # Map order_id -> config_id
         
@@ -401,7 +410,8 @@ def get_completed_orders():
             order_ids.append(order_id)
             config_id_by_order[order_id] = config_id
         
-        print(f"[PERF] Found {len(order_ids)} triggered orders in state")
+        collect_elapsed = time.time() - collect_start
+        print(f"[PERF] get_completed_orders: collected {len(order_ids)} triggered orders in {collect_elapsed:.3f}s")
         
         if not order_ids:
             print(f"[PERF] No triggered orders to query")
@@ -409,6 +419,7 @@ def get_completed_orders():
         
         # Query specific order IDs directly (more efficient than fetching all closed orders)
         # Kraken's QueryOrders endpoint can query up to 50 orders at once
+        print(f"[PERF] get_completed_orders: querying specific orders from Kraken API")
         query_start = time.time()
         try:
             closed_orders = kraken_api.query_orders(order_ids)
@@ -420,7 +431,12 @@ def get_completed_orders():
             if missing_orders:
                 print(f"[PERF] WARNING: query_orders missing {len(missing_orders)} orders: {list(missing_orders)[:3]}...")
                 # Query closed orders to find missing ones
+                print(f"[PERF] get_completed_orders: fetching all cached closed orders for missing orders")
+                all_closed_start = time.time()
                 all_closed = get_cached_closed_orders()
+                all_closed_elapsed = time.time() - all_closed_start
+                print(f"[PERF] get_completed_orders: fetched {len(all_closed)} cached closed orders in {all_closed_elapsed:.3f}s")
+                
                 for oid in missing_orders:
                     if oid in all_closed:
                         closed_orders[oid] = all_closed[oid]
@@ -430,15 +446,29 @@ def get_completed_orders():
             import traceback
             traceback.print_exc()
             # Fallback to the old method if query_orders fails
+            print(f"[PERF] get_completed_orders: fallback - fetching all cached closed orders")
+            fallback_start = time.time()
             closed_orders = get_cached_closed_orders()
-            print(f"[PERF] Fallback: using cached closed orders, got {len(closed_orders)} orders")
+            fallback_elapsed = time.time() - fallback_start
+            print(f"[PERF] Fallback: using cached closed orders, got {len(closed_orders)} orders in {fallback_elapsed:.3f}s")
         
+        print(f"[PERF] get_completed_orders: starting filtering/matching of {len(closed_orders)} orders")
         filter_start = time.time()
+        processed_count = 0
+        skipped_count = 0
+        
         for order_id, order_info in closed_orders.items():
+            processed_count += 1
+            
+            # Log progress every 100 orders
+            if processed_count % 100 == 0:
+                print(f"[PERF] get_completed_orders: processed {processed_count}/{len(closed_orders)} orders so far")
+            
             config_id = config_id_by_order.get(order_id)
             if not config_id:
                 # This is a manual order not tracked in state
                 # Skip for now - only show orders we created
+                skipped_count += 1
                 continue
                 
             if order_info and order_info.get('status') in ['closed', 'canceled']:
@@ -495,9 +525,16 @@ def get_completed_orders():
                     'trailing_offset_percent': config.get('trailing_offset_percent'),
                 })
         
+        print(f"[PERF] get_completed_orders: processed {processed_count} orders, skipped {skipped_count} manual orders")
+        
         # Include manual closed trailing-stop orders from Kraken not in state
+        print(f"[PERF] get_completed_orders: checking for manual trailing-stop orders")
+        manual_start = time.time()
+        manual_count = 0
         try:
             all_closed = get_cached_closed_orders()
+            print(f"[PERF] get_completed_orders: scanning {len(all_closed)} total closed orders for manual trailing-stops")
+            
             for order_id, order_info in all_closed.items():
                 # Skip if already included
                 if any(c.get('order_id') == order_id for c in completed):
@@ -536,8 +573,13 @@ def get_completed_orders():
                     'manual': True,
                     'source': 'kraken'
                 })
+                manual_count += 1
+                
         except Exception as e:
             print(f"[PERF] Error adding manual completed orders: {e}")
+        
+        manual_elapsed = time.time() - manual_start
+        print(f"[PERF] get_completed_orders: added {manual_count} manual orders in {manual_elapsed:.3f}s")
         
         filter_elapsed = time.time() - filter_start
         print(f"[PERF] Filtering/matching {len(closed_orders)} orders took {filter_elapsed:.3f}s")
