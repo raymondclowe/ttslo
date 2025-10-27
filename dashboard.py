@@ -226,6 +226,14 @@ def get_pending_orders():
     prices = get_current_prices()
     print(f"[PERF] get_current_prices took {time.time() - price_start:.3f}s")
     
+    # Get balances for insufficient balance checking
+    balances = {}
+    if kraken_api:
+        try:
+            balances = kraken_api.get_balance()
+        except Exception as e:
+            print(f"[PERF] Could not fetch balances for pending orders: {e}")
+    
     pending = []
     for config in configs:
         config_id = config.get('id')
@@ -252,16 +260,43 @@ def get_pending_orders():
                 config.get('threshold_type')
             )
         
+        # Check for insufficient balance
+        insufficient_balance = False
+        balance_message = None
+        
+        volume = float(config.get('volume', 0))
+        direction = config.get('direction', '')
+        
+        if balances and pair and current_price:
+            base_asset = _extract_base_asset(pair)
+            quote_asset = _extract_quote_asset(pair)
+            
+            if direction == 'sell' and base_asset:
+                # Selling: need base asset
+                available = float(balances.get(base_asset, 0))
+                if available < volume:
+                    insufficient_balance = True
+                    balance_message = f"Insufficient balance: need {volume:.4f} {base_asset} but have {available:.4f} {base_asset}"
+            elif direction == 'buy' and quote_asset:
+                # Buying: need quote currency
+                required_quote = volume * current_price
+                available = float(balances.get(quote_asset, 0))
+                if available < required_quote:
+                    insufficient_balance = True
+                    balance_message = f"Insufficient balance: need {required_quote:.4f} {quote_asset} but have {available:.4f} {quote_asset}"
+        
         pending.append({
             'id': config_id,
             'pair': pair,
             'threshold_price': config.get('threshold_price'),
             'threshold_type': config.get('threshold_type'),
-            'direction': config.get('direction'),
+            'direction': direction,
             'volume': config.get('volume'),
             'trailing_offset_percent': config.get('trailing_offset_percent'),
             'current_price': current_price,
-            'distance': distance
+            'distance': distance,
+            'insufficient_balance': insufficient_balance,
+            'balance_message': balance_message
         })
     
     elapsed = time.time() - start_time
