@@ -1525,11 +1525,11 @@ class TTSLO:
                     self.log('DEBUG', f'Batch fetched prices for {len(prices)} pairs')
                     
                     # Check for any pairs that failed to return a price
-                    missing_pairs = pairs_to_fetch - set(prices.keys())
-                    if missing_pairs:
-                        self.log('WARNING', f'Batch fetch did not return prices for {len(missing_pairs)} pairs: {missing_pairs}')
+                    pairs_without_prices = pairs_to_fetch - set(prices.keys())
+                    if pairs_without_prices:
+                        self.log('WARNING', f'Batch fetch did not return prices for {len(pairs_without_prices)} pairs: {pairs_without_prices}')
                         # Set missing pairs to None so we don't try to process them
-                        for pair in missing_pairs:
+                        for pair in pairs_without_prices:
                             prices[pair] = None
                 else:
                     # Batch method returned invalid result, fall back to individual fetches
@@ -1559,8 +1559,12 @@ class TTSLO:
                     prices[pair] = None
                     
             except Exception as e:
-                # Unexpected error (e.g., method doesn't exist on mock) - fall back to individual fetches
-                self.log('WARNING', f'Batch fetch not available, falling back to individual price fetches: {str(e)}')
+                # Fallback to individual fetches for non-API errors
+                # This handles cases like:
+                # - Batch method not implemented (test mocks)
+                # - Unexpected return types
+                # Note: Other exceptions should have been caught by specific handlers above
+                self.log('WARNING', f'Batch fetch not available or failed unexpectedly, falling back to individual price fetches: {str(e)}')
                 for pair in pairs_to_fetch:
                     try:
                         prices[pair] = self.kraken_api_readonly.get_current_price(pair)
