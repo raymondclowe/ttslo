@@ -896,12 +896,14 @@ class TTSLO:
         """
         Check if a specific order has been filled.
         
+        Efficiently queries only the specific order ID instead of fetching ALL closed orders.
+        
         Args:
             config_id: Configuration ID for logging
             order_id: Kraken order ID to check
             
         Returns:
-            Tuple of (is_filled: bool, fill_price: float or None)
+            Tuple of (is_filled: bool, fill_price: float or None, api_pair: str or None, filled_volume: str or None)
         """
         if not order_id or order_id == 'DRY_RUN_ORDER_ID':
             # Dry-run orders are never filled
@@ -913,12 +915,13 @@ class TTSLO:
             return False, None, None, None
 
         try:
-            # Query closed orders to see if this order is filled
-            closed_orders = self.kraken_api_readwrite.query_closed_orders()
+            # Query the specific order by ID (much more efficient than querying ALL closed orders)
+            order_result = self.kraken_api_readwrite.query_orders(order_id)
 
-            if not closed_orders or 'closed' not in closed_orders:
-                # No closed orders found
+            if not order_result:
+                # Order not found - might still be open or doesn't exist
                 return False, None, None, None
+                
         except KrakenAPIError as e:
             self.log('ERROR', f'Kraken API error checking order status: {str(e)} (type: {e.error_type})',
                     config_id=config_id, order_id=order_id, error=str(e), error_type=e.error_type)
@@ -927,7 +930,7 @@ class TTSLO:
             if self.notification_manager:
                 self.notification_manager.notify_api_error(
                     error_type=e.error_type,
-                    endpoint='ClosedOrders/query_closed_orders',
+                    endpoint='QueryOrders/query_orders',
                     error_message=str(e),
                     details=e.details
                 )
@@ -939,10 +942,9 @@ class TTSLO:
             return False, None, None, None
 
         try:
-
-            # Check if our order is in the closed orders
-            if order_id in closed_orders['closed']:
-                order_info = closed_orders['closed'][order_id]
+            # Check if our order is in the result
+            if order_id in order_result:
+                order_info = order_result[order_id]
                 status = order_info.get('status', '')
 
                 # Order is filled/closed
@@ -1511,26 +1513,59 @@ class TTSLO:
                 # Ignore config parsing errors here; process_config will log them if needed
                 continue
 
-        # Fetch prices once per unique pair
-        for pair in pairs_to_fetch:
+        # Fetch prices in a single batch API call (much more efficient than N individual calls)
+        if pairs_to_fetch:
             try:
-                prices[pair] = self.kraken_api_readonly.get_current_price(pair)
+                # Try batch fetch first (most efficient)
+                prices_result = self.kraken_api_readonly.get_current_prices_batch(pairs_to_fetch)
+                
+                # Handle case where batch method returns empty or invalid result
+                if prices_result and isinstance(prices_result, dict):
+                    prices = prices_result
+                    self.log('DEBUG', f'Batch fetched prices for {len(prices)} pairs')
+                    
+                    # Check for any pairs that failed to return a price
+                    missing_pairs = pairs_to_fetch - set(prices.keys())
+                    if missing_pairs:
+                        self.log('WARNING', f'Batch fetch did not return prices for {len(missing_pairs)} pairs: {missing_pairs}')
+                        # Set missing pairs to None so we don't try to process them
+                        for pair in missing_pairs:
+                            prices[pair] = None
+                else:
+                    # Batch method returned invalid result, fall back to individual fetches
+                    self.log('WARNING', 'Batch fetch returned invalid result, falling back to individual price fetches')
+                    for pair in pairs_to_fetch:
+                        try:
+                            prices[pair] = self.kraken_api_readonly.get_current_price(pair)
+                        except Exception:
+                            prices[pair] = None
+                        
             except KrakenAPIError as e:
-                prices[pair] = None
-                self.log('ERROR', f'Kraken API error prefetching price for {pair}: {str(e)} (type: {e.error_type})', 
-                        pair=pair, error=str(e), error_type=e.error_type)
+                # Batch fetch failed entirely - log error and set all prices to None
+                self.log('ERROR', f'Kraken API error batch fetching prices: {str(e)} (type: {e.error_type})', 
+                        error=str(e), error_type=e.error_type)
                 
                 # Send notification about API error
                 if self.notification_manager:
                     self.notification_manager.notify_api_error(
                         error_type=e.error_type,
-                        endpoint='Ticker/get_current_price',
+                        endpoint='Ticker/get_current_prices_batch',
                         error_message=str(e),
                         details=e.details
                     )
+                
+                # Set all pairs to None so processing can continue (without creating orders)
+                for pair in pairs_to_fetch:
+                    prices[pair] = None
+                    
             except Exception as e:
-                prices[pair] = None
-                self.log('ERROR', f'Unexpected error prefetching price for {pair}: {str(e)}', pair=pair, error=str(e))
+                # Unexpected error (e.g., method doesn't exist on mock) - fall back to individual fetches
+                self.log('WARNING', f'Batch fetch not available, falling back to individual price fetches: {str(e)}')
+                for pair in pairs_to_fetch:
+                    try:
+                        prices[pair] = self.kraken_api_readonly.get_current_price(pair)
+                    except Exception:
+                        prices[pair] = None
 
         # Step 6: Process each configuration using the cached prices where possible
         for config in configs:
