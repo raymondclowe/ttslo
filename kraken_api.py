@@ -698,6 +698,50 @@ class KrakenAPI:
             # On error, return empty dict - caller can fall back to individual requests
             return {}
     
+    def get_asset_pair_info(self, pair):
+        """
+        Get detailed information about a trading pair from Kraken AssetPairs API.
+        
+        This includes important trading parameters like:
+        - ordermin: Minimum order volume
+        - costmin: Minimum order cost
+        - pair_decimals: Price decimal precision
+        - lot_decimals: Volume decimal precision
+        
+        Args:
+            pair: Trading pair (e.g., 'NEARUSD', 'XXBTZUSD')
+            
+        Returns:
+            Dictionary with pair info, or None if pair not found
+            Example: {'ordermin': '0.7', 'costmin': '0.5', ...}
+        """
+        try:
+            # Query the AssetPairs endpoint
+            response = self._query_public('AssetPairs', {'pair': pair})
+            
+            # Check for API errors
+            if response.get('error'):
+                error_list = response.get('error', [])
+                error_msg = ', '.join(str(e) for e in error_list)
+                raise KrakenAPIError(f"Kraken API error: {error_msg}")
+            
+            # Extract result field
+            result = response.get('result', {})
+            if not result or not isinstance(result, dict):
+                return None
+            
+            # The result contains pairs keyed by their altname or wsname
+            # Usually there's only one key in the result
+            for pair_key, pair_data in result.items():
+                if isinstance(pair_data, dict):
+                    return pair_data
+            
+            return None
+            
+        except Exception as e:
+            print(f"[DEBUG] Error fetching pair info for {pair}: {e}")
+            return None
+    
     def add_order(self, pair, order_type, direction, volume, **kwargs):
         print(f"[DEBUG] KrakenAPI.add_order: pair={pair}, order_type={order_type}, direction={direction}, volume={volume}, kwargs={kwargs}")
         """

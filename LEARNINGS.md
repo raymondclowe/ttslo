@@ -1821,6 +1821,157 @@ kraken_api = KrakenAPI.from_env(readwrite=True)
 
 ---
 
+## Minimum Volume Validation to Prevent Repeated Errors (2025-10-27)
+
+**Feature**: Added early validation of order volume against Kraken's minimum order size (ordermin) to prevent repeated errors and notifications.
+
+**Problem**: When trigger price reached but volume < Kraken's minimum (e.g., NEARUSD min=0.7, config has 0.1):
+- System detects threshold met
+- Tries to create order
+- Gets "volume minimum not met" error from Kraken
+- Repeats EVERY monitoring cycle (60s)
+- Sends repeated Telegram notifications
+- Clutters logs with same error
+
+**Root Cause**:
+- No pre-validation of volume against pair-specific minimums
+- No error state tracking to prevent repeated attempts
+- Every cycle: threshold check → order attempt → failure → notification
+
+**Solution**: Multi-layered approach to handle volume validation properly
+
+**Implementation**:
+
+1. **Fetch Pair Info** (`kraken_api.py`):
+   ```python
+   def get_asset_pair_info(self, pair):
+       """Get ordermin, costmin, decimals from AssetPairs API."""
+       result = self._query_public('AssetPairs', {'pair': pair})
+       # Returns: {'ordermin': '0.7', 'costmin': '0.5', ...}
+   ```
+
+2. **Early Volume Validation** (`ttslo.py`):
+   ```python
+   def check_minimum_volume(self, pair, volume, config_id):
+       """Check volume against Kraken's ordermin BEFORE creating order."""
+       pair_info = self.kraken_api_readonly.get_asset_pair_info(pair)
+       if not pair_info:
+           # Pair info unavailable - allow order (Kraken will validate)
+           return (True, 'Could not verify minimum volume', None)
+       
+       ordermin_str = pair_info.get('ordermin')
+       if not ordermin_str:
+           return (True, 'No minimum volume specified', None)
+       
+       ordermin = Decimal(ordermin_str)
+       volume_decimal = Decimal(str(volume))
+       
+       if volume_decimal < ordermin:
+           return (False, f'Volume {volume} below minimum {ordermin}', str(ordermin))
+       return (True, f'Volume meets minimum', str(ordermin))
+   ```
+
+3. **Error State Tracking** (`ttslo.py`):
+   ```python
+   def _handle_order_error_state(self, config_id, error_msg, notify_type, notify_args):
+       """Track errors and send notification only once."""
+       self.state[config_id]['last_error'] = error_msg
+       
+       # Send notification only if not already notified
+       if not self.state[config_id].get('error_notified'):
+           self.notification_manager.notify_order_failed(**notify_args)
+           self.state[config_id]['error_notified'] = True
+   ```
+
+4. **Dashboard Warning** (`dashboard.py`):
+   ```python
+   # Check minimum volume for each pending order
+   pair_info = kraken_api.get_asset_pair_info(pair)
+   ordermin = float(pair_info['ordermin'])
+   
+   if volume < ordermin:
+       volume_too_low = True
+       volume_message = f'Volume {volume} below minimum {ordermin} for {pair}'
+   ```
+
+5. **UI Display** (`templates/dashboard.html`):
+   ```javascript
+   // Show warning icon with tooltip
+   if (order.volume_too_low) {
+       warningMessage = order.volume_message;
+       showWarning = true;
+   }
+   
+   const warningIcon = showWarning
+       ? '<span class="warning-icon" data-tooltip="...">⚠️</span>'
+       : '';
+   
+   // Disable Force button
+   const forceButtonDisabled = order.volume_too_low ? 'disabled' : '';
+   ```
+
+**Key Features**:
+
+1. **Early Detection**: Volume validated BEFORE attempting order creation
+2. **Single Notification**: Error tracked in state.csv → notify only once
+3. **Dashboard Warning**: Visual ⚠️ indicator in pending panel with tooltip
+4. **Graceful Degradation**: If API unavailable, allows order to proceed (validation at Kraken)
+5. **State Tracking**: Uses `last_error` and `error_notified` fields in state.csv
+
+**State Fields**:
+- `last_error`: Stores error message (e.g., "Volume 0.1 below minimum 0.7")
+- `error_notified`: Boolean flag to prevent repeated notifications
+- Both cleared when config re-enabled or threshold type changes
+
+**Flow**:
+
+```
+Cycle 1:
+  ✓ Threshold met
+  ✓ Check volume: 0.1 < 0.7 → FAIL
+  ✓ Update last_error in state
+  ✓ Send Telegram notification (error_notified=False)
+  ✓ Set error_notified=True
+  ✗ Do not create order
+
+Cycle 2+:
+  ✓ Threshold still met
+  ✓ Check volume: 0.1 < 0.7 → FAIL
+  ✓ last_error already set
+  ✗ Skip notification (error_notified=True)
+  ✗ Do not create order
+```
+
+**Testing**:
+- 8 new tests covering all scenarios
+- All 427 existing tests still passing
+- Tests verify: validation logic, error state tracking, notification suppression, dashboard display
+
+**Key Insights**:
+
+1. **Validate Early**: Check requirements BEFORE attempting expensive operations
+2. **Track Error State**: Prevent repeated notifications for same error
+3. **Graceful Fallback**: If validation unavailable, let Kraken reject (fail gracefully)
+4. **Clear Error State**: Reset when config changed/re-enabled
+5. **User-Friendly**: Show warnings in dashboard before user forces trigger
+
+**Example Minimum Volumes** (from AssetPairs API):
+- NEARUSD: 0.7
+- BTCUSD: 0.0001  
+- ETHUSD: 0.005
+- SOLUSD: 0.05
+
+**Related Files**:
+- `kraken_api.py`: Lines 700-738 (get_asset_pair_info)
+- `ttslo.py`: Lines 273-329 (check_minimum_volume), 430-468 (_handle_order_error_state), 550-575 (validation call)
+- `dashboard.py`: Lines 267-291 (volume check in get_pending_orders)
+- `templates/dashboard.html`: Lines 753-773, 841-861 (warning icon rendering)
+- `tests/test_minimum_volume_validation.py`: Complete test suite (8 tests)
+
+**Documentation**: This prevents the exact issue described in GitHub Issue - repeated errors and notifications when volume < ordermin.
+
+---
+
 *Add new learnings here as we discover them*
 
 
