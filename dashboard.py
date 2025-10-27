@@ -22,6 +22,7 @@ from config import ConfigManager
 from kraken_api import KrakenAPI
 from creds import load_env
 from notifications import NotificationManager
+from disk_cache import DiskCache
 
 app = Flask(__name__)
 
@@ -31,15 +32,22 @@ STATE_FILE = os.getenv('TTSLO_STATE_FILE', 'state.csv')
 LOG_FILE = os.getenv('TTSLO_LOG_FILE', 'logs.csv')
 CHECK_INTERVAL = int(os.getenv('TTSLO_CHECK_INTERVAL', '60'))  # Main monitor check interval in seconds
 DASHBOARD_REFRESH_INTERVAL = max(5, CHECK_INTERVAL // 2)  # Dashboard refresh = check_interval/2, minimum 5s
+CACHE_DIR = os.getenv('TTSLO_CACHE_DIR', '.cache')  # Disk cache directory
 
-# TTL cache decorator using native Python functools
-def ttl_cache(seconds=5):
+# Initialize disk cache for persistence across restarts
+disk_cache = DiskCache(cache_dir=CACHE_DIR, default_ttl=DASHBOARD_REFRESH_INTERVAL)
+
+# TTL cache decorator using native Python functools with disk persistence
+def ttl_cache(seconds=5, disk_key=None):
     """
-    Simple TTL (Time To Live) cache decorator using native Python.
-    Cache expires after the specified number of seconds.
+    Hybrid TTL (Time To Live) cache decorator with memory + disk persistence.
+    
+    Memory cache for fast access within TTL.
+    Disk cache for persistence across restarts.
     
     Args:
         seconds: Cache TTL in seconds (default: 5)
+        disk_key: Optional key for disk cache. If None, disk cache not used.
     """
     def decorator(func):
         cache = {'result': None, 'timestamp': 0}
@@ -49,20 +57,34 @@ def ttl_cache(seconds=5):
             current_time = time.time()
             cache_age = current_time - cache['timestamp']
             
-            # Return cached result if still valid
+            # Check memory cache first (fastest)
             if cache['result'] is not None and cache_age < seconds:
-                print(f"[PERF] {func.__name__}: using cache (age {cache_age:.3f}s)")
+                print(f"[PERF] {func.__name__}: using memory cache (age {cache_age:.3f}s)")
                 return cache['result']
             
-            # Cache miss or expired - call function
+            # Check disk cache if key provided (survives restarts)
+            if disk_key:
+                disk_result = disk_cache.get(disk_key, ttl=seconds)
+                if disk_result is not None:
+                    print(f"[PERF] {func.__name__}: using disk cache")
+                    # Populate memory cache
+                    cache['result'] = disk_result
+                    cache['timestamp'] = current_time
+                    return disk_result
+            
+            # Cache miss - call function
             print(f"[PERF] {func.__name__}: cache miss, executing function")
             start_time = time.time()
             result = func(*args, **kwargs)
             elapsed = time.time() - start_time
             
-            # Update cache
+            # Update memory cache
             cache['result'] = result
             cache['timestamp'] = current_time
+            
+            # Update disk cache if key provided
+            if disk_key:
+                disk_cache.set(disk_key, result)
             
             print(f"[PERF] {func.__name__}: completed in {elapsed:.3f}s")
             return result
@@ -86,43 +108,43 @@ except Exception as e:
 notification_manager = None
 
 # Cache for open orders - aligns with dashboard refresh interval
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='open_orders')
 def get_cached_open_orders():
-    """Get open orders from Kraken with TTL caching."""
+    """Get open orders from Kraken with hybrid memory + disk caching."""
     if not kraken_api:
         return {}
     result = kraken_api.query_open_orders()
     return result.get('open', {})
 
 # Cache for closed orders - aligns with dashboard refresh interval
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='closed_orders')
 def get_cached_closed_orders():
-    """Get closed orders from Kraken with TTL caching."""
+    """Get closed orders from Kraken with hybrid memory + disk caching."""
     if not kraken_api:
         return {}
     result = kraken_api.query_closed_orders()
     return result.get('closed', {})
 
 
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='config')
 def get_cached_config():
-    """Get config with TTL-based caching."""
+    """Get config with hybrid memory + disk caching."""
     if not os.path.exists(CONFIG_FILE):
         return []
     return config_manager.load_config()
 
 
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='state')
 def get_cached_state():
-    """Get state with TTL-based caching."""
+    """Get state with hybrid memory + disk caching."""
     if not os.path.exists(STATE_FILE):
         return {}
     return config_manager.load_state()
 
 
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='current_prices')
 def get_current_prices():
-    """Get current prices for all pairs in config with TTL-based caching."""
+    """Get current prices for all pairs in config with hybrid memory + disk caching."""
     start_time = time.time()
     print(f"[PERF] get_current_prices started at {datetime.now(timezone.utc).isoformat()}")
     
@@ -190,9 +212,9 @@ def calculate_distance_to_trigger(threshold_price, current_price, threshold_type
         return {'absolute': 0, 'percent': 0, 'triggered': False}
 
 
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='pending_orders')
 def get_pending_orders():
-    """Get orders that haven't triggered yet."""
+    """Get orders that haven't triggered yet with hybrid caching."""
     start_time = time.time()
     print(f"[PERF] get_pending_orders started at {datetime.now(timezone.utc).isoformat()}")
     
@@ -247,9 +269,9 @@ def get_pending_orders():
     return pending
 
 
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='active_orders')
 def get_active_orders():
-    """Get orders that have triggered and are active on Kraken."""
+    """Get orders that have triggered and are active on Kraken with hybrid caching."""
     start_time = time.time()
     print(f"[PERF] get_active_orders started at {datetime.now(timezone.utc).isoformat()}")
     
@@ -346,9 +368,9 @@ def get_active_orders():
     return active
 
 
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='completed_orders')
 def get_completed_orders():
-    """Get orders that have executed."""
+    """Get orders that have executed with hybrid caching."""
     start_time = time.time()
     print(f"[PERF] get_completed_orders started at {datetime.now(timezone.utc).isoformat()}")
     
@@ -615,10 +637,10 @@ def _extract_quote_asset(pair: str) -> str:
     return ''
 
 
-@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL)
+@ttl_cache(seconds=DASHBOARD_REFRESH_INTERVAL, disk_key='balances_and_risks')
 def get_balances_and_risks():
     """
-    Get account balances and analyze risk for pending and active orders.
+    Get account balances and analyze risk for pending and active orders with hybrid caching.
     
     Returns:
         Dictionary with:
@@ -856,8 +878,18 @@ def api_status():
         'kraken_api_available': kraken_api is not None,
         'check_interval': CHECK_INTERVAL,
         'refresh_interval': DASHBOARD_REFRESH_INTERVAL,
+        'cache_dir': CACHE_DIR,
         'timestamp': datetime.now(timezone.utc).isoformat()
     })
+
+
+@app.route('/api/cache-stats')
+def api_cache_stats():
+    """API endpoint for cache statistics."""
+    stats = disk_cache.get_stats()
+    stats['dashboard_refresh_interval'] = DASHBOARD_REFRESH_INTERVAL
+    stats['cache_enabled'] = True
+    return jsonify(stats)
 
 
 @app.route('/api/pending/<config_id>/cancel', methods=['POST'])
