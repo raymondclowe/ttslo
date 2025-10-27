@@ -222,7 +222,10 @@ def test_error_notification_sent_only_once():
 
 
 def test_error_state_cleared_when_config_reenabled():
-    """Test that error state is cleared when config is re-enabled."""
+    """
+    Test that error state persists until user manually disables/re-enables config.
+    This prevents repeated notifications when balance/volume issues remain unfixed.
+    """
     # This is tested in process_config flow
     config_manager = Mock(spec=ConfigManager)
     config_manager.log = Mock()
@@ -243,6 +246,7 @@ def test_error_state_cleared_when_config_reenabled():
             'triggered': 'false',
             'last_error': 'Previous error',
             'error_notified': True,
+            'trigger_notified': True,
             'initial_price': ''
         }
     }
@@ -255,12 +259,31 @@ def test_error_state_cleared_when_config_reenabled():
         'threshold_type': 'above'
     }
     
-    # Process config (which should clear error state)
+    # Process config - error state should PERSIST (not auto-cleared)
+    # This prevents repeated notifications while issue remains unfixed
     ttslo.process_config(config)
     
-    # Error state should be cleared
+    # Error state should persist
+    assert ttslo.state['test_config']['last_error'] == 'Previous error'
+    assert ttslo.state['test_config']['error_notified'] is True
+    assert ttslo.state['test_config']['trigger_notified'] is True
+    
+    # To clear error state, user needs to disable config, fix issue, then re-enable
+    # Simulate user disabling config
+    config['enabled'] = 'false'
+    ttslo.process_config(config)  # Will return early, no changes
+    
+    # Delete state entry (simulates user fixing issue and wanting fresh start)
+    del ttslo.state['test_config']
+    
+    # Re-enable and process
+    config['enabled'] = 'true'
+    ttslo.process_config(config)
+    
+    # Fresh state should be created without errors
     assert ttslo.state['test_config']['last_error'] == ''
     assert ttslo.state['test_config']['error_notified'] is False
+    assert ttslo.state['test_config']['trigger_notified'] is False
 
 
 def test_dashboard_shows_volume_warning():
