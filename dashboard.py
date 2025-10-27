@@ -89,6 +89,16 @@ def ttl_cache(seconds=5, disk_key=None):
             print(f"[PERF] {func.__name__}: completed in {elapsed:.3f}s")
             return result
         
+        # Add invalidate method to wrapper for manual cache clearing
+        def invalidate():
+            """Invalidate both memory and disk cache."""
+            cache['result'] = None
+            cache['timestamp'] = 0
+            if disk_key:
+                disk_cache.delete(disk_key)
+            print(f"[CACHE] Invalidated cache for {func.__name__}")
+        
+        wrapper.invalidate = invalidate
         return wrapper
     return decorator
 
@@ -1019,6 +1029,10 @@ def api_cancel_pending(config_id):
         # Update the config file
         config_manager.update_config_enabled(config_id, new_status)
         
+        # Invalidate caches so next request gets fresh data
+        get_pending_orders.invalidate()
+        get_cached_config.invalidate()  # Config was modified
+        
         print(f"[DASHBOARD] Pending order {config_id} set to enabled={new_status}")
         
         return jsonify({
@@ -1273,6 +1287,9 @@ def api_cancel_active(order_id):
         # Cancel the order via Kraken API
         result = kraken_api.cancel_order(order_id)
         
+        # Invalidate active orders cache so next request gets fresh data
+        get_active_orders.invalidate()
+        
         print(f"[DASHBOARD] Active order {order_id} canceled: {result}")
         
         return jsonify({
@@ -1327,6 +1344,9 @@ def api_cancel_all():
             except Exception as e:
                 failed.append({'order_id': order_id, 'error': str(e)})
                 print(f"[DASHBOARD] Failed to cancel order {order_id}: {e}")
+        
+        # Invalidate active orders cache so next request gets fresh data
+        get_active_orders.invalidate()
         
         return jsonify({
             'success': len(failed) == 0,
