@@ -1855,9 +1855,18 @@ kraken_api = KrakenAPI.from_env(readwrite=True)
    def check_minimum_volume(self, pair, volume, config_id):
        """Check volume against Kraken's ordermin BEFORE creating order."""
        pair_info = self.kraken_api_readonly.get_asset_pair_info(pair)
-       ordermin = Decimal(pair_info.get('ordermin'))
+       if not pair_info:
+           # Pair info unavailable - allow order (Kraken will validate)
+           return (True, 'Could not verify minimum volume', None)
        
-       if volume < ordermin:
+       ordermin_str = pair_info.get('ordermin')
+       if not ordermin_str:
+           return (True, 'No minimum volume specified', None)
+       
+       ordermin = Decimal(ordermin_str)
+       volume_decimal = Decimal(str(volume))
+       
+       if volume_decimal < ordermin:
            return (False, f'Volume {volume} below minimum {ordermin}', str(ordermin))
        return (True, f'Volume meets minimum', str(ordermin))
    ```

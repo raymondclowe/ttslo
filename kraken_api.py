@@ -721,7 +721,9 @@ class KrakenAPI:
             
             # Check for API errors
             if response.get('error'):
-                raise Exception(f"Kraken API error: {response['error']}")
+                error_list = response.get('error', [])
+                error_msg = ', '.join(str(e) for e in error_list)
+                raise KrakenAPIError(f"Kraken API error: {error_msg}")
             
             # Extract result field
             result = response.get('result', {})
