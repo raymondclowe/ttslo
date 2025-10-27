@@ -1023,9 +1023,10 @@ def api_force_pending(config_id):
         try:
             current_price = kraken_api.get_current_price(pair)
         except Exception as e:
+            print(f"[DASHBOARD] Error getting current price for {pair}: {e}")
             return jsonify({
                 'success': False,
-                'error': f'Could not get current price: {str(e)}'
+                'error': 'Could not get current price from Kraken API'
             }), 500
         
         if current_price is None:
@@ -1053,7 +1054,7 @@ def api_force_pending(config_id):
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'An error occurred while forcing the order'
         }), 500
 
 

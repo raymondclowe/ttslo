@@ -1244,7 +1244,7 @@
 
                 if (result.success) {
                     console.log(`[DASHBOARD] Forced pending order ${configId}`);
-                    alert(`Successfully forced order ${configId}!\n\nPair: ${result.pair}\nNew Threshold: $${result.new_threshold_price.toFixed(8)}\n\n${result.message}`);
+                    alert(`Successfully forced order ${configId}!\n\nPair: ${result.pair}\nNew Threshold: $${formatPrice(result.new_threshold_price)}\n\n${result.message}`);
                     // Refresh data to show updated status
                     await refreshData();
                 } else {

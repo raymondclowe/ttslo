@@ -215,18 +215,12 @@ def test_update_config_threshold_price_not_found():
     try:
         config_manager = ConfigManager(config_file, 'state.csv', 'logs.csv')
         
-        # Try to update non-existent config
-        try:
+        # Try to update non-existent config - should raise ValueError
+        import pytest
+        with pytest.raises(ValueError, match='not found'):
             config_manager.update_config_threshold_price('nonexistent', 12345)
-            assert False, "Should have raised ValueError"
-        except ValueError as e:
-            assert 'not found' in str(e).lower()
         
     finally:
         if os.path.exists(config_file):
             os.unlink(config_file)
 
-
-if __name__ == '__main__':
-    import pytest
-    pytest.main([__file__, '-v'])
