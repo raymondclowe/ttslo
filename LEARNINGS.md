@@ -2,6 +2,59 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Force Button Minimum Purchase Threshold (2025-10-27)
+
+**Feature**: Grey out Force button when order cost is below Kraken's minimum purchase threshold (`costmin`).
+
+**Problem**: 
+- Force button was only checking `ordermin` (minimum volume)
+- Didn't check `costmin` (minimum order cost in quote currency)
+- Example: NEARUSD with volume=0.5, price=$8, cost=$4 < costmin=$5
+- User could click Force → order creation would fail at Kraken API
+
+**Solution**: Added `costmin` validation in dashboard pending orders:
+- Backend checks: `order_cost = volume * current_price >= costmin`
+- New fields: `cost_too_low` and `cost_message`
+- Frontend: Warning icon + disabled Force button when violated
+
+**Implementation**:
+
+1. **Backend** (`dashboard.py` lines 286-305):
+   ```python
+   # Check minimum cost (purchase threshold)
+   if pair_info and 'costmin' in pair_info and current_price:
+       costmin = float(pair_info['costmin'])
+       order_cost = volume * current_price
+       if order_cost < costmin:
+           cost_too_low = True
+           cost_message = f"Order cost ${order_cost:.2f} is below minimum ${costmin:.2f} for {pair}"
+   ```
+
+2. **Frontend** (`templates/dashboard.html`):
+   - Check `cost_too_low` in warning logic (priority: volume > cost > balance)
+   - Disable Force button: `|| order.cost_too_low`
+   - Show tooltip with detailed cost message
+
+3. **Testing** (`tests/test_minimum_cost_validation.py`):
+   - 6 tests covering all scenarios
+   - Graceful handling of missing costmin/price
+   - Both buy and sell orders tested
+   - Combined volume+cost violations handled
+
+**Key Insights**:
+1. **Two Minimums**: Kraken enforces both `ordermin` (volume) AND `costmin` (purchase threshold)
+2. **Dynamic Check**: Cost depends on current price, must recalculate each time
+3. **Graceful Degradation**: Missing costmin/price → allow order (Kraken validates)
+4. **Priority Order**: Show most specific warning first (volume > cost > balance)
+5. **Dual Validation**: Backend validates + UI disables button (defense in depth)
+
+**Related Files**:
+- `dashboard.py`: Lines 277-338 (costmin check in get_pending_orders)
+- `templates/dashboard.html`: Lines 754-774, 844-864 (warning + disable logic)
+- `tests/test_minimum_cost_validation.py`: Complete test suite (6 tests)
+
+---
+
 ## Dashboard Cancel Button Cache Invalidation (2025-10-27)
 
 **Problem**: When users clicked cancel button in pending/active panes, the cancel succeeded but screen didn't update - canceled items remained visible.
