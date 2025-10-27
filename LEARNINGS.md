@@ -2,6 +2,85 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Insufficient Balance Warning Icons (2025-10-27)
+
+**Feature**: Added warning triangle icons to pending orders when there's insufficient balance to execute them.
+
+**Problem**: Users couldn't tell if their pending orders would fail due to insufficient balance until the order actually tried to trigger. This led to failed orders and confusion.
+
+**Implementation Details**:
+
+1. **Backend** (`dashboard.py`):
+   - Modified `get_pending_orders()` to fetch account balances via `kraken_api.get_balance()`
+   - Added balance checking for each pending order:
+     - **Sell orders**: Check base asset balance (need SOL to sell SOL)
+     - **Buy orders**: Check quote currency balance (need USD to buy SOL)
+   - Uses existing `_extract_base_asset()` and `_extract_quote_asset()` functions
+   - Added two new fields to each order:
+     - `insufficient_balance`: Boolean flag
+     - `balance_message`: String like "Insufficient balance: need 10.0000 SOL but have 5.0000 SOL"
+
+2. **Frontend** (`templates/dashboard.html`):
+   - Added `.warning-icon` CSS class with SVG triangle + exclamation mark
+   - Warning icon appears next to order ID (on same line)
+   - Tooltip shows detailed balance message on hover
+   - Added `.btn-disabled` CSS class for greyed-out buttons
+   - Force button disabled when `insufficient_balance` is true
+   - Applied to both main rendering and error-handler re-rendering
+
+3. **Testing** (`tests/test_insufficient_balance_warning.py`):
+   - 7 comprehensive tests covering all scenarios
+   - Used `dashboard.get_pending_orders.__wrapped__()` to bypass TTL cache
+   - Tests for sell/buy orders, API unavailable, error handling, etc.
+   - All 416 tests pass (7 new + 409 existing)
+
+**Key Insights**:
+
+1. **Balance Logic Matters**:
+   - Sell orders need base asset (selling SOL requires SOL balance)
+   - Buy orders need quote currency (buying SOL requires USD balance)
+   - Must normalize currency codes (USD → ZUSD for Kraken API)
+
+2. **Graceful Degradation**:
+   - If Kraken API unavailable: no warnings shown (don't crash)
+   - If balance fetch fails: no warnings shown (don't crash)
+   - Feature is optional enhancement, not critical path
+
+3. **TTL Cache Testing**:
+   - `@ttl_cache` decorator caches results between tests
+   - Use `__wrapped__()` to bypass cache in tests
+   - Alternatively, give each test unique IDs to avoid collisions
+
+4. **UI/UX Best Practices**:
+   - Warning icon on same line as order ID (not separate row)
+   - Tooltip shows detailed message, not just generic "insufficient"
+   - Disable Force button (don't just warn) - prevent user from trying
+   - SVG icons better than CSS triangles (more control, cleaner)
+
+5. **Asset Extraction**:
+   - Pair suffixes vary: SOLUSD, XXBTZUSD, SOLUSDT
+   - Must handle both Z-prefixed (ZUSD) and plain (USD) suffixes
+   - Order matters when checking suffixes (USDT before USD)
+
+**Visual Design**:
+```
+Order ID: sol_sell_1 ⚠️  [triangle icon]
+         Hover: "Insufficient balance: need 10.0000 SOL but have 5.0000 SOL"
+
+Buttons: [Cancel]  [Force - greyed out, disabled]
+```
+
+**Related Files**:
+- `dashboard.py`: Lines 215-289 (get_pending_orders with balance check)
+- `dashboard.py`: Lines 594-680 (_extract_base_asset, _extract_quote_asset)
+- `templates/dashboard.html`: Lines 325-362 (warning-icon CSS)
+- `templates/dashboard.html`: Lines 711-727 (warning icon rendering)
+- `tests/test_insufficient_balance_warning.py`: Complete test suite (7 tests)
+
+**Demo**: See `/tmp/warning_icon_demo.html` for visual demonstration of the feature.
+
+---
+
 ## Dashboard Force Button Implementation (2025-10-27)
 
 **Feature**: Added "Force" button to pending orders in dashboard that forces immediate order creation by setting threshold_price = current_price.
