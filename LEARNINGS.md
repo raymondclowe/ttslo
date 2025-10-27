@@ -2,6 +2,80 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Validator Price Formatting for Log Messages (2025-10-27)
+
+**Problem**: Validator log messages showed very small cryptocurrency prices as "(0.00)" making them unreadable.
+- PEPE at 0.00000768 displayed as "0.00"
+- MEW at 0.00187083 displayed as "0.00"
+- Users couldn't see actual threshold prices in validation warnings
+
+**Root Cause**:
+- `_format_decimal()` method used hardcoded 2 decimal places for all price formatting
+- Works fine for BTC ($50,000) but terrible for meme coins ($0.00000768)
+- Gap warnings, threshold warnings all showed "0.00" for small-value coins
+
+**Solution**: Implemented smart price formatting similar to dashboard's `formatPrice()`:
+```python
+def _format_decimal(self, value: Decimal, places: int = None) -> str:
+    """Smart formatting based on magnitude if places is None."""
+    if places is not None:
+        # Explicit places still works (for percentages)
+        return fixed_decimal_format(value, places)
+    
+    # Smart formatting based on value
+    abs_value = abs(value)
+    if abs_value < 0.01:
+        # Very small: up to 8 decimals, remove trailing zeros
+        return format_up_to_8_decimals(value)
+    elif abs_value < 1:
+        # Small: 4 decimals
+        return format_4_decimals(value)
+    else:
+        # Medium/Large: 2 decimals
+        return format_2_decimals(value)
+```
+
+**Changes Made**:
+1. Updated `_format_decimal()` to accept optional `places` parameter
+   - None (default): use smart formatting
+   - Integer: use that many decimal places (for percentages)
+
+2. Removed explicit `places=2` from all price formatting calls
+   - Threshold prices, current prices, historical prices all use smart formatting
+   - Percentages still explicitly use `places=2`
+
+3. Added comprehensive test suite (10 tests)
+
+**Results**:
+```
+BEFORE: Small gap between threshold (0.00) and current price (0.00)
+AFTER:  Small gap between threshold (0.00000768) and current price (0.00000742)
+```
+
+**Key Insights**:
+1. **Different assets need different precision**: BTC needs 2 decimals, PEPE needs 8
+2. **Smart formatting prevents information loss**: Users can see actual values now
+3. **Keep percentages consistent**: Always 2 decimals for gap%, offset%, etc.
+4. **Remove trailing zeros for cleanliness**: "0.001" not "0.00100000"
+5. **Pattern from dashboard works well**: Reused same logic from `formatPrice()`
+
+**Testing**:
+- 10 new tests for price formatting
+- Updated 1 existing test for new format
+- All 402 tests passing
+
+**Related Files**:
+- `validator.py`: Lines 775-820 (_format_decimal implementation)
+- `validator.py`: Lines 412-449 (price formatting in warnings)
+- `tests/test_validator_price_formatting.py`: Comprehensive test suite
+- `tests/test_balance_normalization.py`: Updated test expectation
+
+**Similar Implementation**:
+- Dashboard: `templates/dashboard.html` lines 381-437 (`formatPrice()` JavaScript)
+- Notifications: `notifications.py` lines 16-70 (`format_balance()` Python)
+
+---
+
 ## Dashboard Disk Cache for Performance (2025-10-26)
 
 **Problem**: Dashboard slow to load (minutes lag), particularly completed orders pane. In-memory cache lost on restart.
