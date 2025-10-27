@@ -64,17 +64,17 @@ Key learnings and gotchas discovered during TTSLO development.
 
 **Visual Design**:
 ```
-Order ID: sol_sell_1 ⚠️  [triangle icon]
-         Hover: "Insufficient balance: need 10.0000 SOL but have 5.0000 SOL"
+Order ID: sol_sell_1⚠️  [triangle icon]
+          Hover: "Insufficient balance: need 10.0000 SOL but have 5.0000 SOL"
 
 Buttons: [Cancel]  [Force - greyed out, disabled]
 ```
 
 **Related Files**:
-- `dashboard.py`: Lines 215-289 (get_pending_orders with balance check)
+- `dashboard.py`: Lines 227-286 (balance checking in get_pending_orders)
 - `dashboard.py`: Lines 594-680 (_extract_base_asset, _extract_quote_asset)
-- `templates/dashboard.html`: Lines 325-362 (warning-icon CSS)
-- `templates/dashboard.html`: Lines 711-727 (warning icon rendering)
+- `templates/dashboard.html`: Lines 325-395 (warning-icon and button CSS)
+- `templates/dashboard.html`: Lines 711-760 (warning icon and button rendering)
 - `tests/test_insufficient_balance_warning.py`: Complete test suite (7 tests)
 
 **Demo**: See `/tmp/warning_icon_demo.html` for visual demonstration of the feature.
