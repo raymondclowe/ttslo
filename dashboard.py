@@ -260,6 +260,10 @@ def get_pending_orders():
                 config.get('threshold_type')
             )
         
+        # Extract base and quote assets for display and balance checking
+        base_asset = _extract_base_asset(pair) if pair else ''
+        quote_asset = _extract_quote_asset(pair) if pair else ''
+        
         # Check for insufficient balance
         insufficient_balance = False
         balance_message = None
@@ -268,9 +272,6 @@ def get_pending_orders():
         direction = config.get('direction', '')
         
         if balances and pair and current_price:
-            base_asset = _extract_base_asset(pair)
-            quote_asset = _extract_quote_asset(pair)
-            
             if direction == 'sell' and base_asset:
                 # Selling: need base asset
                 available = float(balances.get(base_asset, 0))
@@ -288,6 +289,8 @@ def get_pending_orders():
         pending.append({
             'id': config_id,
             'pair': pair,
+            'base_asset': base_asset,
+            'quote_asset': quote_asset,
             'threshold_price': config.get('threshold_price'),
             'threshold_type': config.get('threshold_type'),
             'direction': direction,

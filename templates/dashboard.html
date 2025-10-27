@@ -609,6 +609,50 @@
             }
         }
 
+        /**
+         * Format a user-friendly direction description.
+         * 
+         * @param {string} direction - 'buy' or 'sell'
+         * @param {string} baseAsset - Base asset code (e.g., 'WAL', 'XXBT')
+         * @param {string} quoteAsset - Quote asset code (e.g., 'ZUSD', 'USDT')
+         * @returns {string} Formatted direction (e.g., "Sell WAL to buy USD")
+         */
+        function formatDirection(direction, baseAsset, quoteAsset) {
+            if (!direction || !baseAsset || !quoteAsset) {
+                return direction || 'N/A';
+            }
+            
+            // Simplify asset names for display (remove X and Z prefixes)
+            const cleanBase = baseAsset.replace(/^[XZ]+/, '');
+            const cleanQuote = quoteAsset.replace(/^[Z]/, '');
+            
+            if (direction.toLowerCase() === 'sell') {
+                return `Sell ${cleanBase} to buy ${cleanQuote}`;
+            } else if (direction.toLowerCase() === 'buy') {
+                return `Buy ${cleanBase} with ${cleanQuote}`;
+            }
+            
+            return direction;
+        }
+
+        /**
+         * Format the volume label to specify which asset.
+         * 
+         * @param {string} direction - 'buy' or 'sell'
+         * @param {string} baseAsset - Base asset code (e.g., 'WAL', 'XXBT')
+         * @returns {string} Volume label (e.g., "Volume WAL:", "Volume BTC:")
+         */
+        function formatVolumeLabel(direction, baseAsset) {
+            if (!baseAsset) {
+                return 'Volume:';
+            }
+            
+            // Simplify asset name for display (remove X and Z prefixes)
+            const cleanBase = baseAsset.replace(/^[XZ]+/, '');
+            
+            return `Volume ${cleanBase}:`;
+        }
+
         function removeLoadingOverlay(container) {
             if (!container) return;
             const overlay = container.querySelector('.loading-overlay');
@@ -733,10 +777,10 @@
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Direction:</span>
-                                        <span class="detail-value">${order.direction || 'N/A'}</span>
+                                        <span class="detail-value" style="font-size: 11px;">${formatDirection(order.direction, order.base_asset, order.quote_asset)}</span>
                                     </div>
                                     <div class="detail-row">
-                                        <span class="detail-label">Volume:</span>
+                                        <span class="detail-label">${formatVolumeLabel(order.direction, order.base_asset)}</span>
                                         <span class="detail-value">${order.volume || 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
@@ -810,10 +854,10 @@
                                     </div>
                                     <div class="detail-row">
                                         <span class="detail-label">Direction:</span>
-                                        <span class="detail-value">${order.direction || 'N/A'}</span>
+                                        <span class="detail-value" style="font-size: 11px;">${formatDirection(order.direction, order.base_asset, order.quote_asset)}</span>
                                     </div>
                                     <div class="detail-row">
-                                        <span class="detail-label">Volume:</span>
+                                        <span class="detail-label">${formatVolumeLabel(order.direction, order.base_asset)}</span>
                                         <span class="detail-value">${order.volume || 'N/A'}</span>
                                     </div>
                                     <div class="detail-row">
