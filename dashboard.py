@@ -780,8 +780,8 @@ def get_balances_and_risks():
         active = get_active_orders()
         prices = get_current_prices()
         
-    # Get normalized account balances (spot + funding summed)
-    balances = kraken_api.get_normalized_balances()
+        # Get normalized account balances (spot + funding summed)
+        balances = kraken_api.get_normalized_balances()
         
         # Collect unique assets from orders
         assets_needed = {}  # asset -> {buy_volume, sell_volume, pairs}
