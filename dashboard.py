@@ -780,8 +780,8 @@ def get_balances_and_risks():
         active = get_active_orders()
         prices = get_current_prices()
         
-        # Get account balances
-        balances = kraken_api.get_balance()
+    # Get normalized account balances (spot + funding summed)
+    balances = kraken_api.get_normalized_balances()
         
         # Collect unique assets from orders
         assets_needed = {}  # asset -> {buy_volume, sell_volume, pairs}
@@ -828,8 +828,9 @@ def get_balances_and_risks():
         overall_warnings = []
         
         for asset, needs in assets_needed.items():
-            # Get balance for this asset
-            balance = float(balances.get(asset, 0))
+            # Use normalized asset key for lookup
+            norm_asset = kraken_api._normalize_asset_key(asset)
+            balance = float(balances.get(norm_asset, 0))
             
             # Calculate requirements
             sell_requirement = needs['sell_volume']
