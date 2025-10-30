@@ -565,6 +565,56 @@ def test_generate_config_suggestions_custom_params():
             assert 9.5 < buy_offset < 10.5  # Allow small tolerance
 
 
+def test_html_report_shows_distribution():
+    """Test that HTML report shows distribution type used for analysis."""
+    from tools.coin_stats import generate_html_viewer
+    
+    try:
+        import scipy
+        scipy_available = True
+    except ImportError:
+        scipy_available = False
+        return  # Skip if scipy not available
+    
+    # Create mock results
+    candles = create_mock_candles(num_candles=100, base_price=100.0, volatility=1.0)
+    api = MockKrakenAPI(candles)
+    analyzer = CoinStatsAnalyzer(api)
+    
+    analysis = analyzer.analyze_pair('XXBTZUSD')
+    results = [analysis] if analysis else []
+    
+    if not results:
+        return  # Skip if no results
+    
+    # Generate HTML viewer
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path = generate_html_viewer(results, analyzer, tmpdir, 'test.html')
+        
+        assert html_path is not None
+        assert os.path.exists(html_path)
+        
+        # Read HTML content
+        with open(html_path, 'r') as f:
+            html_content = f.read()
+        
+        # Verify HTML contains distribution information
+        assert 'Distribution Used' in html_content
+        
+        # Check that it shows one of the expected distribution types
+        has_distribution = (
+            'Normal (Gaussian)' in html_content or
+            'Student-t' in html_content or
+            'Fat tails' in html_content or
+            'Insufficient data' in html_content
+        )
+        assert has_distribution, "HTML should show distribution type"
+        
+        # Verify threshold distribution is shown
+        if analysis.get('threshold_95'):
+            assert 'Threshold Distribution' in html_content
+
+
 if __name__ == '__main__':
     # Run tests
     print("Running coin_stats tests...")
@@ -616,5 +666,8 @@ if __name__ == '__main__':
     
     test_generate_config_suggestions_custom_params()
     print("✓ test_generate_config_suggestions_custom_params")
+    
+    test_html_report_shows_distribution()
+    print("✓ test_html_report_shows_distribution")
     
     print("\n✅ All tests passed!")
