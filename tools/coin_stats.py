@@ -992,6 +992,10 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     - Ensures Kraken minimum order volume (ordermin) is met
     - Uses max(calculated, ordermin) for final volume
     
+    ID FORMAT:
+    - IDs include timestamp in format: {pair}_{direction}_{YYYYMMDDHHMM}_{count}
+    - Example: btc_usdt_sell_202510301307_1
+    
     Args:
         results: List of analysis results
         analyzer: CoinStatsAnalyzer instance
@@ -1020,6 +1024,9 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     # Convert to "probability of exceeding threshold" (1 - tail_prob)
     tail_probability = 1 - per_entry_probability
     
+    # Generate timestamp for IDs (format: YYYYMMDDHHMM)
+    timestamp_str = datetime.now(timezone.utc).strftime('%Y%m%d%H%M')
+    
     print(f"\n{'='*70}")
     print(f"BRACKET STRATEGY CONFIG GENERATION")
     print(f"{'='*70}")
@@ -1030,6 +1037,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     print(f"Bracket offset: ±{bracket_offset_pct:.1f}% from current price")
     print(f"Trailing offset: {trailing_offset_pct:.1f}%")
     print(f"Target USD volume: ${target_usd_volume:.2f} +/- 25%")
+    print(f"Timestamp: {timestamp_str}")
     print(f"{'='*70}\n")
     
     with open(output_file, 'w', newline='') as csvfile:
@@ -1095,7 +1103,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             entry_count += 1
             pair_short = analyzer.format_pair_name(pair).replace('/', '_').lower()
             writer.writerow({
-                'id': f"{pair_short}_sell_{entry_count}",
+                'id': f"{pair_short}_sell_{timestamp_str}_{entry_count}",
                 'pair': pair,
                 'threshold_price': f"{upper_bracket:{price_format}}",
                 'threshold_type': 'above',
@@ -1108,7 +1116,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             # Create BUY bracket entry (price goes below)
             entry_count += 1
             writer.writerow({
-                'id': f"{pair_short}_buy_{entry_count}",
+                'id': f"{pair_short}_buy_{timestamp_str}_{entry_count}",
                 'pair': pair,
                 'threshold_price': f"{lower_bracket:{price_format}}",
                 'threshold_type': 'below',
@@ -1135,8 +1143,8 @@ def main():
         '--pairs',
         nargs='+',
         default=[
-            # Major cryptocurrencies
-            'XXBTZUSD', 'XXBTZEUR', 'XBTUSDT', 'XETHZUSD', 'SOLUSD',
+            # Major cryptocurrencies - BTC uses USDT (Tether) instead of USD fiat
+            'XBTUSDT', 'XXBTZEUR', 'XETHZUSD', 'SOLUSD',
             'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
             # DeFi and Smart Contract platforms
             'AAVEUSD', 'ATOMUSD', 'COMPUSD', 'DYDXUSD', 'EGLDUSD', 'ENSUSD',
@@ -1150,7 +1158,7 @@ def main():
             # Fiat pairs
             'GBPUSD',
         ],
-        help='Trading pairs to analyze (default: 33 popular pairs including BTC/EUR, BTC/USDT and GBP/USD)'
+        help='Trading pairs to analyze (default: 32 popular pairs including BTC/USDT, BTC/EUR and GBP/USD)'
     )
     parser.add_argument(
         '--hours',
