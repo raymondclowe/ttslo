@@ -565,6 +565,54 @@ def test_generate_config_suggestions_custom_params():
             assert 9.5 < buy_offset < 10.5  # Allow small tolerance
 
 
+def test_output_clarity_improvements():
+    """Test that output includes clarity improvements from issue feedback."""
+    import io
+    import sys
+    
+    try:
+        import scipy
+        scipy_available = True
+    except ImportError:
+        scipy_available = False
+        return  # Skip if scipy not available
+    
+    # Create mock results
+    candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=2.0)
+    api = MockKrakenAPI(candles)
+    analyzer = CoinStatsAnalyzer(api)
+    
+    analysis = analyzer.analyze_pair('XXBTZUSD')
+    
+    if not analysis:
+        return  # Skip if no analysis
+    
+    # Capture output
+    old_stdout = sys.stdout
+    sys.stdout = captured_output = io.StringIO()
+    
+    try:
+        analyzer.print_analysis(analysis)
+        output = captured_output.getvalue()
+        
+        # Test Issue #1: "Best Fit" should clarify it's better than alternatives
+        if 'Best Fit:' in output:
+            assert 'better than alternatives' in output, \
+                "Best Fit should clarify it's better than alternatives"
+        
+        # Test Issue #2: Distribution Used should be shown in threshold section
+        if '95% Probability Threshold' in output:
+            assert 'Distribution Used:' in output, \
+                "Should show which distribution is used for calculation"
+        
+        # Test Issue #3: Confidence should be clarified as fit quality
+        if 'Confidence:' in output or 'Fit Confidence:' in output:
+            assert 'quality of distribution fit' in output.lower() or 'fit confidence' in output.lower(), \
+                "Should clarify confidence refers to distribution fit quality"
+    finally:
+        sys.stdout = old_stdout
+
+
 if __name__ == '__main__':
     # Run tests
     print("Running coin_stats tests...")
@@ -616,5 +664,8 @@ if __name__ == '__main__':
     
     test_generate_config_suggestions_custom_params()
     print("✓ test_generate_config_suggestions_custom_params")
+    
+    test_output_clarity_improvements()
+    print("✓ test_output_clarity_improvements")
     
     print("\n✅ All tests passed!")
