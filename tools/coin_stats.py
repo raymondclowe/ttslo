@@ -12,6 +12,7 @@ Goal: Predict with 95% probability that an asset will exceed a threshold within 
 """
 import sys
 import os
+import io
 import argparse
 import time
 from datetime import datetime, timezone
@@ -22,6 +23,13 @@ import csv
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Configure UTF-8 encoding for Windows console compatibility
+if sys.platform == 'win32':
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if sys.stderr.encoding != 'utf-8':
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from kraken_api import KrakenAPI
 from creds import load_env
