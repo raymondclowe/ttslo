@@ -36,8 +36,9 @@ try:
 except ImportError:
     STATS_AVAILABLE = False
     print("⚠️  Warning: numpy, matplotlib, or scipy not installed.")
-    print("   Install with: pip install numpy matplotlib scipy")
+    print("   Install with: uv add numpy matplotlib scipy")
     print("   Graphing and advanced statistics will be disabled.\n")
+    exit(1)
 
 
 class CoinStatsAnalyzer:
