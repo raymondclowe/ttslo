@@ -533,7 +533,7 @@ class CoinStatsAnalyzer:
             if dist_fit['distribution'] == 'insufficient_data':
                 print(f"  Status: Insufficient data for distribution testing (need ≥30 samples)")
             else:
-                print(f"  Best Fit: {dist_fit['best_fit'].replace('_', ' ').title()}")
+                print(f"  Best Fit: {dist_fit['best_fit'].replace('_', ' ').title()} (better than alternatives)")
                 
                 if dist_fit['best_fit'] == 'student_t':
                     print(f"  Degrees of Freedom: {dist_fit['df']}")
@@ -541,7 +541,7 @@ class CoinStatsAnalyzer:
                     print(f"  → Has heavier tails than normal distribution (df={dist_fit['df']})")
                 elif dist_fit['best_fit'] == 'normal':
                     print(f"  Distribution Type: Normal (Gaussian)")
-                    print(f"  → Standard normal distribution")
+                    print(f"  → Fits normal distribution better than Student's t-distribution")
                 
                 print(f"  Fit Quality: {dist_fit['fit_quality'].title()}")
                 print(f"  P-value: {dist_fit['p_value']:.6f}")
@@ -549,11 +549,16 @@ class CoinStatsAnalyzer:
         
         threshold = analysis.get('threshold_95')
         if threshold:
+            # Determine which distribution is being used
+            dist_fit = stats.get('distribution_fit', {})
+            dist_used = threshold.get('distribution', 'unknown')
+            
             print(f"\n95% Probability Threshold (24 hours):")
             print(f"  Threshold: ±{threshold['threshold_pct']:.4f}%")
             print(f"  Upper Price: ${threshold['threshold_price_up']:,.4f}")
             print(f"  Lower Price: ${threshold['threshold_price_down']:,.4f}")
-            print(f"  Confidence: {threshold['confidence'].upper()}")
+            print(f"  Distribution Used: {dist_used}")
+            print(f"  Fit Confidence: {threshold['confidence'].upper()} (quality of distribution fit)")
             print(f"\n  → 95% probability price will move beyond ±{threshold['threshold_pct']:.2f}% within 24h")
 
 
@@ -1276,6 +1281,12 @@ def main():
                                               trailing_offset_pct=args.suggestoffset,
                                               target_usd_volume=args.target_usd_volume)
     if config_path:
+        # Count how many pairs use each distribution
+        normal_count = sum(1 for r in results 
+                          if r.get('stats', {}).get('distribution_fit', {}).get('best_fit') == 'normal')
+        student_t_count = sum(1 for r in results 
+                             if r.get('stats', {}).get('distribution_fit', {}).get('best_fit') == 'student_t')
+        
         print(f"\n{'='*70}")
         print(f"SUGGESTED CONFIG WITH BRACKET STRATEGY")
         print(f"{'='*70}")
@@ -1289,7 +1300,15 @@ def main():
         print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
         print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
         print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
-        print(f"  - Uses Student's t-distribution to account for fat tails")
+        
+        # Only mention the distributions that are actually used
+        if student_t_count > 0 and normal_count > 0:
+            print(f"  - Uses appropriate distribution for each pair: {normal_count} normal, {student_t_count} Student's t")
+        elif student_t_count > 0:
+            print(f"  - Uses Student's t-distribution to account for fat tails")
+        elif normal_count > 0:
+            print(f"  - Uses normal distribution for all pairs")
+        
         print(f"  - Random walk model: 24h volatility = minute volatility × sqrt(1440)")
         print(f"  - Decimal places adjusted based on coin value (more for low-value coins)")
         print(f"  - Each pair has up to two entries (above/below thresholds)")
