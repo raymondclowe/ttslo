@@ -814,6 +814,25 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
         normal_class = 'normal-yes' if is_normal else 'normal-no'
         normal_text = '✓ YES' if is_normal else '✗ NO'
         
+        # Get distribution fit information
+        dist_fit = stats.get('distribution_fit', {})
+        if dist_fit.get('distribution') == 'insufficient_data':
+            dist_text = 'Insufficient data'
+            dist_class = 'normal-no'
+        elif dist_fit.get('best_fit') == 'student_t':
+            df = dist_fit.get('df', '?')
+            if dist_fit.get('distribution') == 'fat_tails':
+                dist_text = f'Fat tails (Student-t, df={df})'
+            else:
+                dist_text = f'Student-t (df={df})'
+            dist_class = 'normal-no'
+        elif dist_fit.get('best_fit') == 'normal':
+            dist_text = 'Normal (Gaussian)'
+            dist_class = 'normal-yes'
+        else:
+            dist_text = 'N/A'
+            dist_class = 'normal-no'
+        
         graph_filename = f"{pair}_distribution.png"
         
         html_content += f"""
@@ -851,13 +870,25 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
                 <td>Normal Distribution?</td>
                 <td class="{normal_class}">{normal_text}</td>
             </tr>
+            <tr>
+                <td>Distribution Used</td>
+                <td class="{dist_class}">{dist_text}</td>
+            </tr>
 """
         
         if threshold:
+            # Determine color class for threshold distribution
+            thresh_dist = threshold.get('distribution', 'N/A')
+            thresh_dist_class = 'normal-yes' if 'normal' in thresh_dist.lower() else 'normal-no'
+            
             html_content += f"""
             <tr>
                 <td>95% Threshold</td>
                 <td>±{threshold['threshold_pct']:.2f}%</td>
+            </tr>
+            <tr>
+                <td>Threshold Distribution</td>
+                <td class="{thresh_dist_class}">{thresh_dist}</td>
             </tr>
             <tr>
                 <td>Upper Price Target</td>
