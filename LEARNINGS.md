@@ -2,6 +2,62 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Statistical Distribution Display in HTML Reports (2025-10-30)
+
+**Feature**: Enhanced HTML report in coin_stats.py to display which statistical distribution was used for analysis.
+
+**Background**:
+- coin_stats.py already implemented Student's t-distribution testing
+- Best-fit distribution was selected and used for probability calculations
+- However, HTML report only showed "Normal Distribution?" (yes/no)
+- Users couldn't see which specific distribution was actually used
+
+**Solution**:
+1. Added "Distribution Used" row showing best-fit distribution:
+   - "Normal (Gaussian)" for normal distributions
+   - "Fat tails (Student-t, df=X)" for fat-tailed distributions
+   - "Student-t (df=X)" for Student's t-distributions
+   - "Insufficient data" when sample size < 30
+
+2. Added "Threshold Distribution" row showing distribution used for probability threshold calculations
+
+3. Consistent color coding:
+   - Green (`normal-yes`) for normal distributions
+   - Red (`normal-no`) for non-normal distributions
+   - Applied to both "Distribution Used" and "Threshold Distribution" fields
+
+**Implementation Details**:
+```python
+# Extract distribution info from stats
+dist_fit = stats.get('distribution_fit', {})
+if dist_fit.get('best_fit') == 'student_t':
+    df = dist_fit.get('df', '?')
+    if dist_fit.get('distribution') == 'fat_tails':
+        dist_text = f'Fat tails (Student-t, df={df})'
+    # ...
+
+# Apply color coding to threshold distribution
+thresh_dist_class = 'normal-yes' if 'normal' in thresh_dist.lower() else 'normal-no'
+```
+
+**Testing**:
+- Added `test_html_report_shows_distribution()` in test_coin_stats.py
+- Verified HTML contains both distribution fields
+- Manual testing confirmed proper formatting for all cases
+- All 17 tests pass, no regressions
+
+**Key Insights**:
+1. **Transparency**: Users can now see which statistical model is being used
+2. **Consistency**: Same color coding across all distribution-related fields
+3. **Minimal Changes**: Only 85 lines added, no breaking changes
+4. **Already Implemented**: Most of the feature was already coded, just needed UI display
+
+**Related Files**:
+- `tools/coin_stats.py`: Lines 812-828, 868-871, 877-890
+- `tests/test_coin_stats.py`: test_html_report_shows_distribution()
+
+---
+
 ## Kraken API Efficiency - Batch Price Fetching and Targeted Order Queries (2025-10-27)
 
 **Feature**: Optimized Kraken API usage by implementing batch price fetching and targeted order queries in the monitoring loop.
