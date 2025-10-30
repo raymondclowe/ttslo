@@ -12,6 +12,7 @@ Goal: Predict with 95% probability that an asset will exceed a threshold within 
 """
 import sys
 import os
+import io
 import argparse
 import time
 from datetime import datetime, timezone
@@ -25,7 +26,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Configure UTF-8 encoding for Windows console compatibility
 if sys.platform == 'win32':
-    import io
     if sys.stdout.encoding != 'utf-8':
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     if sys.stderr.encoding != 'utf-8':
