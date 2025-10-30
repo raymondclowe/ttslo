@@ -2,6 +2,45 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## coin_stats.py Output Clarity (2025-10-30)
+
+**Problem**: Users confused by coin_stats.py output showing contradictory messages:
+1. "Is Normal: ✗ NO" but "Best Fit: Normal" - seems contradictory
+2. "Confidence: LOW yet 95% probability" - confusing mix of fit quality and probability
+3. Final notes always said "Uses Student's t-distribution" even for normal distributions
+
+**Root Causes**:
+- "Best Fit: Normal" meant "better than t-dist" but sounded absolute
+- "Confidence: LOW" referred to fit quality, not probability confidence
+- Summary text hardcoded distribution mention instead of checking actual usage
+
+**Solutions Applied**:
+
+1. **Clarified "Best Fit"**: Added "(better than alternatives)" suffix
+   - "Best Fit: Normal (better than alternatives)"
+   - Added explanation: "→ Fits normal distribution better than Student's t-distribution"
+
+2. **Split Confidence Labels**: Made distinction clear
+   - Changed "Confidence: LOW" → "Fit Confidence: LOW (quality of distribution fit)"
+   - Added "Distribution Used: normal" or "t-dist (df=2)" to show actual distribution
+
+3. **Dynamic Distribution Summary**: Only mention distributions actually used
+   - Mixed: "Uses appropriate distribution for each pair: X normal, Y Student's t"
+   - All normal: "Uses normal distribution for all pairs"
+   - All t: "Uses Student's t-distribution to account for fat tails"
+
+**Key Insights**:
+- Label clarity matters: "Best Fit" sounds absolute, needs context
+- When showing confidence + probability together, clarify which is which
+- Don't hardcode summary text - compute it from actual data
+- UX principle: If output seems contradictory, add clarifying context
+
+**Testing**: Added test_output_clarity_improvements() to verify fixes
+
+**Related Files**:
+- tools/coin_stats.py: Lines 536, 544, 551-560, 1252-1278
+- tests/test_coin_stats.py: New test added
+
 ## Kraken API Efficiency - Batch Price Fetching and Targeted Order Queries (2025-10-27)
 
 **Feature**: Optimized Kraken API usage by implementing batch price fetching and targeted order queries in the monitoring loop.
