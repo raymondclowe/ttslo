@@ -84,7 +84,47 @@ For 10 trading pairs and 5 triggered orders:
 
 **Similar Implementations**:
 - Dashboard: `dashboard.py` lines 156-194 (already used batch method)
-- Dashboard: `dashboard.py` lines 337-445 (already used query_orders for completed orders)
+- Dashboard: `dashboard.py` lines 450-669 (already used query_orders for completed orders)
+
+---
+
+## Dashboard get_completed_orders Optimization - Already Implemented (2025-10-30)
+
+**Status**: ✅ ALREADY IMPLEMENTED (commit b59c530, Oct 24, 2025)
+
+**Implementation Details**:
+
+The `get_completed_orders()` function in `dashboard.py` (lines 450-669) is already optimized:
+
+1. **Collects order IDs from state.csv** (lines 476-492):
+   - Iterates through state entries
+   - Filters for `triggered='true'` entries only
+   - Extracts `order_id` for each triggered entry
+   - Builds mapping: `config_id_by_order[order_id] = config_id`
+
+2. **Uses query_orders() for specific IDs** (line 503):
+   - Calls `kraken_api.query_orders(order_ids)`
+   - Fetches only the specific order IDs from state
+   - Kraken QueryOrders endpoint can handle up to 50 orders at once
+
+3. **Fallback mechanisms** (lines 508-531):
+   - Falls back to `get_cached_closed_orders()` only when needed
+   - Handles missing orders from query_orders response
+   - Handles API failures gracefully
+
+4. **Manual orders handling** (lines 609-654):
+   - Scans all closed orders for manual trailing-stop orders
+   - Only includes manual orders not already in state
+
+**Performance**:
+- **Before**: Fetched 50+ unrelated closed orders, filtered in memory
+- **After**: Queries only 3-4 specific order IDs directly
+- **Result**: ~90% reduction in data transfer
+
+**Verification**:
+- All dashboard tests pass (14/14)
+- Commit b59c530: "Fix: Use QueryOrders to fetch specific completed orders by ID"
+- No changes needed - optimization fully working
 
 ---
 
