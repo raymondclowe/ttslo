@@ -872,6 +872,10 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
 """
         
         if threshold:
+            # Determine color class for threshold distribution
+            thresh_dist = threshold.get('distribution', 'N/A')
+            thresh_dist_class = 'normal-yes' if 'normal' in thresh_dist.lower() else 'normal-no'
+            
             html_content += f"""
             <tr>
                 <td>95% Threshold</td>
@@ -879,7 +883,7 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
             </tr>
             <tr>
                 <td>Threshold Distribution</td>
-                <td>{threshold.get('distribution', 'N/A')}</td>
+                <td class="{thresh_dist_class}">{thresh_dist}</td>
             </tr>
             <tr>
                 <td>Upper Price Target</td>
