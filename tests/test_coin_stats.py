@@ -314,6 +314,7 @@ def test_generate_config_suggestions_default_params():
     """Test generate_config_suggestions with default parameters."""
     from tools.coin_stats import generate_config_suggestions
     import csv
+    import re
     
     # Create mock results with very high volatility to pass filter
     candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=20.0)
@@ -350,10 +351,16 @@ def test_generate_config_suggestions_default_params():
             assert rows[0]['threshold_type'] == 'above'
             assert float(rows[0]['trailing_offset_percent']) == 1.0  # Default
             
+            # Verify ID format includes timestamp: {pair}_{direction}_{timestamp}_{count}
+            # Example: btc_usd_sell_202510301307_1
+            id_pattern = r'^[a-z_]+_(sell|buy)_\d{12}_\d+$'
+            assert re.match(id_pattern, rows[0]['id']), f"ID format incorrect: {rows[0]['id']}"
+            
             # Check second row (buy)
             assert rows[1]['direction'] == 'buy'
             assert rows[1]['threshold_type'] == 'below'
             assert float(rows[1]['trailing_offset_percent']) == 1.0  # Default
+            assert re.match(id_pattern, rows[1]['id']), f"ID format incorrect: {rows[1]['id']}"
 
 
 def test_generate_config_suggestions_custom_params():
@@ -574,7 +581,6 @@ def test_html_report_shows_distribution():
     """Test that HTML report shows distribution type used for analysis."""
     from tools.coin_stats import generate_html_viewer
 
-    
     try:
         import scipy
         scipy_available = True
@@ -583,44 +589,16 @@ def test_html_report_shows_distribution():
         return  # Skip if scipy not available
     
     # Create mock results
-    candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=2.0)
     candles = create_mock_candles(num_candles=100, base_price=100.0, volatility=1.0)
     api = MockKrakenAPI(candles)
     analyzer = CoinStatsAnalyzer(api)
     
     analysis = analyzer.analyze_pair('XXBTZUSD')
-    # DUPLICATE CODE BELOW HERE DUE TO BAD MERGE, NEEDS FIXING    
+    
     if not analysis:
         return  # Skip if no analysis
     
-    # Capture output
-    old_stdout = sys.stdout
-    sys.stdout = captured_output = io.StringIO()
-    
-    try:
-        analyzer.print_analysis(analysis)
-        output = captured_output.getvalue()
-        
-        # Test Issue #1: "Best Fit" should clarify it's better than alternatives
-        if 'Best Fit:' in output:
-            assert 'better than alternatives' in output, \
-                "Best Fit should clarify it's better than alternatives"
-        
-        # Test Issue #2: Distribution Used should be shown in threshold section
-        if '95% Probability Threshold' in output:
-            assert 'Distribution Used:' in output, \
-                "Should show which distribution is used for calculation"
-        
-        # Test Issue #3: Confidence should be clarified as fit quality
-        if 'Confidence:' in output or 'Fit Confidence:' in output:
-            assert 'quality of distribution fit' in output.lower() or 'fit confidence' in output.lower(), \
-                "Should clarify confidence refers to distribution fit quality"
-    finally:
-        sys.stdout = old_stdout
-    results = [analysis] if analysis else []
-    
-    if not results:
-        return  # Skip if no results
+    results = [analysis]
     
     # Generate HTML viewer
     with tempfile.TemporaryDirectory() as tmpdir:
