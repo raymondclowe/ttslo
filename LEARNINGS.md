@@ -2,6 +2,41 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Windows UTF-8 Console Encoding Fix (2025-10-30)
+
+**Problem**: `coin_stats.py` crashed on Windows at line 1363 with Unicode characters (✓, ✅, ⚠️, ✗) in print statements.
+
+**Root Cause**: Windows console default encoding is often cp1252 or cp437, not UTF-8. Python print() fails with UnicodeEncodeError when outputting UTF-8 characters.
+
+**Solution**: Configure UTF-8 encoding for stdout/stderr on Windows at module import:
+```python
+if sys.platform == 'win32':
+    import io
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if sys.stderr.encoding != 'utf-8':
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+```
+
+**Key Insights**:
+1. Windows console encoding differs from Unix/Linux/Mac (UTF-8 by default)
+2. Configure encoding BEFORE any print statements execute
+3. Use `errors='replace'` to handle any unrepresentable characters gracefully
+4. Only wrap when encoding is not already UTF-8 to avoid double-wrapping
+5. Check `sys.platform == 'win32'` to avoid affecting other platforms
+
+**Testing**: Created `test_coin_stats_windows_encoding.py` with 4 tests covering:
+- UTF-8 configuration doesn't break module import
+- Unicode characters can be encoded and printed
+- Specific Unicode symbols from the script work correctly
+- Platform detection logic is sound
+
+**Related Files**:
+- `tools/coin_stats.py`: Lines 26-32 (UTF-8 configuration)
+- `tests/test_coin_stats_windows_encoding.py`: Windows encoding tests
+
+---
+
 ## coin_stats.py Output Clarity (2025-10-30)
 
 **Problem**: Users confused by coin_stats.py output showing contradictory messages:
