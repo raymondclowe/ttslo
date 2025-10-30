@@ -60,6 +60,7 @@ class CoinStatsAnalyzer:
         conversions = {
             # Major cryptocurrencies
             'XXBTZUSD': 'BTC/USD',
+            'XXBTZEUR': 'BTC/EUR',
             'XETHZUSD': 'ETH/USD',
             'XXBTZUSDT': 'BTC/USDT',
             'XETHZUSDT': 'ETH/USDT',
@@ -67,6 +68,8 @@ class CoinStatsAnalyzer:
             'XLTCZUSD': 'LTC/USD',
             'XXRPZUSD': 'XRP/USD',
             'XXMRZUSD': 'XMR/USD',
+            # Fiat pairs
+            'GBPUSD': 'GBP/USD',
             # DeFi and Smart Contract platforms
             'AAVEUSD': 'AAVE/USD',
             'ATOMUSD': 'ATOM/USD',
@@ -962,7 +965,7 @@ def main():
         nargs='+',
         default=[
             # Major cryptocurrencies
-            'XXBTZUSD', 'XETHZUSD', 'SOLUSD', 'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
+            'XXBTZUSD', 'XXBTZEUR', 'XETHZUSD', 'SOLUSD', 'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
             # DeFi and Smart Contract platforms
             'AAVEUSD', 'ATOMUSD', 'COMPUSD', 'DYDXUSD', 'EGLDUSD', 'ENSUSD',
             'FILUSD', 'INJUSD', 'NEARUSD',
@@ -972,8 +975,10 @@ def main():
             # Other popular coins
             'ATHUSD', 'NANOUSD', 'RAYUSD', 'RENDERUSD', 'SUPERUSD', 
             'TONUSD', 'TRXUSD', 'WALUSD',
+            # Fiat pairs
+            'GBPUSD',
         ],
-        help='Trading pairs to analyze (default: 30 popular pairs)'
+        help='Trading pairs to analyze (default: 32 popular pairs including BTC/EUR and GBP/USD)'
     )
     parser.add_argument(
         '--hours',

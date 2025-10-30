@@ -65,8 +65,12 @@ def test_format_pair_name():
     
     # Test common pairs
     assert analyzer.format_pair_name('XXBTZUSD') == 'BTC/USD'
+    assert analyzer.format_pair_name('XXBTZEUR') == 'BTC/EUR'
     assert analyzer.format_pair_name('XETHZUSD') == 'ETH/USD'
     assert analyzer.format_pair_name('SOLUSD') == 'SOL/USD'
+    
+    # Test fiat pair
+    assert analyzer.format_pair_name('GBPUSD') == 'GBP/USD'
     
     # Test unknown pair (should return original)
     assert analyzer.format_pair_name('UNKNOWNPAIR') == 'UNKNOWNPAIR'
