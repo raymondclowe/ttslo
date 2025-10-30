@@ -1,0 +1,722 @@
+⚠️  Warning: numpy, matplotlib, or scipy not installed.
+   Install with: pip install numpy matplotlib scipy
+   Graphing and advanced statistics will be disabled.
+
+
+⚠️  scipy/numpy/matplotlib not available - graphs will be skipped
+   Install with: pip install numpy matplotlib scipy
+
+Analyzing 34 trading pairs...
+Historical data: 240 hours (minute-by-minute)
+Expected data points per pair: ~14400
+
+Fetching data for BTC/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XXBTZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXBTZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for BTC/EUR... [DEBUG] KrakenAPI.get_ohlc: pair=XXBTZEUR, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXBTZEUR', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for BTC/USDT... [DEBUG] KrakenAPI.get_ohlc: pair=XBTUSDT, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XBTUSDT', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for ETH/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XETHZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XETHZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for SOL/USD... [DEBUG] KrakenAPI.get_ohlc: pair=SOLUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'SOLUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for LTC/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XLTCZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XLTCZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for XRP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XXRPZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXRPZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for XMR/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XXMRZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXMRZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for AAVE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=AAVEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'AAVEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for ATOM/USD... [DEBUG] KrakenAPI.get_ohlc: pair=ATOMUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'ATOMUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for COMP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=COMPUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'COMPUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for DYDX/USD... [DEBUG] KrakenAPI.get_ohlc: pair=DYDXUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'DYDXUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for EGLD/USD... [DEBUG] KrakenAPI.get_ohlc: pair=EGLDUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'EGLDUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for ENS/USD... [DEBUG] KrakenAPI.get_ohlc: pair=ENSUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'ENSUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for FIL/USD... [DEBUG] KrakenAPI.get_ohlc: pair=FILUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'FILUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for INJ/USD... [DEBUG] KrakenAPI.get_ohlc: pair=INJUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'INJUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for NEAR/USD... [DEBUG] KrakenAPI.get_ohlc: pair=NEARUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'NEARUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for BONK/USD... [DEBUG] KrakenAPI.get_ohlc: pair=BONKUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'BONKUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for DOGE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=DOGSUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'DOGSUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for MEME/USD... [DEBUG] KrakenAPI.get_ohlc: pair=MEMEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'MEMEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for MEW/USD... [DEBUG] KrakenAPI.get_ohlc: pair=MEWUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'MEWUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for PEPE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=PEPEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'PEPEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for PONKE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=PONKEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'PONKEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for POPCAT/USD... [DEBUG] KrakenAPI.get_ohlc: pair=POPCATUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'POPCATUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for TRUMP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=TRUMPUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'TRUMPUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for ATH/USD... [DEBUG] KrakenAPI.get_ohlc: pair=ATHUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'ATHUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for NANO/USD... [DEBUG] KrakenAPI.get_ohlc: pair=NANOUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'NANOUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for RAY/USD... [DEBUG] KrakenAPI.get_ohlc: pair=RAYUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'RAYUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for RENDER/USD... [DEBUG] KrakenAPI.get_ohlc: pair=RENDERUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'RENDERUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for SUPER/USD... [DEBUG] KrakenAPI.get_ohlc: pair=SUPERUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'SUPERUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for TON/USD... [DEBUG] KrakenAPI.get_ohlc: pair=TONUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'TONUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for TRX/USD... [DEBUG] KrakenAPI.get_ohlc: pair=TRXUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'TRXUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for WAL/USD... [DEBUG] KrakenAPI.get_ohlc: pair=WALUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'WALUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+Fetching data for GBP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=GBPUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'GBPUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+
+
+######################################################################
+# DETAILED ANALYSIS
+######################################################################
+
+======================================================================
+Pair: BTC/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $111,011.3287
+  Median: $111,088.2000
+  Std Dev: $532.9605
+  Min: $109,289.0000
+  Max: $112,456.9000
+  Range: $3,167.9000
+
+======================================================================
+Pair: BTC/EUR
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $95,570.0470
+  Median: $95,514.3000
+  Std Dev: $410.3392
+  Min: $94,425.0000
+  Max: $96,545.3000
+  Range: $2,120.3000
+
+======================================================================
+Pair: BTC/USDT
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $110,999.7319
+  Median: $111,060.1000
+  Std Dev: $532.4436
+  Min: $109,400.0000
+  Max: $112,444.5000
+  Range: $3,044.5000
+
+======================================================================
+Pair: ETH/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $3,940.1493
+  Median: $3,940.3400
+  Std Dev: $27.9757
+  Min: $3,855.6100
+  Max: $4,018.9700
+  Range: $163.3600
+
+======================================================================
+Pair: SOL/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $195.4106
+  Median: $195.4900
+  Std Dev: $1.5522
+  Min: $189.9000
+  Max: $199.7400
+  Range: $9.8400
+
+======================================================================
+Pair: LTC/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $99.0308
+  Median: $99.0700
+  Std Dev: $0.5043
+  Min: $96.3000
+  Max: $99.9000
+  Range: $3.6000
+
+======================================================================
+Pair: XRP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.5976
+  Median: $2.5956
+  Std Dev: $0.0295
+  Min: $2.5311
+  Max: $2.6583
+  Range: $0.1272
+
+======================================================================
+Pair: XMR/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $339.5122
+  Median: $339.6100
+  Std Dev: $3.1454
+  Min: $332.9900
+  Max: $345.0000
+  Range: $12.0100
+
+======================================================================
+Pair: AAVE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $230.1474
+  Median: $229.8300
+  Std Dev: $2.3415
+  Min: $222.6200
+  Max: $235.1900
+  Range: $12.5700
+
+======================================================================
+Pair: ATOM/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $3.1200
+  Median: $3.1137
+  Std Dev: $0.0241
+  Min: $3.0409
+  Max: $3.1764
+  Range: $0.1355
+
+======================================================================
+Pair: COMP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $36.8695
+  Median: $36.9400
+  Std Dev: $0.4329
+  Min: $35.6400
+  Max: $37.4200
+  Range: $1.7800
+
+======================================================================
+Pair: DYDX/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.3384
+  Median: $0.3395
+  Std Dev: $0.0050
+  Min: $0.3251
+  Max: $0.3461
+  Range: $0.0210
+
+======================================================================
+Pair: EGLD/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $9.7374
+  Median: $9.7500
+  Std Dev: $0.1052
+  Min: $9.5200
+  Max: $9.9400
+  Range: $0.4200
+
+======================================================================
+Pair: ENS/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $15.6838
+  Median: $15.6700
+  Std Dev: $0.1554
+  Min: $15.2500
+  Max: $16.0000
+  Range: $0.7500
+
+======================================================================
+Pair: FIL/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $1.6074
+  Median: $1.6060
+  Std Dev: $0.0130
+  Min: $1.5440
+  Max: $1.6390
+  Range: $0.0950
+
+======================================================================
+Pair: INJ/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $8.5863
+  Median: $8.5900
+  Std Dev: $0.0909
+  Min: $8.2530
+  Max: $8.8140
+  Range: $0.5610
+
+======================================================================
+Pair: NEAR/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.3001
+  Median: $2.3000
+  Std Dev: $0.0201
+  Min: $2.2360
+  Max: $2.3450
+  Range: $0.1090
+
+======================================================================
+Pair: BONK/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0000
+  Median: $0.0000
+  Std Dev: $0.0000
+  Min: $0.0000
+  Max: $0.0000
+  Range: $0.0000
+
+======================================================================
+Pair: DOGE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0001
+  Median: $0.0001
+  Std Dev: $0.0000
+  Min: $0.0001
+  Max: $0.0001
+  Range: $0.0000
+
+======================================================================
+Pair: MEME/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0016
+  Median: $0.0016
+  Std Dev: $0.0000
+  Min: $0.0016
+  Max: $0.0017
+  Range: $0.0001
+
+======================================================================
+Pair: MEW/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0019
+  Median: $0.0019
+  Std Dev: $0.0000
+  Min: $0.0018
+  Max: $0.0019
+  Range: $0.0001
+
+======================================================================
+Pair: PEPE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0000
+  Median: $0.0000
+  Std Dev: $0.0000
+  Min: $0.0000
+  Max: $0.0000
+  Range: $0.0000
+
+======================================================================
+Pair: PONKE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0629
+  Median: $0.0626
+  Std Dev: $0.0015
+  Min: $0.0600
+  Max: $0.0656
+  Range: $0.0056
+
+======================================================================
+Pair: POPCAT/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.1571
+  Median: $0.1572
+  Std Dev: $0.0040
+  Min: $0.1494
+  Max: $0.1641
+  Range: $0.0147
+
+======================================================================
+Pair: TRUMP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $8.3395
+  Median: $8.3560
+  Std Dev: $0.1292
+  Min: $8.0210
+  Max: $8.6720
+  Range: $0.6510
+
+======================================================================
+Pair: ATH/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0283
+  Median: $0.0283
+  Std Dev: $0.0003
+  Min: $0.0275
+  Max: $0.0288
+  Range: $0.0013
+
+======================================================================
+Pair: NANO/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.6795
+  Median: $0.6803
+  Std Dev: $0.0058
+  Min: $0.6647
+  Max: $0.6886
+  Range: $0.0239
+
+======================================================================
+Pair: RAY/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $1.8201
+  Median: $1.8220
+  Std Dev: $0.0216
+  Min: $1.7610
+  Max: $1.8580
+  Range: $0.0970
+
+======================================================================
+Pair: RENDER/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.4302
+  Median: $2.4250
+  Std Dev: $0.0278
+  Min: $2.3600
+  Max: $2.4890
+  Range: $0.1290
+
+======================================================================
+Pair: SUPER/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.3900
+  Median: $0.3898
+  Std Dev: $0.0039
+  Min: $0.3802
+  Max: $0.3971
+  Range: $0.0169
+
+======================================================================
+Pair: TON/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.2302
+  Median: $2.2290
+  Std Dev: $0.0132
+  Min: $2.1750
+  Max: $2.2670
+  Range: $0.0920
+
+======================================================================
+Pair: TRX/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.2963
+  Median: $0.2962
+  Std Dev: $0.0010
+  Min: $0.2910
+  Max: $0.2982
+  Range: $0.0072
+
+======================================================================
+Pair: WAL/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.2242
+  Median: $0.2248
+  Std Dev: $0.0031
+  Min: $0.2182
+  Max: $0.2281
+  Range: $0.0099
+
+======================================================================
+Pair: GBP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $1.3202
+  Median: $1.3197
+  Std Dev: $0.0021
+  Min: $1.3141
+  Max: $1.3246
+  Range: $0.0105
+
+
+######################################################################
+# SUMMARY TABLE
+######################################################################
+
+Pair            Mean         Median       StdDev       Distribution         95% Threshold   Confidence
+======================================================================================================
+XXBTZUSD        $111,011.33  $111,088.20  $532.9605    N/A                  N/A             N/A       
+XXBTZEUR        $95,570.05   $95,514.30   $410.3392    N/A                  N/A             N/A       
+XBTUSDT         $110,999.73  $111,060.10  $532.4436    N/A                  N/A             N/A       
+XETHZUSD        $3,940.15    $3,940.34    $27.9757     N/A                  N/A             N/A       
+SOLUSD          $195.41      $195.49      $1.5522      N/A                  N/A             N/A       
+XLTCZUSD        $99.03       $99.07       $0.5043      N/A                  N/A             N/A       
+XXRPZUSD        $2.60        $2.60        $0.0295      N/A                  N/A             N/A       
+XXMRZUSD        $339.51      $339.61      $3.1454      N/A                  N/A             N/A       
+AAVEUSD         $230.15      $229.83      $2.3415      N/A                  N/A             N/A       
+ATOMUSD         $3.12        $3.11        $0.0241      N/A                  N/A             N/A       
+COMPUSD         $36.87       $36.94       $0.4329      N/A                  N/A             N/A       
+DYDXUSD         $0.34        $0.34        $0.0050      N/A                  N/A             N/A       
+EGLDUSD         $9.74        $9.75        $0.1052      N/A                  N/A             N/A       
+ENSUSD          $15.68       $15.67       $0.1554      N/A                  N/A             N/A       
+FILUSD          $1.61        $1.61        $0.0130      N/A                  N/A             N/A       
+INJUSD          $8.59        $8.59        $0.0909      N/A                  N/A             N/A       
+NEARUSD         $2.30        $2.30        $0.0201      N/A                  N/A             N/A       
+BONKUSD         $0.00        $0.00        $0.0000      N/A                  N/A             N/A       
+DOGSUSD         $0.00        $0.00        $0.0000      N/A                  N/A             N/A       
+MEMEUSD         $0.00        $0.00        $0.0000      N/A                  N/A             N/A       
+MEWUSD          $0.00        $0.00        $0.0000      N/A                  N/A             N/A       
+PEPEUSD         $0.00        $0.00        $0.0000      N/A                  N/A             N/A       
+PONKEUSD        $0.06        $0.06        $0.0015      N/A                  N/A             N/A       
+POPCATUSD       $0.16        $0.16        $0.0040      N/A                  N/A             N/A       
+TRUMPUSD        $8.34        $8.36        $0.1292      N/A                  N/A             N/A       
+ATHUSD          $0.03        $0.03        $0.0003      N/A                  N/A             N/A       
+NANOUSD         $0.68        $0.68        $0.0058      N/A                  N/A             N/A       
+RAYUSD          $1.82        $1.82        $0.0216      N/A                  N/A             N/A       
+RENDERUSD       $2.43        $2.42        $0.0278      N/A                  N/A             N/A       
+SUPERUSD        $0.39        $0.39        $0.0039      N/A                  N/A             N/A       
+TONUSD          $2.23        $2.23        $0.0132      N/A                  N/A             N/A       
+TRXUSD          $0.30        $0.30        $0.0010      N/A                  N/A             N/A       
+WALUSD          $0.22        $0.22        $0.0031      N/A                  N/A             N/A       
+GBPUSD          $1.32        $1.32        $0.0021      N/A                  N/A             N/A       
+
+
+Total pairs analyzed: 34
+Normal distributions: 0/34 (0.0%)
+Student's t-distributions: 0/34 (0.0%)
+Fat tails detected: 0/34 (0.0%)
+Insufficient data: 0/34 (0.0%)
+
+✓ Summary table saved to summary_stats.csv
+
+======================================================================
+BRACKET STRATEGY CONFIG GENERATION
+======================================================================
+Total pairs analyzed: 34
+Total entries (2 per pair): 68
+Per-entry probability: 4.31%
+Portfolio probability (at least one triggers): 95.0%
+Bracket offset: ±4.0% from current price
+Trailing offset: 2.0%
+Target USD volume: $100.00 +/- 25%
+======================================================================
+
+Config generation complete:
+  Pairs included: 0
+  Pairs excluded (insufficient volatility): 34
+  Total entries generated: 0
+
+
+======================================================================
+SUGGESTED CONFIG WITH BRACKET STRATEGY
+======================================================================
+
+In order to create items that have a high chance of triggering
+in the next 24 hours, add these lines to your config.csv:
+
+✓ Suggested config saved to suggested_config.csv
+
+Bracket Strategy Details:
+  - Each pair gets TWO entries: buy bracket (-4.0%) and sell bracket (+4.0%)
+  - Trailing offset: 2.0%
+  - Target USD volume: $100.00 +/- 25%
+  - Volumes ensure Kraken minimum order requirements (ordermin) are met
+  - Portfolio optimized for 95% chance at least ONE entry triggers
+  - Uses Student's t-distribution to account for fat tails
+  - Random walk model: 24h volatility = minute volatility × sqrt(1440)
+  - Decimal places adjusted based on coin value (more for low-value coins)
+  - Each pair has up to two entries (above/below thresholds)
+
+⚠️  WARNING: These are suggestions based on statistical analysis.
+   Review and adjust volumes before using in production!
+
+✅ Analysis complete!
