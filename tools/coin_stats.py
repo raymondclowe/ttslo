@@ -68,8 +68,6 @@ class CoinStatsAnalyzer:
             'XLTCZUSD': 'LTC/USD',
             'XXRPZUSD': 'XRP/USD',
             'XXMRZUSD': 'XMR/USD',
-            # Fiat pairs
-            'GBPUSD': 'GBP/USD',
             # DeFi and Smart Contract platforms
             'AAVEUSD': 'AAVE/USD',
             'ATOMUSD': 'ATOM/USD',
@@ -102,6 +100,8 @@ class CoinStatsAnalyzer:
             'ADAUSD': 'ADA/USD',
             'DOTUSD': 'DOT/USD',
             'MATICUSD': 'MATIC/USD',
+            # Fiat pairs
+            'GBPUSD': 'GBP/USD',
         }
         return conversions.get(pair, pair)
     
@@ -965,7 +965,8 @@ def main():
         nargs='+',
         default=[
             # Major cryptocurrencies
-            'XXBTZUSD', 'XXBTZEUR', 'XETHZUSD', 'SOLUSD', 'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
+            'XXBTZUSD', 'XXBTZEUR', 'XETHZUSD', 'SOLUSD',
+            'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
             # DeFi and Smart Contract platforms
             'AAVEUSD', 'ATOMUSD', 'COMPUSD', 'DYDXUSD', 'EGLDUSD', 'ENSUSD',
             'FILUSD', 'INJUSD', 'NEARUSD',
