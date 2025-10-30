@@ -62,7 +62,8 @@ class CoinStatsAnalyzer:
             'XXBTZUSD': 'BTC/USD',
             'XXBTZEUR': 'BTC/EUR',
             'XETHZUSD': 'ETH/USD',
-            'XXBTZUSDT': 'BTC/USDT',
+            'XXBTZUSDT': 'BTC/USDT',  # Legacy format
+            'XBTUSDT': 'BTC/USDT',
             'XETHZUSDT': 'ETH/USDT',
             'SOLUSD': 'SOL/USD',
             'XLTCZUSD': 'LTC/USD',
@@ -965,7 +966,7 @@ def main():
         nargs='+',
         default=[
             # Major cryptocurrencies
-            'XXBTZUSD', 'XXBTZEUR', 'XETHZUSD', 'SOLUSD',
+            'XXBTZUSD', 'XXBTZEUR', 'XBTUSDT', 'XETHZUSD', 'SOLUSD',
             'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
             # DeFi and Smart Contract platforms
             'AAVEUSD', 'ATOMUSD', 'COMPUSD', 'DYDXUSD', 'EGLDUSD', 'ENSUSD',
@@ -979,7 +980,7 @@ def main():
             # Fiat pairs
             'GBPUSD',
         ],
-        help='Trading pairs to analyze (default: 32 popular pairs including BTC/EUR and GBP/USD)'
+        help='Trading pairs to analyze (default: 33 popular pairs including BTC/EUR, BTC/USDT and GBP/USD)'
     )
     parser.add_argument(
         '--hours',
