@@ -2,6 +2,60 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## CSV Editor Dropdown Support for Dynamic Fields (2025-11-03)
+
+**Problem**: CSV editor's `InlineCellEditor` only supported dropdown for binary fields (enabled, direction, threshold_type). The `linked_order_id` field needed dropdown with dynamic options based on available order IDs.
+
+**Solution**: Extended `InlineCellEditor` to support dynamic dropdown fields:
+
+```python
+# Detection
+self.is_linked_order_field = column_name.lower() == 'linked_order_id'
+
+# Dynamic options generation in compose()
+elif self.is_linked_order_field:
+    current_id = self.row_data.get('id', '')
+    options = [("(None)", "")]  # Empty option
+    for order_id in sorted(self.all_ids):
+        if order_id != current_id:  # Exclude self
+            options.append((order_id, order_id))
+    select = Select(options=options, value=self.current_value or "", id="cell-select")
+    yield select
+```
+
+**Key Insights**:
+1. Textual Select widget needs tuple list: `[(label, value), ...]`
+2. Empty string as value works for "no selection" option
+3. Can exclude current row from options to prevent self-reference
+4. Must update both `on_mount()` and `action_save()` to handle new field type
+5. Sorting options improves UX for large lists
+6. Can't call `compose()` in tests without active Textual app - test logic instead
+
+**Pattern for Adding New Dropdown Fields**:
+1. Add detection flag in `__init__`: `self.is_X_field = column_name.lower() == 'X'`
+2. Add `elif` branch in `compose()` to generate options
+3. Update `on_mount()`: add to condition checking for Select focus
+4. Update `action_save()`: add to condition checking for Select value
+5. Keep existing validation logic - dropdown is UI only
+
+**Testing Approach**:
+- Test field detection and flag setting
+- Test validation logic (can be called without Textual app)
+- Don't test widget composition (requires full Textual app)
+- Verify dropdown logic programmatically (option generation)
+
+**Benefits**:
+- Users don't need to remember/type valid values
+- Prevents typos and invalid values at UI level
+- Clear visual indication of available options
+- Consistent with existing dropdown fields
+
+**Related Files**:
+- `csv_editor.py`: Lines 460 (detection), 477-506 (compose), 527 (mount), 660 (save)
+- `tests/test_csv_editor_linked_order.py`: 8 tests for dropdown functionality
+
+---
+
 ## Windows UTF-8 Console Encoding Fix (2025-10-30)
 
 **Problem**: `coin_stats.py` crashed on Windows at line 1363 with Unicode characters (✓, ✅, ⚠️, ✗) in print statements.
