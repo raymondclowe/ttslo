@@ -782,7 +782,7 @@ btc_sell,XXBTZUSD,120000,above,sell,0.01,2.0,false,
 3. **When the buy order fills successfully**, the system automatically enables `btc_sell`
 4. `btc_sell` then monitors for BTC to rise above $120,000
 5. When that threshold is met, creates a TSL sell order
-6. Result: Automated buy-low ($100k), sell-high ($120k) strategy = $20k profit per 0.01 BTC
+6. Result: Automated buy-low ($100k), sell-high ($120k) strategy = $200 profit per 0.01 BTC
 
 **Key Points:**
 - Linked order activates ONLY when parent order fills completely (status='closed')
