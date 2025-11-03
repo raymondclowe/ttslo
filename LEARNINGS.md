@@ -15,15 +15,16 @@ InvalidSelectValueError: Illegal select value 'canceled'.
 - Textual's Select widget throws `InvalidSelectValueError` when trying to set value not in options list
 - Editor wasn't flexible enough to handle arbitrary status values
 
-**Solution**: Made editor more forgiving:
+**Solution**: Made editor more forgiving and added support for chained order workflow:
 
-1. **Added 'canceled' to standard options**:
+1. **Added standard status values**:
 ```python
 BINARY_FIELDS = {
     'enabled': [
-        ('True', 'true'),
-        ('False', 'false'),
-        ('Canceled', 'canceled')  # Added for dashboard compatibility
+        ('True', 'true'),      # Active order
+        ('False', 'false'),    # Disabled order
+        ('Pending', 'pending'), # Linked order waiting for parent
+        ('Canceled', 'canceled') # Canceled by dashboard
     ]
 }
 ```
@@ -43,10 +44,16 @@ if current_lower and current_lower not in option_values:
 ```python
 # Validate enabled - be forgiving and accept any value
 elif column_lower == "enabled":
-    standard_values = ["true", "false", "yes", "no", "1", "0", "canceled", "cancelled"]
+    standard_values = ["true", "false", "yes", "no", "1", "0", "pending", "canceled", "cancelled"]
     if value.lower() not in standard_values:
         return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
 ```
+
+**Status Value Usage**:
+- **true**: Order is active and will trigger when threshold met
+- **false**: Order is disabled, won't trigger
+- **pending**: Order is linked to another order, waiting for parent to execute
+- **canceled**: Order was canceled via dashboard or manually
 
 **Key Insights**:
 1. **UI constraints ≠ Data constraints**: UI dropdowns should support all possible data values, not just ideal ones
@@ -54,20 +61,22 @@ elif column_lower == "enabled":
 3. **Graceful degradation**: Unknown values → add as custom option, don't crash
 4. **Validation vs Display**: Separate validation (warn) from display (allow)
 5. **Both directions**: Handle both reading (compose) and writing (validate) arbitrary values
+6. **Workflow support**: Adding 'pending' enables chained order workflows
 
 **Behavior**:
-- Standard values (true/false/canceled): Show in dropdown with labels
+- Standard values (true/false/pending/canceled): Show in dropdown with labels
 - Custom values (paused, archived, etc.): Show as "Custom: paused" in dropdown
 - Non-standard values: Allow with warning, don't block
-- User can still select standard options via keyboard shortcuts (T/F/C)
+- User can select standard options via keyboard shortcuts (T/F/P/C)
 
 **Testing**:
 - Verified 'canceled' value loads without error
+- Verified 'pending' value for linked orders works
 - Verified arbitrary values (e.g., 'paused') get added as custom options
 - Verified validation accepts any value with appropriate warnings
 
 **Related Files**:
-- `csv_editor.py`: Lines 454-465 (BINARY_FIELDS), 485-520 (compose with custom options), 581-585 (relaxed validation), 566-570 (InlineCellEditor validation)
+- `csv_editor.py`: Lines 454-467 (BINARY_FIELDS), 485-520 (compose with custom options), 231-235 (EditCellScreen validation), 584-588 (InlineCellEditor validation)
 - `dashboard.py`: Sets status='canceled' when canceling orders
 - `config.csv`: Contains enabled field with various values
 
