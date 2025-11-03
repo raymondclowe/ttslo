@@ -800,6 +800,17 @@
                                         <span class="detail-label">Trailing Offset:</span>
                                         <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
                                     </div>
+                                    ${order.linked_order_id ? `
+                                    <div class="detail-row" style="border-top: 1px solid #34495e; margin-top: 8px; padding-top: 8px;">
+                                        <span class="detail-label">🔗 Linked Order:</span>
+                                        <span class="detail-value" style="font-family: monospace; font-size: 11px;">
+                                            ${order.linked_order_id}
+                                            ${!order.linked_order_exists ? '<span style="color:#e74c3c;margin-left:4px;" data-tooltip="Linked order not found in config">⚠️</span>' : ''}
+                                            ${order.linked_order_exists && order.linked_order_enabled ? '<span style="color:#2ecc71;margin-left:4px;" data-tooltip="Linked order is enabled">✓</span>' : ''}
+                                            ${order.linked_order_exists && !order.linked_order_enabled ? '<span style="color:#95a5a6;margin-left:4px;" data-tooltip="Linked order disabled (will enable when this order fills)">○</span>' : ''}
+                                        </span>
+                                    </div>
+                                    ` : ''}
                                 </div>
                                 ${progressHTML}
                                 <div class="order-actions">
@@ -890,6 +901,17 @@
                                         <span class="detail-label">Trailing Offset:</span>
                                         <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
                                     </div>
+                                    ${order.linked_order_id ? `
+                                    <div class="detail-row" style="border-top: 1px solid #34495e; margin-top: 8px; padding-top: 8px;">
+                                        <span class="detail-label">🔗 Linked Order:</span>
+                                        <span class="detail-value" style="font-family: monospace; font-size: 11px;">
+                                            ${order.linked_order_id}
+                                            ${!order.linked_order_exists ? '<span style="color:#e74c3c;margin-left:4px;" data-tooltip="Linked order not found in config">⚠️</span>' : ''}
+                                            ${order.linked_order_exists && order.linked_order_enabled ? '<span style="color:#2ecc71;margin-left:4px;" data-tooltip="Linked order is enabled">✓</span>' : ''}
+                                            ${order.linked_order_exists && !order.linked_order_enabled ? '<span style="color:#95a5a6;margin-left:4px;" data-tooltip="Linked order disabled (will enable when this order fills)">○</span>' : ''}
+                                        </span>
+                                    </div>
+                                    ` : ''}
                                 </div>
                                 ${progressHTML}
                                 <div class="order-actions">

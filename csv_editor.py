@@ -550,6 +550,17 @@ class InlineCellEditor(ModalScreen[str]):
             if value.lower() not in valid_enabled:
                 return (False, f"Must be true/false")
         
+        # Validate linked_order_id
+        elif column_lower == "linked_order_id":
+            if value and value.strip():
+                # Check if linked order exists in all_ids
+                if value not in self.all_ids:
+                    return (False, f"Linked order '{value}' not found in config")
+                # Check for self-reference
+                current_id = self.row_data.get('id', '')
+                if value == current_id:
+                    return (False, "Cannot link order to itself")
+        
         # Validate pair
         elif column_lower == "pair":
             match_result = find_pair_match(value)
@@ -1437,9 +1448,9 @@ def main():
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                                'direction', 'volume', 'trailing_offset_percent', 'enabled'])
-                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'])
-                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'])
+                                'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'])
+                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', ''])
+                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', ''])
             print(f"Sample file created: {filepath}")
         else:
             # Provide clear instructions and exit non-interactively
@@ -1455,9 +1466,9 @@ def main():
                         with open(filepath, 'w', newline='') as f:
                             writer = csv.writer(f)
                             writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                                            'direction', 'volume', 'trailing_offset_percent', 'enabled'])
-                            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'])
-                            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'])
+                                            'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'])
+                            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', ''])
+                            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', ''])
                         print(f"Sample file created: {filepath}")
                     else:
                         print("Exiting without creating file.")

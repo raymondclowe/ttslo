@@ -137,6 +137,9 @@ class ConfigValidator:
             # Cross-field validation (warnings)
             self._validate_logic(config, config_id, result)
         
+        # Validate linked_order_id references after all configs loaded
+        self._validate_linked_order_ids(configs, result)
+        
         return result
     
     def _validate_required_fields(self, config: Dict, config_id: str, 
@@ -319,6 +322,65 @@ class ConfigValidator:
                            f'Must be one of: {", ".join(self.VALID_ENABLED_VALUES)} '
                            '(case-insensitive)')
     
+    def _validate_linked_order_ids(self, configs: List[Dict], result: ValidationResult):
+        """
+        Validate linked_order_id references.
+        
+        Checks that:
+        - Linked order IDs reference existing configs
+        - No circular references (A->B->A)
+        - Linked orders are valid config IDs
+        """
+        # Build map of all config IDs
+        all_config_ids = set()
+        linked_map = {}  # config_id -> linked_order_id
+        
+        for config in configs:
+            config_id = config.get('id', '').strip()
+            if config_id:
+                all_config_ids.add(config_id)
+                linked_id = config.get('linked_order_id', '').strip()
+                if linked_id:
+                    linked_map[config_id] = linked_id
+        
+        # Validate each linked order
+        for config_id, linked_id in linked_map.items():
+            # Check if linked order exists
+            if linked_id not in all_config_ids:
+                result.add_error(config_id, 'linked_order_id',
+                               f'Linked order "{linked_id}" does not exist in configuration')
+                continue
+            
+            # Check for self-reference
+            if config_id == linked_id:
+                result.add_error(config_id, 'linked_order_id',
+                               f'Cannot link order to itself')
+                continue
+            
+            # Check for circular references (A->B->A or A->B->C->A)
+            visited = []  # Use list to preserve order for error message
+            current = config_id
+            chain_length = 0
+            max_chain = len(all_config_ids) + 1  # Max possible chain length + 1 for detection
+            
+            while current and chain_length < max_chain:
+                visited.append(current)
+                current = linked_map.get(current)  # Move to next in chain
+                chain_length += 1
+                
+                # Check if we've looped back to any previous node
+                if current and current in visited:
+                    # Circular reference detected
+                    result.add_error(config_id, 'linked_order_id',
+                                   f'Circular reference detected in chain: '
+                                   f'{" -> ".join(visited)} -> {current}')
+                    break
+            
+            # Warn if chain is very long (might be unintended)
+            if chain_length > 5:
+                result.add_warning(config_id, 'linked_order_id',
+                                 f'Very long order chain detected ({chain_length} orders). '
+                                 'Please verify this is intentional')
 
     
     def _get_current_price(self, pair: str) -> Optional[float]:

@@ -2363,6 +2363,72 @@ get_cached_config.invalidate()  # Config was modified (trigger info added)
 
 ---
 
+## Chained Orders Implementation (2025-11-03)
+
+**Feature**: Added ability to link pending orders so that one order automatically enables another when it fills successfully.
+
+**Use Case**: Buy low → sell high automated strategy. Example: Buy BTC at $100k, when that fills, automatically enable sell order at $120k.
+
+**Implementation Details**:
+
+1. **Config Field**: Added `linked_order_id` field to config.csv
+   - Optional field containing ID of order to enable when THIS order fills
+   - Empty string = no linked order (normal behavior)
+
+2. **Activation Logic** (ttslo.py):
+   - `activate_linked_order_if_needed()` method called when order fills
+   - Checks order status is 'closed' (fully filled, not partial)
+   - Finds linked config and sets enabled='true'
+   - Reloads configs so linked order visible in next cycle
+   - Sends notification about activation
+
+3. **Validation** (validator.py):
+   - `_validate_linked_order_ids()` validates all linked references
+   - Checks linked order exists in config
+   - Detects self-references (order→itself)
+   - Detects circular references (A→B→A, A→B→C→A)
+   - Warns on very long chains (>5 orders)
+   - Uses graph traversal to detect cycles
+
+4. **Edge Cases Handled**:
+   - Partial fills: Do NOT activate linked order (must be fully closed)
+   - Canceled orders: Do NOT activate linked order
+   - Missing linked order: Log error, don't crash
+   - Already enabled: Skip activation, log info
+   - Already triggered: Skip activation, log warning
+   - Circular refs: Detected in validation, prevent at config load time
+
+5. **Testing**:
+   - 7 tests for activation logic (all scenarios covered)
+   - 7 tests for validation logic (all edge cases)
+   - All 14 tests passing
+
+**Key Insights**:
+
+1. **Check order_info.status**: Must be 'closed' not 'open' or 'canceled'
+2. **Reload configs**: After enabling linked order, must reload config.csv so next cycle sees it
+3. **Graph traversal for cycles**: Use visited list and check if next node already in list
+4. **Fifth tuple element**: Modified check_order_filled() to return order_info as 5th element
+5. **Notification types**: Added notify_linked_order_activated() for user feedback
+
+**Related Files**:
+- `config.py`: Added linked_order_id to sample config
+- `config_sample.csv`: Added linked_order_id column with examples
+- `ttslo.py`: Lines 1000-1089 (activate_linked_order_if_needed), 1117-1183 (check_triggered_orders updates)
+- `notifications.py`: Lines 574-595 (notify_linked_order_activated)
+- `validator.py`: Lines 325-386 (_validate_linked_order_ids)
+- `tests/test_chained_orders.py`: Activation tests
+- `tests/test_chained_orders_validation.py`: Validation tests
+- `README.md`: Documentation and examples
+
+**Benefits**:
+- Automates buy-low/sell-high strategies
+- Reduces manual monitoring and intervention
+- Enables complex multi-order strategies
+- Safe: Only activates on successful full fills
+
+---
+
 *Add new learnings here as we discover them*
 
 
