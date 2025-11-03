@@ -457,6 +457,7 @@ class InlineCellEditor(ModalScreen[str]):
         self.validation_message = ""
         self.is_binary_field = column_name.lower() in self.BINARY_FIELDS
         self.is_linked_order_field = column_name.lower() == 'linked_order_id'
+        self._initial_load = True  # Track if this is the initial mount
     
     def compose(self) -> ComposeResult:
         with Vertical(id="inline-edit-dialog"):
@@ -500,7 +501,7 @@ class InlineCellEditor(ModalScreen[str]):
                     id="cell-select"
                 )
                 yield select
-                yield Label("↑↓ to navigate and select (auto-saves)", id="shortcuts-hint")
+                yield Label("↑↓ to navigate, select to save, ESC to cancel", id="shortcuts-hint")
             else:
                 # Use Input for text fields
                 yield Input(value=self.current_value, id="cell-input")
@@ -513,6 +514,10 @@ class InlineCellEditor(ModalScreen[str]):
             self.query_one(Select).focus()
         else:
             self.query_one(Input).focus()
+        
+        # Mark that initial mount is complete after a short delay
+        # This prevents the initial Select.Changed event from auto-saving
+        self.set_timer(0.1, lambda: setattr(self, '_initial_load', False))
     
     def on_key(self, event: events.Key) -> None:
         """Handle keyboard shortcuts for binary fields."""
@@ -678,8 +683,12 @@ class InlineCellEditor(ModalScreen[str]):
     
     def on_select_changed(self, event: Select.Changed) -> None:
         """Handle Select value change."""
+        # Ignore the initial change event when the widget mounts
+        if self._initial_load:
+            return
+        
         if self.is_linked_order_field:
-            # Auto-save when selection changes for linked_order_id
+            # Auto-save when selection changes for linked_order_id (after initial load)
             self.action_save()
 
 
