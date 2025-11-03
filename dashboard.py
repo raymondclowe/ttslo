@@ -322,6 +322,18 @@ def get_pending_orders():
                     insufficient_balance = True
                     balance_message = f"Insufficient balance: need {required_quote:.4f} {norm_quote} but have {available:.4f} {norm_quote}"
         
+        # Get linked order info
+        linked_order_id = config.get('linked_order_id', '').strip()
+        linked_order_exists = False
+        linked_order_enabled = None
+        if linked_order_id:
+            # Check if linked order exists and its status
+            for linked_config in configs:
+                if linked_config.get('id') == linked_order_id:
+                    linked_order_exists = True
+                    linked_order_enabled = linked_config.get('enabled', '').lower() == 'true'
+                    break
+        
         pending.append({
             'id': config_id,
             'pair': pair,
@@ -339,7 +351,10 @@ def get_pending_orders():
             'volume_too_low': volume_too_low,
             'volume_message': volume_message,
             'cost_too_low': cost_too_low,
-            'cost_message': cost_message
+            'cost_message': cost_message,
+            'linked_order_id': linked_order_id,
+            'linked_order_exists': linked_order_exists,
+            'linked_order_enabled': linked_order_enabled
         })
     
     elapsed = time.time() - start_time
