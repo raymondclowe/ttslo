@@ -227,11 +227,12 @@ class EditCellScreen(ModalScreen[str]):
                 if result:
                     return result
         
-        # Validate enabled
+        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled' or 'pending')
         elif column_lower == "enabled":
-            valid_enabled = ["true", "false", "yes", "no", "1", "0"]
-            if value.lower() not in valid_enabled:
-                return (False, f"Must be true/false, yes/no, or 1/0")
+            # Accept any value, but warn if it's not a standard value
+            standard_values = ["true", "false", "yes", "no", "1", "0", "pending", "canceled", "cancelled"]
+            if value.lower() not in standard_values:
+                return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
         
         # Validate pair - now with intelligent matching
         elif column_lower == "pair":
@@ -381,10 +382,8 @@ class EditCellScreen(ModalScreen[str]):
         elif self.column_name and self.column_name.lower() == "pair" and message:
             # For pair field, extract the resolved pair code
             if "|" in message:
-                # Format: "PAIR_CODE|warning message"
                 final_value = message.split("|", 1)[0]
             else:
-                # Just the resolved pair code
                 final_value = message
         
         self.dismiss(final_value)
@@ -445,7 +444,9 @@ class InlineCellEditor(ModalScreen[str]):
         ],
         'enabled': [
             ('True', 'true'),
-            ('False', 'false')
+            ('False', 'false'),
+            ('Pending', 'pending'),
+            ('Canceled', 'canceled')
         ]
     }
     
@@ -458,6 +459,8 @@ class InlineCellEditor(ModalScreen[str]):
         self.all_ids = all_ids or set()
         self.validation_message = ""
         self.is_binary_field = column_name.lower() in self.BINARY_FIELDS
+        self.is_linked_order_field = column_name.lower() == 'linked_order_id'
+        self._initial_load = True  # Track if this is the initial mount
     
     def compose(self) -> ComposeResult:
         with Vertical(id="inline-edit-dialog"):
@@ -466,21 +469,50 @@ class InlineCellEditor(ModalScreen[str]):
             if self.is_binary_field:
                 # Use Select for binary choice fields
                 field_name = self.column_name.lower()
-                options = self.BINARY_FIELDS[field_name]
+                options = list(self.BINARY_FIELDS[field_name])  # Make a copy
+                
+                # Check if current value is in the options
+                current_lower = self.current_value.lower() if self.current_value else ""
+                option_values = [v for _, v in options]
+                
+                # If current value is not in options, add it as a custom option
+                if current_lower and current_lower not in option_values:
+                    options.append((f"Custom: {self.current_value}", current_lower))
                 
                 # Create Select with options
                 select = Select(
                     options=[(label, value) for label, value in options],
-                    value=self.current_value.lower() if self.current_value else options[0][1],
+                    value=current_lower if current_lower else options[0][1],
                     id="cell-select"
                 )
                 yield select
                 
                 # Add keyboard shortcuts hint
                 shortcuts = []
-                for label, value in options:
+                for label, value in self.BINARY_FIELDS[field_name]:  # Use original list for shortcuts
                     shortcuts.append(f"{label[0].upper()}={label}")
                 yield Label(f"Shortcuts: {', '.join(shortcuts)}", id="shortcuts-hint")
+            elif self.is_linked_order_field:
+                # Use Select for linked_order_id with available order IDs
+                # Get current row ID to exclude it from options
+                current_id = self.row_data.get('id', '')
+                
+                # Build options: (None option) + all other order IDs
+                options = [("(None)", "")]
+                for order_id in sorted(self.all_ids):
+                    if order_id != current_id:  # Don't allow self-reference
+                        options.append((order_id, order_id))
+                
+                # Set default value
+                default_value = self.current_value if self.current_value else ""
+                
+                select = Select(
+                    options=options,
+                    value=default_value,
+                    id="cell-select"
+                )
+                yield select
+                yield Label("↑↓ to navigate, select to save, ESC to cancel", id="shortcuts-hint")
             else:
                 # Use Input for text fields
                 yield Input(value=self.current_value, id="cell-input")
@@ -489,10 +521,14 @@ class InlineCellEditor(ModalScreen[str]):
     
     def on_mount(self) -> None:
         """Focus the input/select when mounted."""
-        if self.is_binary_field:
+        if self.is_binary_field or self.is_linked_order_field:
             self.query_one(Select).focus()
         else:
             self.query_one(Input).focus()
+        
+        # Mark that initial mount is complete after a short delay
+        # This prevents the initial Select.Changed event from auto-saving
+        self.set_timer(0.1, lambda: setattr(self, '_initial_load', False))
     
     def on_key(self, event: events.Key) -> None:
         """Handle keyboard shortcuts for binary fields."""
@@ -544,11 +580,23 @@ class InlineCellEditor(ModalScreen[str]):
                 if result:
                     return result
         
-        # Validate enabled
+        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled' or 'pending')
         elif column_lower == "enabled":
-            valid_enabled = ["true", "false", "yes", "no", "1", "0"]
-            if value.lower() not in valid_enabled:
-                return (False, f"Must be true/false")
+            # Accept any value, but warn if it's not a standard value
+            standard_values = ["true", "false", "yes", "no", "1", "0", "pending", "canceled", "cancelled"]
+            if value.lower() not in standard_values:
+                return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
+        
+        # Validate linked_order_id
+        elif column_lower == "linked_order_id":
+            if value and value.strip():
+                # Check if linked order exists in all_ids
+                if value not in self.all_ids:
+                    return (False, f"Linked order '{value}' not found in config")
+                # Check for self-reference
+                current_id = self.row_data.get('id', '')
+                if value == current_id:
+                    return (False, "Cannot link order to itself")
         
         # Validate pair
         elif column_lower == "pair":
@@ -610,7 +658,7 @@ class InlineCellEditor(ModalScreen[str]):
     
     def action_save(self) -> None:
         """Save the value."""
-        if self.is_binary_field:
+        if self.is_binary_field or self.is_linked_order_field:
             select = self.query_one(Select)
             value = select.value
         else:
@@ -647,8 +695,13 @@ class InlineCellEditor(ModalScreen[str]):
     
     def on_select_changed(self, event: Select.Changed) -> None:
         """Handle Select value change."""
-        # Optionally auto-save when selection changes
-        pass
+        # Ignore the initial change event when the widget mounts
+        if self._initial_load:
+            return
+        
+        if self.is_linked_order_field:
+            # Auto-save when selection changes for linked_order_id (after initial load)
+            self.action_save()
 
 
 class HelpScreen(ModalScreen):
@@ -717,6 +770,10 @@ class HelpScreen(ModalScreen):
   • Press T for True, F for False (enabled)
   • Selection auto-saves on keypress
 
+  [bold cyan]Smart Editing for Linked Orders:[/bold cyan]
+  • linked_order_id uses dropdown with available order IDs
+  • ↑↓ arrow keys or mouse to select (auto-saves on selection)
+
 [bold yellow]Row Operations:[/bold yellow]
   Ctrl+N           Add new row
   Ctrl+D           Delete current row
@@ -748,6 +805,7 @@ class HelpScreen(ModalScreen):
   • Financial validation prevents "buy high, sell low"
   • Binary fields (above/below, buy/sell) have dropdown + shortcuts
   • Press first letter to quick-select in dropdowns
+  • Linked order dropdown auto-saves when you select an order
 
 [bold yellow]Safety:[/bold yellow]
   • File locking prevents conflicts with service
@@ -828,6 +886,12 @@ class ConfirmQuitScreen(ModalScreen[bool]):
 class CSVEditor(App):
     """A Textual app to edit CSV files."""
 
+    # Required columns for TTSLO config
+    REQUIRED_COLUMNS = [
+        'id', 'pair', 'threshold_price', 'threshold_type', 
+        'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'
+    ]
+
     CSS = """
     Screen {
         layout: vertical;
@@ -887,6 +951,60 @@ class CSVEditor(App):
         """Set the modified flag and update the title."""
         self.modified = modified
         self._update_title()
+
+    def _upgrade_config_if_needed(self) -> bool:
+        """
+        Check if the config file is missing required columns and upgrade it.
+        
+        Returns True if upgrade was performed, False otherwise.
+        """
+        if not self.data or len(self.data) < 1:
+            return False
+        
+        headers = [h.lower() for h in self.data[0]]
+        missing_columns = []
+        
+        for required in self.REQUIRED_COLUMNS:
+            if required.lower() not in headers:
+                missing_columns.append(required)
+        
+        if not missing_columns:
+            return False
+        
+        # Upgrade the config by adding missing columns
+        self.notify(
+            f"Upgrading config: adding {len(missing_columns)} missing column(s): {', '.join(missing_columns)}",
+            title="Config Upgrade",
+            severity="information"
+        )
+        
+        # Add missing columns to headers
+        for col in missing_columns:
+            self.data[0].append(col)
+        
+        # Add empty values to all data rows
+        for row in self.data[1:]:
+            row.extend([""] * len(missing_columns))
+        
+        # Save the upgraded config
+        try:
+            with open(self.filename, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerows(self.data)
+            
+            self.notify(
+                f"Config upgraded and saved: {self.filename}",
+                title="Upgrade Complete",
+                severity="information"
+            )
+            return True
+        except Exception as e:
+            self.notify(
+                f"Failed to save upgraded config: {e}",
+                title="Upgrade Error",
+                severity="error"
+            )
+            return False
 
     def on_mount(self) -> None:
         """Called after the application is mounted."""
@@ -1050,6 +1168,9 @@ class CSVEditor(App):
             )
             return
 
+        # Check if config needs upgrading
+        upgraded = self._upgrade_config_if_needed()
+
         table = self.query_one(DataTable)
         table.clear(columns=True)
         
@@ -1076,10 +1197,13 @@ class CSVEditor(App):
             table.add_row(*row)
         
         self.notify(
-            f"Loaded {len(rows)} rows from {self.filename.name}",
+            f"Loaded {len(rows)} rows from {self.filename.name}" + (" (upgraded)" if upgraded else ""),
             title="File Loaded",
             severity="information"
         )
+
+        # Check and upgrade config if needed
+        self._upgrade_config_if_needed()
 
     @work(exclusive=True, group="file_ops", thread=True)
     def action_save_csv(self) -> None:
@@ -1437,9 +1561,9 @@ def main():
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                                'direction', 'volume', 'trailing_offset_percent', 'enabled'])
-                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'])
-                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'])
+                                'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'])
+                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', ''])
+                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', ''])
             print(f"Sample file created: {filepath}")
         else:
             # Provide clear instructions and exit non-interactively
@@ -1455,9 +1579,9 @@ def main():
                         with open(filepath, 'w', newline='') as f:
                             writer = csv.writer(f)
                             writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                                            'direction', 'volume', 'trailing_offset_percent', 'enabled'])
-                            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true'])
-                            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true'])
+                                            'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'])
+                            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', ''])
+                            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', ''])
                         print(f"Sample file created: {filepath}")
                     else:
                         print("Exiting without creating file.")

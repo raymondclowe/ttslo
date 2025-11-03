@@ -2,6 +2,140 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## CSV Editor - Forgiving Status Values (2025-11-03)
+
+**Problem**: CSV editor crashed when trying to edit status/enabled field with value "canceled" (set by dashboard cancel button):
+```
+InvalidSelectValueError: Illegal select value 'canceled'.
+```
+
+**Root Cause**: 
+- `InlineCellEditor` had hardcoded list of valid values for `enabled` field: `['true', 'false']`
+- Dashboard's cancel button sets status to `'canceled'` in config.csv
+- Textual's Select widget throws `InvalidSelectValueError` when trying to set value not in options list
+- Editor wasn't flexible enough to handle arbitrary status values
+
+**Solution**: Made editor more forgiving and added support for chained order workflow:
+
+1. **Added standard status values**:
+```python
+BINARY_FIELDS = {
+    'enabled': [
+        ('True', 'true'),      # Active order
+        ('False', 'false'),    # Disabled order
+        ('Pending', 'pending'), # Linked order waiting for parent
+        ('Canceled', 'canceled') # Canceled by dashboard
+    ]
+}
+```
+
+2. **Dynamic custom option support** (lines 499-505):
+```python
+# Check if current value is in the options
+current_lower = self.current_value.lower() if self.current_value else ""
+option_values = [v for _, v in options]
+
+# If current value is not in options, add it as a custom option
+if current_lower and current_lower not in option_values:
+    options.append((f"Custom: {self.current_value}", current_lower))
+```
+
+3. **Relaxed validation** (lines 581-585):
+```python
+# Validate enabled - be forgiving and accept any value
+elif column_lower == "enabled":
+    standard_values = ["true", "false", "yes", "no", "1", "0", "pending", "canceled", "cancelled"]
+    if value.lower() not in standard_values:
+        return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
+```
+
+**Status Value Usage**:
+- **true**: Order is active and will trigger when threshold met
+- **false**: Order is disabled, won't trigger
+- **pending**: Order is linked to another order, waiting for parent to execute
+- **canceled**: Order was canceled via dashboard or manually
+
+**Key Insights**:
+1. **UI constraints ≠ Data constraints**: UI dropdowns should support all possible data values, not just ideal ones
+2. **Cross-component compatibility**: Dashboard and editor must handle same value set
+3. **Graceful degradation**: Unknown values → add as custom option, don't crash
+4. **Validation vs Display**: Separate validation (warn) from display (allow)
+5. **Both directions**: Handle both reading (compose) and writing (validate) arbitrary values
+6. **Workflow support**: Adding 'pending' enables chained order workflows
+
+**Behavior**:
+- Standard values (true/false/pending/canceled): Show in dropdown with labels
+- Custom values (paused, archived, etc.): Show as "Custom: paused" in dropdown
+- Non-standard values: Allow with warning, don't block
+- User can select standard options via keyboard shortcuts (T/F/P/C)
+
+**Testing**:
+- Verified 'canceled' value loads without error
+- Verified 'pending' value for linked orders works
+- Verified arbitrary values (e.g., 'paused') get added as custom options
+- Verified validation accepts any value with appropriate warnings
+
+**Related Files**:
+- `csv_editor.py`: Lines 454-467 (BINARY_FIELDS), 485-520 (compose with custom options), 231-235 (EditCellScreen validation), 584-588 (InlineCellEditor validation)
+- `dashboard.py`: Sets status='canceled' when canceling orders
+- `config.csv`: Contains enabled field with various values
+
+**Similar Pattern**: Apply same "forgiving" approach to other enum-like fields that might have legacy/alternative values
+
+## CSV Editor Dropdown Support for Dynamic Fields (2025-11-03)
+
+**Problem**: CSV editor's `InlineCellEditor` only supported dropdown for binary fields (enabled, direction, threshold_type). The `linked_order_id` field needed dropdown with dynamic options based on available order IDs.
+
+**Solution**: Extended `InlineCellEditor` to support dynamic dropdown fields:
+
+```python
+# Detection
+self.is_linked_order_field = column_name.lower() == 'linked_order_id'
+
+# Dynamic options generation in compose()
+elif self.is_linked_order_field:
+    current_id = self.row_data.get('id', '')
+    options = [("(None)", "")]  # Empty option
+    for order_id in sorted(self.all_ids):
+        if order_id != current_id:  # Exclude self
+            options.append((order_id, order_id))
+    select = Select(options=options, value=self.current_value or "", id="cell-select")
+    yield select
+```
+
+**Key Insights**:
+1. Textual Select widget needs tuple list: `[(label, value), ...]`
+2. Empty string as value works for "no selection" option
+3. Can exclude current row from options to prevent self-reference
+4. Must update both `on_mount()` and `action_save()` to handle new field type
+5. Sorting options improves UX for large lists
+6. Can't call `compose()` in tests without active Textual app - test logic instead
+
+**Pattern for Adding New Dropdown Fields**:
+1. Add detection flag in `__init__`: `self.is_X_field = column_name.lower() == 'X'`
+2. Add `elif` branch in `compose()` to generate options
+3. Update `on_mount()`: add to condition checking for Select focus
+4. Update `action_save()`: add to condition checking for Select value
+5. Keep existing validation logic - dropdown is UI only
+
+**Testing Approach**:
+- Test field detection and flag setting
+- Test validation logic (can be called without Textual app)
+- Don't test widget composition (requires full Textual app)
+- Verify dropdown logic programmatically (option generation)
+
+**Benefits**:
+- Users don't need to remember/type valid values
+- Prevents typos and invalid values at UI level
+- Clear visual indication of available options
+- Consistent with existing dropdown fields
+
+**Related Files**:
+- `csv_editor.py`: Lines 460 (detection), 477-506 (compose), 527 (mount), 660 (save)
+- `tests/test_csv_editor_linked_order.py`: 8 tests for dropdown functionality
+
+---
+
 ## Windows UTF-8 Console Encoding Fix (2025-10-30)
 
 **Problem**: `coin_stats.py` crashed on Windows at line 1363 with Unicode characters (✓, ✅, ⚠️, ✗) in print statements.
@@ -2360,6 +2494,72 @@ get_cached_config.invalidate()  # Config was modified (trigger info added)
 
 **Similar Issues Fixed Previously**:
 - Cancel button cache invalidation (2025-10-27) - same root cause, same pattern
+
+---
+
+## Chained Orders Implementation (2025-11-03)
+
+**Feature**: Added ability to link pending orders so that one order automatically enables another when it fills successfully.
+
+**Use Case**: Buy low → sell high automated strategy. Example: Buy BTC at $100k, when that fills, automatically enable sell order at $120k.
+
+**Implementation Details**:
+
+1. **Config Field**: Added `linked_order_id` field to config.csv
+   - Optional field containing ID of order to enable when THIS order fills
+   - Empty string = no linked order (normal behavior)
+
+2. **Activation Logic** (ttslo.py):
+   - `activate_linked_order_if_needed()` method called when order fills
+   - Checks order status is 'closed' (fully filled, not partial)
+   - Finds linked config and sets enabled='true'
+   - Reloads configs so linked order visible in next cycle
+   - Sends notification about activation
+
+3. **Validation** (validator.py):
+   - `_validate_linked_order_ids()` validates all linked references
+   - Checks linked order exists in config
+   - Detects self-references (order→itself)
+   - Detects circular references (A→B→A, A→B→C→A)
+   - Warns on very long chains (>5 orders)
+   - Uses graph traversal to detect cycles
+
+4. **Edge Cases Handled**:
+   - Partial fills: Do NOT activate linked order (must be fully closed)
+   - Canceled orders: Do NOT activate linked order
+   - Missing linked order: Log error, don't crash
+   - Already enabled: Skip activation, log info
+   - Already triggered: Skip activation, log warning
+   - Circular refs: Detected in validation, prevent at config load time
+
+5. **Testing**:
+   - 7 tests for activation logic (all scenarios covered)
+   - 7 tests for validation logic (all edge cases)
+   - All 14 tests passing
+
+**Key Insights**:
+
+1. **Check order_info.status**: Must be 'closed' not 'open' or 'canceled'
+2. **Reload configs**: After enabling linked order, must reload config.csv so next cycle sees it
+3. **Graph traversal for cycles**: Use visited list and check if next node already in list
+4. **Fifth tuple element**: Modified check_order_filled() to return order_info as 5th element
+5. **Notification types**: Added notify_linked_order_activated() for user feedback
+
+**Related Files**:
+- `config.py`: Added linked_order_id to sample config
+- `config_sample.csv`: Added linked_order_id column with examples
+- `ttslo.py`: Lines 1000-1089 (activate_linked_order_if_needed), 1117-1183 (check_triggered_orders updates)
+- `notifications.py`: Lines 574-595 (notify_linked_order_activated)
+- `validator.py`: Lines 325-386 (_validate_linked_order_ids)
+- `tests/test_chained_orders.py`: Activation tests
+- `tests/test_chained_orders_validation.py`: Validation tests
+- `README.md`: Documentation and examples
+
+**Benefits**:
+- Automates buy-low/sell-high strategies
+- Reduces manual monitoring and intervention
+- Enables complex multi-order strategies
+- Safe: Only activates on successful full fills
 
 ---
 

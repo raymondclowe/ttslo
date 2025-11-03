@@ -499,6 +499,7 @@ The configuration file defines your trigger conditions and TSL order parameters:
 | `volume` | Amount to trade (in base currency) |
 | `trailing_offset_percent` | Trailing stop offset as percentage (e.g., 5.0 for 5%) |
 | `enabled` | "true" or "false" - whether this configuration is active |
+| `linked_order_id` | (Optional) ID of another order to enable when THIS order fills successfully. Enables chained orders for automated buy-low/sell-high strategies. |
 
 ### State File (state.csv)
 
@@ -760,6 +761,30 @@ eth_dip,XETHZUSD,3000,below,buy,1.0,3.0,true
 ```
 
 When ETH drops below $3,000, a TSL buy order is created with a 3% trailing offset.
+
+### Scenario 3: Chained Orders (Buy Low, Sell High)
+Automatically chain orders to buy low and sell high for profit-taking:
+
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id
+btc_buy,XXBTZUSD,100000,below,buy,0.01,2.0,true,btc_sell
+btc_sell,XXBTZUSD,120000,above,sell,0.01,2.0,false,
+```
+
+**How it works:**
+1. `btc_buy` monitors for BTC to drop below $100,000
+2. When threshold is met, creates a TSL buy order with 2% trailing offset
+3. **When the buy order fills successfully**, the system automatically enables `btc_sell`
+4. `btc_sell` then monitors for BTC to rise above $120,000
+5. When that threshold is met, creates a TSL sell order
+6. Result: Automated buy-low ($100k), sell-high ($120k) strategy = $200 profit per 0.01 BTC
+
+**Key Points:**
+- Linked order activates ONLY when parent order fills completely (status='closed')
+- Partial fills do NOT activate the linked order
+- Canceled orders do NOT activate the linked order
+- Can chain multiple orders: A→B→C→D for complex strategies
+- Validator detects circular references (A→B→A) and prevents them
 
 ## Safety Tips
 

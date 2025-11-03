@@ -903,16 +903,17 @@ class TTSLO:
             order_id: Kraken order ID to check
             
         Returns:
-            Tuple of (is_filled: bool, fill_price: float or None, api_pair: str or None, filled_volume: str or None)
+            Tuple of (is_filled: bool, fill_price: float or None, api_pair: str or None, 
+                     filled_volume: str or None, order_info: dict or None)
         """
         if not order_id or order_id == 'DRY_RUN_ORDER_ID':
             # Dry-run orders are never filled
-            return False, None, None, None
+            return False, None, None, None, None
 
         if not self.kraken_api_readwrite:
             self.log('WARNING', 'Cannot check order status: No read-write API credentials',
                     config_id=config_id, order_id=order_id)
-            return False, None, None, None
+            return False, None, None, None, None
 
         try:
             # Query the specific order by ID (much more efficient than querying ALL closed orders)
@@ -920,7 +921,7 @@ class TTSLO:
 
             if not order_result:
                 # Order not found - might still be open or doesn't exist
-                return False, None, None, None
+                return False, None, None, None, None
                 
         except KrakenAPIError as e:
             self.log('ERROR', f'Kraken API error checking order status: {str(e)} (type: {e.error_type})',
@@ -935,11 +936,11 @@ class TTSLO:
                     details=e.details
                 )
 
-            return False, None, None, None
+            return False, None, None, None, None
         except Exception as e:
             self.log('ERROR', f'Unexpected error checking order status: {str(e)}',
                     config_id=config_id, order_id=order_id, error=str(e))
-            return False, None, None, None
+            return False, None, None, None, None
 
         try:
             # Check if our order is in the result
@@ -986,16 +987,106 @@ class TTSLO:
                     fill_time = None
                 # Consider order filled if status is 'closed'
                 is_filled = status == 'closed'
-                # Return pair and volume so caller can include them in notifications
-                return is_filled, fill_price, api_pair, filled_volume
+                # Return pair, volume, and full order_info so caller can use it
+                return is_filled, fill_price, api_pair, filled_volume, order_info
 
             # Order not in closed orders yet
-            return False, None, None, None
+            return False, None, None, None, None
 
         except Exception as e:
             self.log('WARNING', f'Error checking order status: {str(e)}',
                     config_id=config_id, order_id=order_id, error=str(e))
-            return False, None, None, None
+            return False, None, None, None, None
+    
+    def activate_linked_order_if_needed(self, config_id, order_info):
+        """
+        When order fills successfully, activate any linked order.
+        
+        This enables chained orders: Buy low → automatically activates Sell high.
+        
+        Args:
+            config_id: ID of the config whose order just filled
+            order_info: Order information from Kraken API
+        """
+        # Step 1: Only activate on FULL fill, not partial or canceled
+        status = order_info.get('status', '')
+        if status != 'closed':
+            self.log('DEBUG', f'Order {config_id} status is {status}, not activating linked order',
+                    config_id=config_id, status=status)
+            return
+        
+        # Step 2: Find config for this order to check if it has a linked order
+        config = None
+        if self.configs:
+            for cfg in self.configs:
+                if cfg.get('id') == config_id:
+                    config = cfg
+                    break
+        
+        if not config:
+            self.log('DEBUG', f'Config {config_id} not found in current configs',
+                    config_id=config_id)
+            return
+        
+        # Step 3: Check if config has a linked order
+        linked_id = config.get('linked_order_id', '').strip()
+        if not linked_id:
+            # No linked order - this is normal, not an error
+            return
+        
+        self.log('INFO', f'Order {config_id} filled, checking linked order: {linked_id}',
+                config_id=config_id, linked_id=linked_id)
+        
+        # Step 4: Find the linked config
+        linked_config = None
+        if self.configs:
+            for cfg in self.configs:
+                if cfg.get('id') == linked_id:
+                    linked_config = cfg
+                    break
+        
+        if not linked_config:
+            self.log('ERROR', f'Linked order {linked_id} not found in config for {config_id}',
+                    config_id=config_id, linked_id=linked_id)
+            return
+        
+        # Step 5: Check if linked order is already enabled
+        linked_enabled = linked_config.get('enabled', '').strip().lower()
+        if linked_enabled == 'true':
+            self.log('INFO', f'Linked order {linked_id} already enabled, skipping activation',
+                    config_id=config_id, linked_id=linked_id)
+            return
+        
+        # Step 6: Check if linked order was already triggered (safety check)
+        linked_state = self.state.get(linked_id, {})
+        if isinstance(linked_state, dict) and linked_state.get('triggered') == 'true':
+            self.log('WARNING', f'Linked order {linked_id} already triggered, not activating again',
+                    config_id=config_id, linked_id=linked_id)
+            return
+        
+        # Step 7: Activate the linked order by setting enabled='true'
+        try:
+            self.config_manager.update_config_enabled(linked_id, 'true')
+            self.log('INFO', f'Successfully activated linked order {linked_id} after {config_id} filled',
+                    config_id=config_id, linked_id=linked_id,
+                    parent_pair=config.get('pair'), linked_pair=linked_config.get('pair'))
+            
+            # Step 8: Send notification about the activation
+            if self.notification_manager:
+                try:
+                    self.notification_manager.notify_linked_order_activated(
+                        parent_id=config_id,
+                        linked_id=linked_id,
+                        parent_pair=config.get('pair', 'Unknown'),
+                        linked_pair=linked_config.get('pair', 'Unknown')
+                    )
+                except Exception as e:
+                    self.log('WARNING', f'Failed to send linked order notification: {str(e)}',
+                            config_id=config_id, linked_id=linked_id, error=str(e))
+        
+        except Exception as e:
+            self.log('ERROR', f'Failed to activate linked order {linked_id}: {str(e)}',
+                    config_id=config_id, linked_id=linked_id, error=str(e))
     
     def check_triggered_orders(self):
         """
@@ -1025,8 +1116,8 @@ class TTSLO:
                 continue
             
             # Check if the order is filled. The helper now returns additional
-            # metadata (pair, filled_volume) when available from Kraken.
-            is_filled, fill_price, api_pair, filled_volume = self.check_order_filled(config_id, order_id)
+            # metadata (pair, filled_volume, order_info) when available from Kraken.
+            is_filled, fill_price, api_pair, filled_volume, order_info = self.check_order_filled(config_id, order_id)
             
             if is_filled:
                 self.log('INFO', f'Order {order_id} for config {config_id} has been filled',
@@ -1070,6 +1161,23 @@ class TTSLO:
                 
                 # Mark as notified in state
                 self.state[config_id]['fill_notified'] = 'true'
+                
+                # Activate linked order if configured (must happen BEFORE reload)
+                # Pass order_info so it can check status is 'closed'
+                if order_info:
+                    try:
+                        self.activate_linked_order_if_needed(config_id, order_info)
+                    except Exception as e:
+                        self.log('ERROR', f'Error activating linked order: {str(e)}',
+                                config_id=config_id, error=str(e))
+                
+                # Reload configs so linked order is visible in next cycle
+                # NOTE: This causes configs to be reloaded, so linked order will be processed
+                try:
+                    self.configs = self.config_manager.load_config()
+                except Exception as e:
+                    self.log('ERROR', f'Failed to reload config after activating linked order: {str(e)}',
+                            config_id=config_id, error=str(e))
                 
                 # Save state immediately so we don't re-notify
                 try:
