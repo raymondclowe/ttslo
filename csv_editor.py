@@ -458,6 +458,7 @@ class InlineCellEditor(ModalScreen[str]):
         self.all_ids = all_ids or set()
         self.validation_message = ""
         self.is_binary_field = column_name.lower() in self.BINARY_FIELDS
+        self.is_linked_order_field = column_name.lower() == 'linked_order_id'
     
     def compose(self) -> ComposeResult:
         with Vertical(id="inline-edit-dialog"):
@@ -481,6 +482,27 @@ class InlineCellEditor(ModalScreen[str]):
                 for label, value in options:
                     shortcuts.append(f"{label[0].upper()}={label}")
                 yield Label(f"Shortcuts: {', '.join(shortcuts)}", id="shortcuts-hint")
+            elif self.is_linked_order_field:
+                # Use Select for linked_order_id with available order IDs
+                # Get current row ID to exclude it from options
+                current_id = self.row_data.get('id', '')
+                
+                # Build options: (None option) + all other order IDs
+                options = [("(None)", "")]
+                for order_id in sorted(self.all_ids):
+                    if order_id != current_id:  # Don't allow self-reference
+                        options.append((order_id, order_id))
+                
+                # Set default value
+                default_value = self.current_value if self.current_value else ""
+                
+                select = Select(
+                    options=options,
+                    value=default_value,
+                    id="cell-select"
+                )
+                yield select
+                yield Label("↑↓ to navigate, Enter to select", id="shortcuts-hint")
             else:
                 # Use Input for text fields
                 yield Input(value=self.current_value, id="cell-input")
@@ -489,7 +511,7 @@ class InlineCellEditor(ModalScreen[str]):
     
     def on_mount(self) -> None:
         """Focus the input/select when mounted."""
-        if self.is_binary_field:
+        if self.is_binary_field or self.is_linked_order_field:
             self.query_one(Select).focus()
         else:
             self.query_one(Input).focus()
@@ -621,7 +643,7 @@ class InlineCellEditor(ModalScreen[str]):
     
     def action_save(self) -> None:
         """Save the value."""
-        if self.is_binary_field:
+        if self.is_binary_field or self.is_linked_order_field:
             select = self.query_one(Select)
             value = select.value
         else:
