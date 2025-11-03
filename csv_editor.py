@@ -227,10 +227,10 @@ class EditCellScreen(ModalScreen[str]):
                 if result:
                     return result
         
-        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled')
+        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled' or 'pending')
         elif column_lower == "enabled":
             # Accept any value, but warn if it's not a standard value
-            standard_values = ["true", "false", "yes", "no", "1", "0", "canceled", "cancelled"]
+            standard_values = ["true", "false", "yes", "no", "1", "0", "pending", "canceled", "cancelled"]
             if value.lower() not in standard_values:
                 return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
         
@@ -445,6 +445,7 @@ class InlineCellEditor(ModalScreen[str]):
         'enabled': [
             ('True', 'true'),
             ('False', 'false'),
+            ('Pending', 'pending'),
             ('Canceled', 'canceled')
         ]
     }
@@ -579,10 +580,10 @@ class InlineCellEditor(ModalScreen[str]):
                 if result:
                     return result
         
-        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled')
+        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled' or 'pending')
         elif column_lower == "enabled":
             # Accept any value, but warn if it's not a standard value
-            standard_values = ["true", "false", "yes", "no", "1", "0", "canceled", "cancelled"]
+            standard_values = ["true", "false", "yes", "no", "1", "0", "pending", "canceled", "cancelled"]
             if value.lower() not in standard_values:
                 return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
         
