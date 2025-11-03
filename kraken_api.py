@@ -1,6 +1,7 @@
 """
 Kraken API Client for interacting with Kraken exchange.
 """
+
 import hashlib
 import hmac
 import base64
