@@ -227,11 +227,12 @@ class EditCellScreen(ModalScreen[str]):
                 if result:
                     return result
         
-        # Validate enabled
+        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled')
         elif column_lower == "enabled":
-            valid_enabled = ["true", "false", "yes", "no", "1", "0"]
-            if value.lower() not in valid_enabled:
-                return (False, f"Must be true/false, yes/no, or 1/0")
+            # Accept any value, but warn if it's not a standard value
+            standard_values = ["true", "false", "yes", "no", "1", "0", "canceled", "cancelled"]
+            if value.lower() not in standard_values:
+                return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
         
         # Validate pair - now with intelligent matching
         elif column_lower == "pair":
@@ -443,7 +444,8 @@ class InlineCellEditor(ModalScreen[str]):
         ],
         'enabled': [
             ('True', 'true'),
-            ('False', 'false')
+            ('False', 'false'),
+            ('Canceled', 'canceled')
         ]
     }
     
@@ -466,19 +468,27 @@ class InlineCellEditor(ModalScreen[str]):
             if self.is_binary_field:
                 # Use Select for binary choice fields
                 field_name = self.column_name.lower()
-                options = self.BINARY_FIELDS[field_name]
+                options = list(self.BINARY_FIELDS[field_name])  # Make a copy
+                
+                # Check if current value is in the options
+                current_lower = self.current_value.lower() if self.current_value else ""
+                option_values = [v for _, v in options]
+                
+                # If current value is not in options, add it as a custom option
+                if current_lower and current_lower not in option_values:
+                    options.append((f"Custom: {self.current_value}", current_lower))
                 
                 # Create Select with options
                 select = Select(
                     options=[(label, value) for label, value in options],
-                    value=self.current_value.lower() if self.current_value else options[0][1],
+                    value=current_lower if current_lower else options[0][1],
                     id="cell-select"
                 )
                 yield select
                 
                 # Add keyboard shortcuts hint
                 shortcuts = []
-                for label, value in options:
+                for label, value in self.BINARY_FIELDS[field_name]:  # Use original list for shortcuts
                     shortcuts.append(f"{label[0].upper()}={label}")
                 yield Label(f"Shortcuts: {', '.join(shortcuts)}", id="shortcuts-hint")
             elif self.is_linked_order_field:
@@ -569,11 +579,12 @@ class InlineCellEditor(ModalScreen[str]):
                 if result:
                     return result
         
-        # Validate enabled
+        # Validate enabled - be forgiving and accept any value (dashboard may set 'canceled')
         elif column_lower == "enabled":
-            valid_enabled = ["true", "false", "yes", "no", "1", "0"]
-            if value.lower() not in valid_enabled:
-                return (False, f"Must be true/false")
+            # Accept any value, but warn if it's not a standard value
+            standard_values = ["true", "false", "yes", "no", "1", "0", "canceled", "cancelled"]
+            if value.lower() not in standard_values:
+                return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
         
         # Validate linked_order_id
         elif column_lower == "linked_order_id":

@@ -2,6 +2,77 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## CSV Editor - Forgiving Status Values (2025-11-03)
+
+**Problem**: CSV editor crashed when trying to edit status/enabled field with value "canceled" (set by dashboard cancel button):
+```
+InvalidSelectValueError: Illegal select value 'canceled'.
+```
+
+**Root Cause**: 
+- `InlineCellEditor` had hardcoded list of valid values for `enabled` field: `['true', 'false']`
+- Dashboard's cancel button sets status to `'canceled'` in config.csv
+- Textual's Select widget throws `InvalidSelectValueError` when trying to set value not in options list
+- Editor wasn't flexible enough to handle arbitrary status values
+
+**Solution**: Made editor more forgiving:
+
+1. **Added 'canceled' to standard options**:
+```python
+BINARY_FIELDS = {
+    'enabled': [
+        ('True', 'true'),
+        ('False', 'false'),
+        ('Canceled', 'canceled')  # Added for dashboard compatibility
+    ]
+}
+```
+
+2. **Dynamic custom option support** (lines 499-505):
+```python
+# Check if current value is in the options
+current_lower = self.current_value.lower() if self.current_value else ""
+option_values = [v for _, v in options]
+
+# If current value is not in options, add it as a custom option
+if current_lower and current_lower not in option_values:
+    options.append((f"Custom: {self.current_value}", current_lower))
+```
+
+3. **Relaxed validation** (lines 581-585):
+```python
+# Validate enabled - be forgiving and accept any value
+elif column_lower == "enabled":
+    standard_values = ["true", "false", "yes", "no", "1", "0", "canceled", "cancelled"]
+    if value.lower() not in standard_values:
+        return (True, f"⚠️ Non-standard status: '{value}' (allowed but unusual)")
+```
+
+**Key Insights**:
+1. **UI constraints ≠ Data constraints**: UI dropdowns should support all possible data values, not just ideal ones
+2. **Cross-component compatibility**: Dashboard and editor must handle same value set
+3. **Graceful degradation**: Unknown values → add as custom option, don't crash
+4. **Validation vs Display**: Separate validation (warn) from display (allow)
+5. **Both directions**: Handle both reading (compose) and writing (validate) arbitrary values
+
+**Behavior**:
+- Standard values (true/false/canceled): Show in dropdown with labels
+- Custom values (paused, archived, etc.): Show as "Custom: paused" in dropdown
+- Non-standard values: Allow with warning, don't block
+- User can still select standard options via keyboard shortcuts (T/F/C)
+
+**Testing**:
+- Verified 'canceled' value loads without error
+- Verified arbitrary values (e.g., 'paused') get added as custom options
+- Verified validation accepts any value with appropriate warnings
+
+**Related Files**:
+- `csv_editor.py`: Lines 454-465 (BINARY_FIELDS), 485-520 (compose with custom options), 581-585 (relaxed validation), 566-570 (InlineCellEditor validation)
+- `dashboard.py`: Sets status='canceled' when canceling orders
+- `config.csv`: Contains enabled field with various values
+
+**Similar Pattern**: Apply same "forgiving" approach to other enum-like fields that might have legacy/alternative values
+
 ## CSV Editor Dropdown Support for Dynamic Fields (2025-11-03)
 
 **Problem**: CSV editor's `InlineCellEditor` only supported dropdown for binary fields (enabled, direction, threshold_type). The `linked_order_id` field needed dropdown with dynamic options based on available order IDs.
