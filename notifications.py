@@ -573,6 +573,29 @@ class NotificationManager:
         
         self.notify_event('insufficient_balance', message)
     
+    def notify_linked_order_activated(self, parent_id: str, linked_id: str,
+                                      parent_pair: str, linked_pair: str):
+        """
+        Notify that a linked order has been activated after parent order filled.
+        
+        Args:
+            parent_id: ID of the parent order that filled
+            linked_id: ID of the linked order being activated
+            parent_pair: Trading pair of parent order
+            linked_pair: Trading pair of linked order
+        """
+        message = (f"🔗 TTSLO: Linked order activated!\n\n"
+                  f"Parent Order: {parent_id}\n"
+                  f"Parent Pair: {parent_pair}\n"
+                  f"Status: Filled ✓\n\n"
+                  f"→ Activated Linked Order:\n"
+                  f"Order ID: {linked_id}\n"
+                  f"Pair: {linked_pair}\n"
+                  f"Status: Now enabled and monitoring\n\n"
+                  f"💡 The linked order will trigger when its threshold is met.")
+        
+        self.notify_event('linked_order_activated', message)
+    
     def notify_order_failed(self, config_id: str, pair: str,
                            direction: str, volume: str,
                            error: str, trigger_price: float):
