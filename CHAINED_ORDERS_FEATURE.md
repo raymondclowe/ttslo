@@ -151,10 +151,9 @@ Status: Now enabled and monitoring
 
 **Check 1**: Is parent order fully filled?
 ```bash
-# Check state.csv
-grep "parent_order_id" state.csv
+# Check state.csv for your parent order's ID
+grep "your_parent_order_id" state.csv
 # Look for: triggered='true', order_id='ORDERID', fill_notified='true'
-```
 
 **Check 2**: Does linked order exist?
 ```bash
