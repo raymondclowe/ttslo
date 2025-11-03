@@ -381,10 +381,8 @@ class EditCellScreen(ModalScreen[str]):
         elif self.column_name and self.column_name.lower() == "pair" and message:
             # For pair field, extract the resolved pair code
             if "|" in message:
-                # Format: "PAIR_CODE|warning message"
                 final_value = message.split("|", 1)[0]
             else:
-                # Just the resolved pair code
                 final_value = message
         
         self.dismiss(final_value)
@@ -861,6 +859,12 @@ class ConfirmQuitScreen(ModalScreen[bool]):
 class CSVEditor(App):
     """A Textual app to edit CSV files."""
 
+    # Required columns for TTSLO config
+    REQUIRED_COLUMNS = [
+        'id', 'pair', 'threshold_price', 'threshold_type', 
+        'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'
+    ]
+
     CSS = """
     Screen {
         layout: vertical;
@@ -920,6 +924,60 @@ class CSVEditor(App):
         """Set the modified flag and update the title."""
         self.modified = modified
         self._update_title()
+
+    def _upgrade_config_if_needed(self) -> bool:
+        """
+        Check if the config file is missing required columns and upgrade it.
+        
+        Returns True if upgrade was performed, False otherwise.
+        """
+        if not self.data or len(self.data) < 1:
+            return False
+        
+        headers = [h.lower() for h in self.data[0]]
+        missing_columns = []
+        
+        for required in self.REQUIRED_COLUMNS:
+            if required.lower() not in headers:
+                missing_columns.append(required)
+        
+        if not missing_columns:
+            return False
+        
+        # Upgrade the config by adding missing columns
+        self.notify(
+            f"Upgrading config: adding {len(missing_columns)} missing column(s): {', '.join(missing_columns)}",
+            title="Config Upgrade",
+            severity="information"
+        )
+        
+        # Add missing columns to headers
+        for col in missing_columns:
+            self.data[0].append(col)
+        
+        # Add empty values to all data rows
+        for row in self.data[1:]:
+            row.extend([""] * len(missing_columns))
+        
+        # Save the upgraded config
+        try:
+            with open(self.filename, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerows(self.data)
+            
+            self.notify(
+                f"Config upgraded and saved: {self.filename}",
+                title="Upgrade Complete",
+                severity="information"
+            )
+            return True
+        except Exception as e:
+            self.notify(
+                f"Failed to save upgraded config: {e}",
+                title="Upgrade Error",
+                severity="error"
+            )
+            return False
 
     def on_mount(self) -> None:
         """Called after the application is mounted."""
@@ -1083,6 +1141,9 @@ class CSVEditor(App):
             )
             return
 
+        # Check if config needs upgrading
+        upgraded = self._upgrade_config_if_needed()
+
         table = self.query_one(DataTable)
         table.clear(columns=True)
         
@@ -1109,10 +1170,13 @@ class CSVEditor(App):
             table.add_row(*row)
         
         self.notify(
-            f"Loaded {len(rows)} rows from {self.filename.name}",
+            f"Loaded {len(rows)} rows from {self.filename.name}" + (" (upgraded)" if upgraded else ""),
             title="File Loaded",
             severity="information"
         )
+
+        # Check and upgrade config if needed
+        self._upgrade_config_if_needed()
 
     @work(exclusive=True, group="file_ops", thread=True)
     def action_save_csv(self) -> None:
