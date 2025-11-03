@@ -23,8 +23,8 @@ def test_linked_order_id_is_select_field():
         all_ids=all_ids
     )
     
-    assert editor.is_linked_order_field == True, "linked_order_id should be detected as linked order field"
-    assert editor.is_binary_field == False, "linked_order_id should not be a binary field"
+    assert editor.is_linked_order_field is True, "linked_order_id should be detected as linked order field"
+    assert editor.is_binary_field is False, "linked_order_id should not be a binary field"
 
 
 def test_linked_order_id_excludes_self():
@@ -43,11 +43,11 @@ def test_linked_order_id_excludes_self():
     # The compose() method uses this to filter options
     assert 'order1' in all_ids, "order1 should be in all_ids"
     assert editor.row_data.get('id') == 'order1', "Current row ID should be order1"
-    assert editor.is_linked_order_field == True, "Should be detected as linked order field"
+    assert editor.is_linked_order_field is True, "Should be detected as linked order field"
     
     # Verify that validation prevents self-reference
     is_valid, _ = editor.validate_value('order1')
-    assert is_valid == False, "Self-reference should be invalid"
+    assert is_valid is False, "Self-reference should be invalid"
 
 
 def test_linked_order_id_includes_none_option():
@@ -64,7 +64,7 @@ def test_linked_order_id_includes_none_option():
     
     # The editor should handle empty string as current value (None option)
     assert editor.current_value == ""
-    assert editor.is_linked_order_field == True
+    assert editor.is_linked_order_field is True
 
 
 def test_linked_order_id_with_existing_value():
@@ -80,7 +80,7 @@ def test_linked_order_id_with_existing_value():
     )
     
     assert editor.current_value == "order2"
-    assert editor.is_linked_order_field == True
+    assert editor.is_linked_order_field is True
 
 
 def test_linked_order_validation_prevents_self_reference():
@@ -98,7 +98,7 @@ def test_linked_order_validation_prevents_self_reference():
     # Try to set linked_order_id to the same as current id
     is_valid, message = editor.validate_value("order1")
     
-    assert is_valid == False, "Self-reference should not be valid"
+    assert is_valid is False, "Self-reference should not be valid"
     assert "Cannot link order to itself" in message
 
 
@@ -117,7 +117,7 @@ def test_linked_order_validation_checks_existence():
     # Try to set linked_order_id to non-existent order
     is_valid, message = editor.validate_value("nonexistent_order")
     
-    assert is_valid == False, "Non-existent order should not be valid"
+    assert is_valid is False, "Non-existent order should not be valid"
     assert "not found in config" in message
 
 
@@ -136,7 +136,7 @@ def test_linked_order_validation_allows_empty():
     # Empty value should be valid (no linked order)
     is_valid, message = editor.validate_value("")
     
-    assert is_valid == True, "Empty linked_order_id should be valid"
+    assert is_valid is True, "Empty linked_order_id should be valid"
 
 
 def test_linked_order_validation_allows_valid_order():
@@ -154,7 +154,7 @@ def test_linked_order_validation_allows_valid_order():
     # Valid order should be allowed
     is_valid, message = editor.validate_value("order2")
     
-    assert is_valid == True, "Valid linked_order_id should be valid"
+    assert is_valid is True, "Valid linked_order_id should be valid"
 
 
 if __name__ == "__main__":
