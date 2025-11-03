@@ -12,6 +12,7 @@ Goal: Predict with 95% probability that an asset will exceed a threshold within 
 """
 import sys
 import os
+import io
 import argparse
 import time
 from datetime import datetime, timezone
@@ -22,6 +23,13 @@ import csv
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Configure UTF-8 encoding for Windows console compatibility
+if sys.platform == 'win32':
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if sys.stderr.encoding != 'utf-8':
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from kraken_api import KrakenAPI
 from creds import load_env
@@ -36,8 +44,9 @@ try:
 except ImportError:
     STATS_AVAILABLE = False
     print("⚠️  Warning: numpy, matplotlib, or scipy not installed.")
-    print("   Install with: pip install numpy matplotlib scipy")
+    print("   Install with: uv add numpy matplotlib scipy")
     print("   Graphing and advanced statistics will be disabled.\n")
+    exit(1)
 
 
 class CoinStatsAnalyzer:
@@ -60,8 +69,10 @@ class CoinStatsAnalyzer:
         conversions = {
             # Major cryptocurrencies
             'XXBTZUSD': 'BTC/USD',
+            'XXBTZEUR': 'BTC/EUR',
             'XETHZUSD': 'ETH/USD',
-            'XXBTZUSDT': 'BTC/USDT',
+            'XXBTZUSDT': 'BTC/USDT',  # Legacy format
+            'XBTUSDT': 'BTC/USDT',
             'XETHZUSDT': 'ETH/USDT',
             'SOLUSD': 'SOL/USD',
             'XLTCZUSD': 'LTC/USD',
@@ -99,6 +110,8 @@ class CoinStatsAnalyzer:
             'ADAUSD': 'ADA/USD',
             'DOTUSD': 'DOT/USD',
             'MATICUSD': 'MATIC/USD',
+            # Fiat pairs
+            'GBPUSD': 'GBP/USD',
         }
         return conversions.get(pair, pair)
     
@@ -196,8 +209,87 @@ class CoinStatsAnalyzer:
                 result['pct_mean'] = statistics.mean(pct_changes)
                 result['pct_median'] = statistics.median(pct_changes)
                 result['pct_stdev'] = statistics.stdev(pct_changes) if len(pct_changes) > 1 else 0
+            
+            # Test for Student's t-distribution fit
+            result['distribution_fit'] = self.test_student_t_fit(pct_changes)
         
         return result
+    
+    def test_student_t_fit(self, pct_changes):
+        """
+        Test if data fits Student's t-distribution with different degrees of freedom.
+        
+        Args:
+            pct_changes: List of percentage changes
+            
+        Returns:
+            dict with best fit information:
+            - distribution: 'normal', 'student_t', or 'fat_tails'
+            - df: degrees of freedom (if student_t)
+            - ks_statistic: Kolmogorov-Smirnov test statistic
+            - p_value: p-value for the fit test
+            - fit_quality: 'excellent', 'good', 'fair', 'poor', or 'insufficient_data'
+        """
+        if not STATS_AVAILABLE or len(pct_changes) < 30:
+            return {
+                'distribution': 'insufficient_data',
+                'df': None,
+                'ks_statistic': None,
+                'p_value': None,
+                'fit_quality': 'insufficient_data'
+            }
+        
+        import numpy as np
+        
+        # Normalize the data
+        data = np.array(pct_changes)
+        data_mean = np.mean(data)
+        data_std = np.std(data, ddof=1)
+        normalized_data = (data - data_mean) / data_std
+        
+        # Test for normal distribution first
+        ks_stat_normal, p_value_normal = scipy_stats.kstest(normalized_data, 'norm')
+        
+        # Test for Student's t-distribution with different degrees of freedom
+        best_df = None
+        best_p_value = p_value_normal
+        best_ks_stat = ks_stat_normal
+        best_fit = 'normal'
+        
+        # Test df from 2 to 6 as requested
+        for df in range(2, 7):
+            ks_stat, p_value = scipy_stats.kstest(normalized_data, lambda x: scipy_stats.t.cdf(x, df))
+            
+            # Better fit = higher p-value (fail to reject null hypothesis that data comes from this distribution)
+            if p_value > best_p_value:
+                best_p_value = p_value
+                best_ks_stat = ks_stat
+                best_df = df
+                best_fit = 'student_t'
+        
+        # Determine fit quality based on p-value
+        if best_p_value >= 0.10:
+            fit_quality = 'excellent'
+        elif best_p_value >= 0.05:
+            fit_quality = 'good'
+        elif best_p_value >= 0.01:
+            fit_quality = 'fair'
+        else:
+            fit_quality = 'poor'
+        
+        # Determine if it has fat tails (df < 30 indicates heavier tails than normal)
+        distribution_type = best_fit
+        if best_fit == 'student_t' and best_df <= 10:
+            distribution_type = 'fat_tails'
+        
+        return {
+            'distribution': distribution_type,
+            'df': best_df if best_fit == 'student_t' else None,
+            'ks_statistic': best_ks_stat,
+            'p_value': best_p_value,
+            'fit_quality': fit_quality,
+            'best_fit': best_fit  # 'normal' or 'student_t'
+        }
     
     def calculate_probability_threshold(self, stats, probability=0.95, time_horizon_minutes=1440, use_fat_tails=True):
         """
@@ -245,16 +337,15 @@ class CoinStatsAnalyzer:
         
         # Calculate quantile for the probability
         # For 95% probability of exceeding, we want the 5th percentile (lower tail)
-        # Use t-distribution for fat tails (crypto typical) or normal distribution
-        is_normal = stats.get('normality_test', {}).get('is_normal', False)
+        # Use the detected distribution from distribution_fit
+        dist_fit = stats.get('distribution_fit', {})
+        best_fit = dist_fit.get('best_fit', 'normal')
+        df = dist_fit.get('df')
         
-        if use_fat_tails and not is_normal:
-            # Use Student's t-distribution with df=5 for fat tails
-            # df=5 is typical for crypto markets - heavier tails than normal
-            # More conservative for extreme events
-            df = 5
+        if best_fit == 'student_t' and df is not None:
+            # Use the detected Student's t-distribution
             quantile = scipy_stats.t.ppf(1 - (1 - probability), df)
-            distribution_used = 't-dist (df=5)'
+            distribution_used = f't-dist (df={df})'
         else:
             # Use normal distribution
             quantile = scipy_stats.norm.ppf(1 - (1 - probability))
@@ -269,15 +360,16 @@ class CoinStatsAnalyzer:
         threshold_price_up = current_mean * (1 + threshold_pct / 100)
         threshold_price_down = current_mean * (1 - threshold_pct / 100)
         
-        # Determine confidence based on normality test
-        confidence = 'medium'
-        if 'normality_test' in stats:
-            if stats['normality_test']['is_normal']:
-                confidence = 'high'
-            elif stats['normality_test']['p_value'] > 0.01:
-                confidence = 'medium'
-            else:
-                confidence = 'low'
+        # Determine confidence based on distribution fit quality
+        fit_quality = dist_fit.get('fit_quality', 'medium')
+        if fit_quality == 'excellent':
+            confidence = 'high'
+        elif fit_quality in ['good', 'fair']:
+            confidence = 'medium'
+        elif fit_quality == 'poor':
+            confidence = 'low'
+        else:
+            confidence = 'low'
         
         return {
             'threshold_pct': threshold_pct,
@@ -441,13 +533,40 @@ class CoinStatsAnalyzer:
             else:
                 print(f"  → Distribution does NOT follow normal pattern")
         
+        # Display distribution fit information
+        if 'distribution_fit' in stats:
+            dist_fit = stats['distribution_fit']
+            print(f"\nDistribution Fit Analysis:")
+            
+            if dist_fit['distribution'] == 'insufficient_data':
+                print(f"  Status: Insufficient data for distribution testing (need ≥30 samples)")
+            else:
+                print(f"  Best Fit: {dist_fit['best_fit'].replace('_', ' ').title()} (better than alternatives)")
+                
+                if dist_fit['best_fit'] == 'student_t':
+                    print(f"  Degrees of Freedom: {dist_fit['df']}")
+                    print(f"  Distribution Type: {'Fat Tails' if dist_fit['distribution'] == 'fat_tails' else 'Student-t'}")
+                    print(f"  → Has heavier tails than normal distribution (df={dist_fit['df']})")
+                elif dist_fit['best_fit'] == 'normal':
+                    print(f"  Distribution Type: Normal (Gaussian)")
+                    print(f"  → Fits normal distribution better than Student's t-distribution")
+                
+                print(f"  Fit Quality: {dist_fit['fit_quality'].title()}")
+                print(f"  P-value: {dist_fit['p_value']:.6f}")
+                print(f"  KS Statistic: {dist_fit['ks_statistic']:.6f}")
+        
         threshold = analysis.get('threshold_95')
         if threshold:
+            # Determine which distribution is being used
+            dist_fit = stats.get('distribution_fit', {})
+            dist_used = threshold.get('distribution', 'unknown')
+            
             print(f"\n95% Probability Threshold (24 hours):")
             print(f"  Threshold: ±{threshold['threshold_pct']:.4f}%")
             print(f"  Upper Price: ${threshold['threshold_price_up']:,.4f}")
             print(f"  Lower Price: ${threshold['threshold_price_down']:,.4f}")
-            print(f"  Confidence: {threshold['confidence'].upper()}")
+            print(f"  Distribution Used: {dist_used}")
+            print(f"  Fit Confidence: {threshold['confidence'].upper()} (quality of distribution fit)")
             print(f"\n  → 95% probability price will move beyond ±{threshold['threshold_pct']:.2f}% within 24h")
 
 
@@ -462,7 +581,7 @@ def print_summary_table(results):
     print(f"{'#'*70}\n")
     
     # Table header
-    header = f"{'Pair':<15} {'Mean':<12} {'Median':<12} {'StdDev':<12} {'Normal?':<8} {'95% Threshold':<15} {'Confidence':<10}"
+    header = f"{'Pair':<15} {'Mean':<12} {'Median':<12} {'StdDev':<12} {'Distribution':<20} {'95% Threshold':<15} {'Confidence':<10}"
     print(header)
     print("=" * len(header))
     
@@ -476,11 +595,25 @@ def print_summary_table(results):
         median = f"${stats['median']:,.2f}"
         stdev = f"${stats['stdev']:,.4f}"
         
-        # Normality indicator
-        if 'normality_test' in stats:
-            is_normal = '✓' if stats['normality_test']['is_normal'] else '✗'
+        # Distribution type
+        dist_fit = stats.get('distribution_fit', {})
+        if dist_fit.get('distribution') == 'insufficient_data':
+            dist_str = 'Insufficient data'
+        elif dist_fit.get('best_fit') == 'student_t':
+            df = dist_fit.get('df', '?')
+            if dist_fit.get('distribution') == 'fat_tails':
+                dist_str = f'Fat tails (t, df={df})'
+            else:
+                dist_str = f'Student-t (df={df})'
+        elif dist_fit.get('best_fit') == 'normal':
+            dist_str = 'Normal'
         else:
-            is_normal = 'N/A'
+            # Fallback to old normality test
+            if 'normality_test' in stats:
+                is_normal = stats['normality_test']['is_normal']
+                dist_str = 'Normal' if is_normal else 'Not normal'
+            else:
+                dist_str = 'N/A'
         
         # Threshold
         if threshold:
@@ -490,19 +623,27 @@ def print_summary_table(results):
             thresh_str = 'N/A'
             conf = 'N/A'
         
-        row = f"{pair:<15} {mean:<12} {median:<12} {stdev:<12} {is_normal:<8} {thresh_str:<15} {conf:<10}"
+        row = f"{pair:<15} {mean:<12} {median:<12} {stdev:<12} {dist_str:<20} {thresh_str:<15} {conf:<10}"
         print(row)
     
     print("\n")
     
     # Additional summary stats
-    normal_count = sum(1 for r in results 
-                      if r['stats'].get('normality_test', {}).get('is_normal', False))
     total_count = len(results)
+    normal_count = sum(1 for r in results 
+                      if r['stats'].get('distribution_fit', {}).get('best_fit') == 'normal')
+    student_t_count = sum(1 for r in results 
+                         if r['stats'].get('distribution_fit', {}).get('best_fit') == 'student_t')
+    fat_tails_count = sum(1 for r in results 
+                         if r['stats'].get('distribution_fit', {}).get('distribution') == 'fat_tails')
+    insufficient_count = sum(1 for r in results 
+                            if r['stats'].get('distribution_fit', {}).get('distribution') == 'insufficient_data')
     
     print(f"Total pairs analyzed: {total_count}")
     print(f"Normal distributions: {normal_count}/{total_count} ({normal_count/total_count*100:.1f}%)")
-    print(f"Non-normal distributions: {total_count - normal_count}/{total_count} ({(total_count-normal_count)/total_count*100:.1f}%)")
+    print(f"Student's t-distributions: {student_t_count}/{total_count} ({student_t_count/total_count*100:.1f}%)")
+    print(f"Fat tails detected: {fat_tails_count}/{total_count} ({fat_tails_count/total_count*100:.1f}%)")
+    print(f"Insufficient data: {insufficient_count}/{total_count} ({insufficient_count/total_count*100:.1f}%)")
 
 
 def save_summary_csv(results, analyzer, output_file='summary_stats.csv'):
@@ -521,7 +662,9 @@ def save_summary_csv(results, analyzer, output_file='summary_stats.csv'):
         fieldnames = [
             'Pair', 'Pair_Name', 'Mean', 'Median', 'StdDev', 'Min', 'Max', 'Range',
             'Pct_Mean', 'Pct_Median', 'Pct_StdDev',
-            'Normal_Distribution', 'Normality_PValue', 
+            'Normal_Distribution', 'Normality_PValue',
+            'Best_Fit_Distribution', 'Distribution_DF', 'Distribution_Type', 
+            'Fit_Quality', 'Fit_PValue',
             'Threshold_95_Pct', 'Threshold_Price_Up', 'Threshold_Price_Down',
             'Confidence', 'Data_Points'
         ]
@@ -532,6 +675,9 @@ def save_summary_csv(results, analyzer, output_file='summary_stats.csv'):
             pair = analysis['pair']
             stats = analysis['stats']
             threshold = analysis.get('threshold_95')
+            
+            # Get distribution fit info
+            dist_fit = stats.get('distribution_fit', {})
             
             row = {
                 'Pair': pair,
@@ -547,6 +693,11 @@ def save_summary_csv(results, analyzer, output_file='summary_stats.csv'):
                 'Pct_StdDev': stats.get('pct_stdev', 0),
                 'Normal_Distribution': stats.get('normality_test', {}).get('is_normal', False),
                 'Normality_PValue': stats.get('normality_test', {}).get('p_value', 0),
+                'Best_Fit_Distribution': dist_fit.get('best_fit', 'N/A'),
+                'Distribution_DF': dist_fit.get('df', ''),
+                'Distribution_Type': dist_fit.get('distribution', 'N/A'),
+                'Fit_Quality': dist_fit.get('fit_quality', 'N/A'),
+                'Fit_PValue': dist_fit.get('p_value', 0),
                 'Threshold_95_Pct': threshold['threshold_pct'] if threshold else 0,
                 'Threshold_Price_Up': threshold['threshold_price_up'] if threshold else 0,
                 'Threshold_Price_Down': threshold['threshold_price_down'] if threshold else 0,
@@ -671,6 +822,25 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
         normal_class = 'normal-yes' if is_normal else 'normal-no'
         normal_text = '✓ YES' if is_normal else '✗ NO'
         
+        # Get distribution fit information
+        dist_fit = stats.get('distribution_fit', {})
+        if dist_fit.get('distribution') == 'insufficient_data':
+            dist_text = 'Insufficient data'
+            dist_class = 'normal-no'
+        elif dist_fit.get('best_fit') == 'student_t':
+            df = dist_fit.get('df', '?')
+            if dist_fit.get('distribution') == 'fat_tails':
+                dist_text = f'Fat tails (Student-t, df={df})'
+            else:
+                dist_text = f'Student-t (df={df})'
+            dist_class = 'normal-no'
+        elif dist_fit.get('best_fit') == 'normal':
+            dist_text = 'Normal (Gaussian)'
+            dist_class = 'normal-yes'
+        else:
+            dist_text = 'N/A'
+            dist_class = 'normal-no'
+        
         graph_filename = f"{pair}_distribution.png"
         
         html_content += f"""
@@ -708,13 +878,25 @@ def generate_html_viewer(results, analyzer, output_dir='./graphs', html_file='in
                 <td>Normal Distribution?</td>
                 <td class="{normal_class}">{normal_text}</td>
             </tr>
+            <tr>
+                <td>Distribution Used</td>
+                <td class="{dist_class}">{dist_text}</td>
+            </tr>
 """
         
         if threshold:
+            # Determine color class for threshold distribution
+            thresh_dist = threshold.get('distribution', 'N/A')
+            thresh_dist_class = 'normal-yes' if 'normal' in thresh_dist.lower() else 'normal-no'
+            
             html_content += f"""
             <tr>
                 <td>95% Threshold</td>
                 <td>±{threshold['threshold_pct']:.2f}%</td>
+            </tr>
+            <tr>
+                <td>Threshold Distribution</td>
+                <td class="{thresh_dist_class}">{thresh_dist}</td>
             </tr>
             <tr>
                 <td>Upper Price Target</td>
@@ -818,6 +1000,10 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     - Ensures Kraken minimum order volume (ordermin) is met
     - Uses max(calculated, ordermin) for final volume
     
+    ID FORMAT:
+    - IDs include timestamp in format: {pair}_{direction}_{YYYYMMDDHHMM}_{count}
+    - Example: btc_usdt_sell_202510301307_1
+    
     Args:
         results: List of analysis results
         analyzer: CoinStatsAnalyzer instance
@@ -846,6 +1032,9 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     # Convert to "probability of exceeding threshold" (1 - tail_prob)
     tail_probability = 1 - per_entry_probability
     
+    # Generate timestamp for IDs (format: YYYYMMDDHHMM)
+    timestamp_str = datetime.now(timezone.utc).strftime('%Y%m%d%H%M')
+    
     print(f"\n{'='*70}")
     print(f"BRACKET STRATEGY CONFIG GENERATION")
     print(f"{'='*70}")
@@ -856,6 +1045,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     print(f"Bracket offset: ±{bracket_offset_pct:.1f}% from current price")
     print(f"Trailing offset: {trailing_offset_pct:.1f}%")
     print(f"Target USD volume: ${target_usd_volume:.2f} +/- 25%")
+    print(f"Timestamp: {timestamp_str}")
     print(f"{'='*70}\n")
     
     with open(output_file, 'w', newline='') as csvfile:
@@ -921,7 +1111,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             entry_count += 1
             pair_short = analyzer.format_pair_name(pair).replace('/', '_').lower()
             writer.writerow({
-                'id': f"{pair_short}_sell_{entry_count}",
+                'id': f"{pair_short}_sell_{timestamp_str}_{entry_count}",
                 'pair': pair,
                 'threshold_price': f"{upper_bracket:{price_format}}",
                 'threshold_type': 'above',
@@ -934,7 +1124,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             # Create BUY bracket entry (price goes below)
             entry_count += 1
             writer.writerow({
-                'id': f"{pair_short}_buy_{entry_count}",
+                'id': f"{pair_short}_buy_{timestamp_str}_{entry_count}",
                 'pair': pair,
                 'threshold_price': f"{lower_bracket:{price_format}}",
                 'threshold_type': 'below',
@@ -961,8 +1151,9 @@ def main():
         '--pairs',
         nargs='+',
         default=[
-            # Major cryptocurrencies
-            'XXBTZUSD', 'XETHZUSD', 'SOLUSD', 'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
+            # Major cryptocurrencies - BTC uses USDT (Tether) instead of USD fiat
+            'XBTUSDT', 'XXBTZEUR', 'XETHZUSD', 'SOLUSD',
+            'XLTCZUSD', 'XXRPZUSD', 'XXMRZUSD',
             # DeFi and Smart Contract platforms
             'AAVEUSD', 'ATOMUSD', 'COMPUSD', 'DYDXUSD', 'EGLDUSD', 'ENSUSD',
             'FILUSD', 'INJUSD', 'NEARUSD',
@@ -972,8 +1163,10 @@ def main():
             # Other popular coins
             'ATHUSD', 'NANOUSD', 'RAYUSD', 'RENDERUSD', 'SUPERUSD', 
             'TONUSD', 'TRXUSD', 'WALUSD',
+            # Fiat pairs
+            'GBPUSD',
         ],
-        help='Trading pairs to analyze (default: 30 popular pairs)'
+        help='Trading pairs to analyze (default: 32 popular pairs including BTC/USDT, BTC/EUR and GBP/USD)'
     )
     parser.add_argument(
         '--hours',
@@ -1104,6 +1297,12 @@ def main():
                                               trailing_offset_pct=args.suggestoffset,
                                               target_usd_volume=args.target_usd_volume)
     if config_path:
+        # Count how many pairs use each distribution
+        normal_count = sum(1 for r in results 
+                          if r.get('stats', {}).get('distribution_fit', {}).get('best_fit') == 'normal')
+        student_t_count = sum(1 for r in results 
+                             if r.get('stats', {}).get('distribution_fit', {}).get('best_fit') == 'student_t')
+        
         print(f"\n{'='*70}")
         print(f"SUGGESTED CONFIG WITH BRACKET STRATEGY")
         print(f"{'='*70}")
@@ -1117,7 +1316,15 @@ def main():
         print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
         print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
         print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
-        print(f"  - Uses Student's t-distribution to account for fat tails")
+        
+        # Only mention the distributions that are actually used
+        if student_t_count > 0 and normal_count > 0:
+            print(f"  - Uses appropriate distribution for each pair: {normal_count} normal, {student_t_count} Student's t")
+        elif student_t_count > 0:
+            print(f"  - Uses Student's t-distribution to account for fat tails")
+        elif normal_count > 0:
+            print(f"  - Uses normal distribution for all pairs")
+        
         print(f"  - Random walk model: 24h volatility = minute volatility × sqrt(1440)")
         print(f"  - Decimal places adjusted based on coin value (more for low-value coins)")
         print(f"  - Each pair has up to two entries (above/below thresholds)")

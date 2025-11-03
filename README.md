@@ -672,11 +672,6 @@ Sending 5 queued notifications...
 3. Consider running TTSLO on a server with redundant network connections
 4. Use `--verbose` mode to see real-time console output
 
-**What Gets Logged vs Notified**:
-- ✅ **Always logged**: All API errors, with full details and timestamps
-- ⚠️ **Notification attempted**: Telegram message is attempted but may fail during network outage
-- ✅ **Console output**: Error messages printed to stdout/stderr (visible in systemd logs)
-
 ## Command Line Options
 
 ```text

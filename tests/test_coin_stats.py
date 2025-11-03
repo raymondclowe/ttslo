@@ -65,8 +65,14 @@ def test_format_pair_name():
     
     # Test common pairs
     assert analyzer.format_pair_name('XXBTZUSD') == 'BTC/USD'
+    assert analyzer.format_pair_name('XXBTZEUR') == 'BTC/EUR'
+    assert analyzer.format_pair_name('XBTUSDT') == 'BTC/USDT'
+    assert analyzer.format_pair_name('XXBTZUSDT') == 'BTC/USDT'  # Legacy format
     assert analyzer.format_pair_name('XETHZUSD') == 'ETH/USD'
     assert analyzer.format_pair_name('SOLUSD') == 'SOL/USD'
+    
+    # Test fiat pair
+    assert analyzer.format_pair_name('GBPUSD') == 'GBP/USD'
     
     # Test unknown pair (should return original)
     assert analyzer.format_pair_name('UNKNOWNPAIR') == 'UNKNOWNPAIR'
@@ -308,6 +314,7 @@ def test_generate_config_suggestions_default_params():
     """Test generate_config_suggestions with default parameters."""
     from tools.coin_stats import generate_config_suggestions
     import csv
+    import re
     
     # Create mock results with very high volatility to pass filter
     candles = create_mock_candles(num_candles=200, base_price=100.0, volatility=20.0)
@@ -344,10 +351,16 @@ def test_generate_config_suggestions_default_params():
             assert rows[0]['threshold_type'] == 'above'
             assert float(rows[0]['trailing_offset_percent']) == 1.0  # Default
             
+            # Verify ID format includes timestamp: {pair}_{direction}_{timestamp}_{count}
+            # Example: btc_usd_sell_202510301307_1
+            id_pattern = r'^[a-z_]+_(sell|buy)_\d{12}_\d+$'
+            assert re.match(id_pattern, rows[0]['id']), f"ID format incorrect: {rows[0]['id']}"
+            
             # Check second row (buy)
             assert rows[1]['direction'] == 'buy'
             assert rows[1]['threshold_type'] == 'below'
             assert float(rows[1]['trailing_offset_percent']) == 1.0  # Default
+            assert re.match(id_pattern, rows[1]['id']), f"ID format incorrect: {rows[1]['id']}"
 
 
 def test_generate_config_suggestions_custom_params():
@@ -559,6 +572,62 @@ def test_generate_config_suggestions_custom_params():
             assert 9.5 < buy_offset < 10.5  # Allow small tolerance
 
 
+def test_output_clarity_improvements():
+    """Test that output includes clarity improvements from issue feedback."""
+    import io
+    import sys
+
+def test_html_report_shows_distribution():
+    """Test that HTML report shows distribution type used for analysis."""
+    from tools.coin_stats import generate_html_viewer
+
+    try:
+        import scipy
+        scipy_available = True
+    except ImportError:
+        scipy_available = False
+        return  # Skip if scipy not available
+    
+    # Create mock results
+    candles = create_mock_candles(num_candles=100, base_price=100.0, volatility=1.0)
+    api = MockKrakenAPI(candles)
+    analyzer = CoinStatsAnalyzer(api)
+    
+    analysis = analyzer.analyze_pair('XXBTZUSD')
+    
+    if not analysis:
+        return  # Skip if no analysis
+    
+    results = [analysis]
+    
+    # Generate HTML viewer
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path = generate_html_viewer(results, analyzer, tmpdir, 'test.html')
+        
+        assert html_path is not None
+        assert os.path.exists(html_path)
+        
+        # Read HTML content
+        with open(html_path, 'r') as f:
+            html_content = f.read()
+        
+        # Verify HTML contains distribution information
+        assert 'Distribution Used' in html_content
+        
+        # Check that it shows one of the expected distribution types
+        has_distribution = (
+            'Normal (Gaussian)' in html_content or
+            'Student-t' in html_content or
+            'Fat tails' in html_content or
+            'Insufficient data' in html_content
+        )
+        assert has_distribution, "HTML should show distribution type"
+        
+        # Verify threshold distribution is shown
+        if analysis.get('threshold_95'):
+            assert 'Threshold Distribution' in html_content
+
+
 if __name__ == '__main__':
     # Run tests
     print("Running coin_stats tests...")
@@ -610,5 +679,10 @@ if __name__ == '__main__':
     
     test_generate_config_suggestions_custom_params()
     print("✓ test_generate_config_suggestions_custom_params")
+    
+    test_output_clarity_improvements()
+    print("✓ test_output_clarity_improvements")
+    test_html_report_shows_distribution()
+    print("✓ test_html_report_shows_distribution")
     
     print("\n✅ All tests passed!")

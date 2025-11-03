@@ -271,6 +271,65 @@ class WebSocketPriceProvider:
 
 
 class KrakenAPI:
+    @staticmethod
+    def _normalize_asset_key(asset: str) -> str:
+        """
+        Normalize Kraken asset key by removing .F suffix and leading X/Z.
+        Returns canonical asset key (e.g., XXBT for BTC, XETH for ETH, DYDX for DYDX).
+        """
+        if not asset:
+            return ''
+        asset = asset.upper().strip()
+        # Remove funding suffix
+        if asset.endswith('.F'):
+            asset = asset[:-2]
+        # Strip leading X/Z
+        asset = asset.lstrip('XZ')
+        # Special case: BTC always normalized to 'XXBT'
+        if asset in ('XBT', 'XXBT'):
+            return 'XXBT'
+        # ETH always normalized to 'XETH'
+        if asset in ('ETH', 'XETH'):
+            return 'XETH'
+        # USDT always normalized to 'USDT'
+        if asset in ('USDT', 'USDT'):
+            return 'USDT'
+        # USDC always normalized to 'USDC'
+        if asset in ('USDC', 'USDC'):
+            return 'USDC'
+        # ZUSD always normalized to 'ZUSD'
+        if asset in ('USD', 'ZUSD'):
+            return 'ZUSD'
+        # ZGBP always normalized to 'ZGBP'
+        if asset in ('GBP', 'ZGBP'):
+            return 'ZGBP'
+        # ZEUR always normalized to 'ZEUR'
+        if asset in ('EUR', 'ZEUR'):
+            return 'ZEUR'
+        return asset
+
+    def get_normalized_balances(self) -> dict:
+        """
+        Return a dict of normalized asset keys to summed balances (spot + funding).
+        Example: {'XXBT': 0.09098, 'DYDX': 104.688, ...}
+        """
+        raw = self.get_balance()
+        normalized = {}
+        contributors = {}
+        for k, v in raw.items():
+            norm = self._normalize_asset_key(k)
+            try:
+                amount = float(v)
+            except Exception:
+                continue
+            normalized.setdefault(norm, 0.0)
+            normalized[norm] += amount
+            contributors.setdefault(norm, []).append((k, amount))
+        # Optionally: print contributors for debugging
+        # for norm, contribs in contributors.items():
+        #     if len(contribs) > 1:
+        #         print(f"[DEBUG] {norm} combined from: {contribs}")
+        return normalized
     """Client for interacting with Kraken API."""
     
     # Shared WebSocket price provider (singleton pattern for efficiency)
@@ -447,11 +506,15 @@ class KrakenAPI:
         
         if self.debug:
             print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
+            print(f"[DEBUG] Headers: {headers}")
+            print(f"[DEBUG] Payload: {json_data}")
         
         try:
             response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
             if self.debug:
                 print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
+                print(f"[DEBUG] KrakenAPI._query_private: Response headers={response.headers}")
+                print(f"[DEBUG] KrakenAPI._query_private: Response body={response.text}")
             
             # Check for rate limiting
             if response.status_code == 429:

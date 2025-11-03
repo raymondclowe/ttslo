@@ -12,6 +12,9 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "websocket-client>=1.9.0",
     "flask>=3.1.2",
+    "numpy>=2.3.4",
+    "matplotlib>=3.10.7",
+    "scipy>=1.16.3",
 ]
 
 [tool.pytest.ini_options]

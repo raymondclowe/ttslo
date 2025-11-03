@@ -260,7 +260,7 @@ def get_pending_orders():
     balances = {}
     if kraken_api:
         try:
-            balances = kraken_api.get_balance()
+            balances = kraken_api.get_normalized_balances()
         except Exception as e:
             debug_print(f"[PERF] Could not fetch balances for pending orders: {e}")
     
@@ -327,18 +327,20 @@ def get_pending_orders():
         
         if balances and pair and current_price:
             if direction == 'sell' and base_asset:
-                # Selling: need base asset
-                available = float(balances.get(base_asset, 0))
+                # Selling: need base asset (use normalized key)
+                norm_base = kraken_api._normalize_asset_key(base_asset)
+                available = float(balances.get(norm_base, 0))
                 if available < volume:
                     insufficient_balance = True
-                    balance_message = f"Insufficient balance: need {volume:.4f} {base_asset} but have {available:.4f} {base_asset}"
+                    balance_message = f"Insufficient balance: need {volume:.4f} {norm_base} but have {available:.4f} {norm_base}"
             elif direction == 'buy' and quote_asset:
-                # Buying: need quote currency
+                # Buying: need quote currency (use normalized key)
+                norm_quote = kraken_api._normalize_asset_key(quote_asset)
                 required_quote = volume * current_price
-                available = float(balances.get(quote_asset, 0))
+                available = float(balances.get(norm_quote, 0))
                 if available < required_quote:
                     insufficient_balance = True
-                    balance_message = f"Insufficient balance: need {required_quote:.4f} {quote_asset} but have {available:.4f} {quote_asset}"
+                    balance_message = f"Insufficient balance: need {required_quote:.4f} {norm_quote} but have {available:.4f} {norm_quote}"
         
         pending.append({
             'id': config_id,
@@ -798,8 +800,8 @@ def get_balances_and_risks():
         active = get_active_orders()
         prices = get_current_prices()
         
-        # Get account balances
-        balances = kraken_api.get_balance()
+        # Get normalized account balances (spot + funding summed)
+        balances = kraken_api.get_normalized_balances()
         
         # Collect unique assets from orders
         assets_needed = {}  # asset -> {buy_volume, sell_volume, pairs}
@@ -846,8 +848,9 @@ def get_balances_and_risks():
         overall_warnings = []
         
         for asset, needs in assets_needed.items():
-            # Get balance for this asset
-            balance = float(balances.get(asset, 0))
+            # Use normalized asset key for lookup
+            norm_asset = kraken_api._normalize_asset_key(asset)
+            balance = float(balances.get(norm_asset, 0))
             
             # Calculate requirements
             sell_requirement = needs['sell_volume']

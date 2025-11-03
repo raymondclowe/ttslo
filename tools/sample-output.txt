@@ -1,0 +1,1749 @@
+Analyzing 34 trading pairs...
+Historical data: 240 hours (minute-by-minute)
+Expected data points per pair: ~14400
+
+Fetching data for BTC/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XXBTZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXBTZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/XXBTZUSD_distribution.png
+
+Fetching data for BTC/EUR... [DEBUG] KrakenAPI.get_ohlc: pair=XXBTZEUR, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXBTZEUR', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/XXBTZEUR_distribution.png
+
+Fetching data for BTC/USDT... [DEBUG] KrakenAPI.get_ohlc: pair=XBTUSDT, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XBTUSDT', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/XBTUSDT_distribution.png
+
+Fetching data for ETH/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XETHZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XETHZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/XETHZUSD_distribution.png
+
+Fetching data for SOL/USD... [DEBUG] KrakenAPI.get_ohlc: pair=SOLUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'SOLUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/SOLUSD_distribution.png
+
+Fetching data for LTC/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XLTCZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XLTCZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/XLTCZUSD_distribution.png
+
+Fetching data for XRP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XXRPZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXRPZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/XXRPZUSD_distribution.png
+
+Fetching data for XMR/USD... [DEBUG] KrakenAPI.get_ohlc: pair=XXMRZUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'XXMRZUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/XXMRZUSD_distribution.png
+
+Fetching data for AAVE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=AAVEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'AAVEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/AAVEUSD_distribution.png
+
+Fetching data for ATOM/USD... [DEBUG] KrakenAPI.get_ohlc: pair=ATOMUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'ATOMUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/ATOMUSD_distribution.png
+
+Fetching data for COMP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=COMPUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'COMPUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/COMPUSD_distribution.png
+
+Fetching data for DYDX/USD... [DEBUG] KrakenAPI.get_ohlc: pair=DYDXUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'DYDXUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/DYDXUSD_distribution.png
+
+Fetching data for EGLD/USD... [DEBUG] KrakenAPI.get_ohlc: pair=EGLDUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'EGLDUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/EGLDUSD_distribution.png
+
+Fetching data for ENS/USD... [DEBUG] KrakenAPI.get_ohlc: pair=ENSUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'ENSUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/ENSUSD_distribution.png
+
+Fetching data for FIL/USD... [DEBUG] KrakenAPI.get_ohlc: pair=FILUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'FILUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/FILUSD_distribution.png
+
+Fetching data for INJ/USD... [DEBUG] KrakenAPI.get_ohlc: pair=INJUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'INJUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/INJUSD_distribution.png
+
+Fetching data for NEAR/USD... [DEBUG] KrakenAPI.get_ohlc: pair=NEARUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'NEARUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/NEARUSD_distribution.png
+
+Fetching data for BONK/USD... [DEBUG] KrakenAPI.get_ohlc: pair=BONKUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'BONKUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/BONKUSD_distribution.png
+
+Fetching data for DOGE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=DOGSUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'DOGSUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/DOGSUSD_distribution.png
+
+Fetching data for MEME/USD... [DEBUG] KrakenAPI.get_ohlc: pair=MEMEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'MEMEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/MEMEUSD_distribution.png
+
+Fetching data for MEW/USD... [DEBUG] KrakenAPI.get_ohlc: pair=MEWUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'MEWUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/MEWUSD_distribution.png
+
+Fetching data for PEPE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=PEPEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'PEPEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/PEPEUSD_distribution.png
+
+Fetching data for PONKE/USD... [DEBUG] KrakenAPI.get_ohlc: pair=PONKEUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'PONKEUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/PONKEUSD_distribution.png
+
+Fetching data for POPCAT/USD... [DEBUG] KrakenAPI.get_ohlc: pair=POPCATUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'POPCATUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/POPCATUSD_distribution.png
+
+Fetching data for TRUMP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=TRUMPUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'TRUMPUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/TRUMPUSD_distribution.png
+
+Fetching data for ATH/USD... [DEBUG] KrakenAPI.get_ohlc: pair=ATHUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'ATHUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/ATHUSD_distribution.png
+
+Fetching data for NANO/USD... [DEBUG] KrakenAPI.get_ohlc: pair=NANOUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'NANOUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/NANOUSD_distribution.png
+
+Fetching data for RAY/USD... [DEBUG] KrakenAPI.get_ohlc: pair=RAYUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'RAYUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/RAYUSD_distribution.png
+
+Fetching data for RENDER/USD... [DEBUG] KrakenAPI.get_ohlc: pair=RENDERUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'RENDERUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/RENDERUSD_distribution.png
+
+Fetching data for SUPER/USD... [DEBUG] KrakenAPI.get_ohlc: pair=SUPERUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'SUPERUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/SUPERUSD_distribution.png
+
+Fetching data for TON/USD... [DEBUG] KrakenAPI.get_ohlc: pair=TONUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'TONUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/TONUSD_distribution.png
+
+Fetching data for TRX/USD... [DEBUG] KrakenAPI.get_ohlc: pair=TRXUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'TRXUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/TRXUSD_distribution.png
+
+Fetching data for WAL/USD... [DEBUG] KrakenAPI.get_ohlc: pair=WALUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'WALUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/WALUSD_distribution.png
+
+Fetching data for GBP/USD... [DEBUG] KrakenAPI.get_ohlc: pair=GBPUSD, interval=1, since=None
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/OHLC with params={'pair': 'GBPUSD', 'interval': 1}
+[DEBUG] KrakenAPI._query_public: Response status=200
+✓
+  Graph saved: ./graphs/GBPUSD_distribution.png
+
+
+######################################################################
+# DETAILED ANALYSIS
+######################################################################
+
+======================================================================
+Pair: BTC/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $110,995.5910
+  Median: $111,053.2000
+  Std Dev: $515.1236
+  Min: $109,289.0000
+  Max: $112,348.6000
+  Range: $3,059.6000
+
+Percentage Change Statistics:
+  Mean: -0.001871%
+  Median: 0.000000%
+  Std Dev: 0.085682%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.6650
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.191182
+
+95% Probability Threshold (24 hours):
+  Threshold: ±5.3481%
+  Upper Price: $116,931.7247
+  Lower Price: $105,059.4573
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±5.35% within 24h
+
+======================================================================
+Pair: BTC/EUR
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $95,559.4925
+  Median: $95,501.2000
+  Std Dev: $399.7041
+  Min: $94,425.0000
+  Max: $96,490.8000
+  Range: $2,065.8000
+
+Percentage Change Statistics:
+  Mean: -0.001452%
+  Median: 0.000000%
+  Std Dev: 0.082154%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.8028
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.132666
+
+95% Probability Threshold (24 hours):
+  Threshold: ±5.1278%
+  Upper Price: $100,459.6360
+  Lower Price: $90,659.3490
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±5.13% within 24h
+
+======================================================================
+Pair: BTC/USDT
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $110,984.2401
+  Median: $111,050.1000
+  Std Dev: $514.1186
+  Min: $109,400.0000
+  Max: $112,320.0000
+  Range: $2,920.0000
+
+Percentage Change Statistics:
+  Mean: -0.001857%
+  Median: 0.000000%
+  Std Dev: 0.088761%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.6685
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.199629
+
+95% Probability Threshold (24 hours):
+  Threshold: ±5.5403%
+  Upper Price: $117,133.0542
+  Lower Price: $104,835.4259
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±5.54% within 24h
+
+======================================================================
+Pair: ETH/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $3,939.7991
+  Median: $3,940.3000
+  Std Dev: $27.7312
+  Min: $3,855.6100
+  Max: $4,018.9700
+  Range: $163.3600
+
+Percentage Change Statistics:
+  Mean: -0.001132%
+  Median: 0.000000%
+  Std Dev: 0.150598%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.6526
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.152785
+
+95% Probability Threshold (24 hours):
+  Threshold: ±9.4000%
+  Upper Price: $4,310.1411
+  Lower Price: $3,569.4572
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±9.40% within 24h
+
+======================================================================
+Pair: SOL/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $195.3892
+  Median: $195.4900
+  Std Dev: $1.5108
+  Min: $189.9000
+  Max: $199.5600
+  Range: $9.6600
+
+Percentage Change Statistics:
+  Mean: -0.001270%
+  Median: 0.000000%
+  Std Dev: 0.170407%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.7595
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.123757
+
+95% Probability Threshold (24 hours):
+  Threshold: ±10.6364%
+  Upper Price: $216.1716
+  Lower Price: $174.6068
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±10.64% within 24h
+
+======================================================================
+Pair: LTC/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $99.0336
+  Median: $99.0800
+  Std Dev: $0.5041
+  Min: $96.3000
+  Max: $99.9000
+  Range: $3.6000
+
+Percentage Change Statistics:
+  Mean: 0.000544%
+  Median: 0.000000%
+  Std Dev: 0.147030%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.7109
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.146763
+
+95% Probability Threshold (24 hours):
+  Threshold: ±9.1773%
+  Upper Price: $108.1222
+  Lower Price: $89.9451
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±9.18% within 24h
+
+======================================================================
+Pair: XRP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.5970
+  Median: $2.5940
+  Std Dev: $0.0291
+  Min: $2.5311
+  Max: $2.6583
+  Range: $0.1272
+
+Percentage Change Statistics:
+  Mean: -0.003169%
+  Median: -0.000385%
+  Std Dev: 0.155334%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.7296
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.141031
+
+95% Probability Threshold (24 hours):
+  Threshold: ±9.6956%
+  Upper Price: $2.8488
+  Lower Price: $2.3452
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±9.70% within 24h
+
+======================================================================
+Pair: XMR/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $339.4327
+  Median: $339.5300
+  Std Dev: $3.1626
+  Min: $332.9900
+  Max: $345.0000
+  Range: $12.0100
+
+Percentage Change Statistics:
+  Mean: -0.003416%
+  Median: 0.000000%
+  Std Dev: 0.141615%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.8592
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.161168
+
+95% Probability Threshold (24 hours):
+  Threshold: ±8.8393%
+  Upper Price: $369.4363
+  Lower Price: $309.4292
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±8.84% within 24h
+
+======================================================================
+Pair: AAVE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $230.1493
+  Median: $229.8400
+  Std Dev: $2.3412
+  Min: $222.6200
+  Max: $235.1900
+  Range: $12.5700
+
+Percentage Change Statistics:
+  Mean: 0.000371%
+  Median: 0.000000%
+  Std Dev: 0.181455%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.6443
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.300574
+
+95% Probability Threshold (24 hours):
+  Threshold: ±11.3260%
+  Upper Price: $256.2160
+  Lower Price: $204.0825
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±11.33% within 24h
+
+======================================================================
+Pair: ATOM/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $3.1199
+  Median: $3.1137
+  Std Dev: $0.0241
+  Min: $3.0409
+  Max: $3.1764
+  Range: $0.1355
+
+Percentage Change Statistics:
+  Mean: 0.000059%
+  Median: 0.000000%
+  Std Dev: 0.140530%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.5896
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.289274
+
+95% Probability Threshold (24 hours):
+  Threshold: ±8.7716%
+  Upper Price: $3.3936
+  Lower Price: $2.8463
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±8.77% within 24h
+
+======================================================================
+Pair: COMP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $36.8791
+  Median: $36.9500
+  Std Dev: $0.4313
+  Min: $35.6400
+  Max: $37.4200
+  Range: $1.7800
+
+Percentage Change Statistics:
+  Mean: 0.003619%
+  Median: 0.000000%
+  Std Dev: 0.145891%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.3355
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 3
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=3)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.434117
+
+95% Probability Threshold (24 hours):
+  Threshold: ±13.0286%
+  Upper Price: $41.6839
+  Lower Price: $32.0743
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±13.03% within 24h
+
+======================================================================
+Pair: DYDX/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.3385
+  Median: $0.3395
+  Std Dev: $0.0050
+  Min: $0.3251
+  Max: $0.3461
+  Range: $0.0210
+
+Percentage Change Statistics:
+  Mean: 0.005634%
+  Median: 0.000000%
+  Std Dev: 0.221896%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.2749
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.452030
+
+95% Probability Threshold (24 hours):
+  Threshold: ±24.5874%
+  Upper Price: $0.4217
+  Lower Price: $0.2553
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±24.59% within 24h
+
+======================================================================
+Pair: EGLD/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $9.7371
+  Median: $9.7500
+  Std Dev: $0.1052
+  Min: $9.5200
+  Max: $9.9400
+  Range: $0.4200
+
+Percentage Change Statistics:
+  Mean: -0.000254%
+  Median: 0.000000%
+  Std Dev: 0.251926%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.3388
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.444042
+
+95% Probability Threshold (24 hours):
+  Threshold: ±15.7247%
+  Upper Price: $11.2682
+  Lower Price: $8.2059
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±15.72% within 24h
+
+======================================================================
+Pair: ENS/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $15.6828
+  Median: $15.6600
+  Std Dev: $0.1552
+  Min: $15.2500
+  Max: $16.0000
+  Range: $0.7500
+
+Percentage Change Statistics:
+  Mean: -0.000746%
+  Median: 0.000000%
+  Std Dev: 0.166280%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.3010
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.455155
+
+95% Probability Threshold (24 hours):
+  Threshold: ±10.3789%
+  Upper Price: $17.3105
+  Lower Price: $14.0551
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±10.38% within 24h
+
+======================================================================
+Pair: FIL/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $1.6072
+  Median: $1.6060
+  Std Dev: $0.0129
+  Min: $1.5440
+  Max: $1.6390
+  Range: $0.0950
+
+Percentage Change Statistics:
+  Mean: -0.001515%
+  Median: 0.000000%
+  Std Dev: 0.204945%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.5396
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.356779
+
+95% Probability Threshold (24 hours):
+  Threshold: ±22.7091%
+  Upper Price: $1.9722
+  Lower Price: $1.2423
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±22.71% within 24h
+
+======================================================================
+Pair: INJ/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $8.5863
+  Median: $8.5900
+  Std Dev: $0.0909
+  Min: $8.2530
+  Max: $8.8140
+  Range: $0.5610
+
+Percentage Change Statistics:
+  Mean: 0.000325%
+  Median: 0.000000%
+  Std Dev: 0.220720%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.5287
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.335243
+
+95% Probability Threshold (24 hours):
+  Threshold: ±24.4570%
+  Upper Price: $10.6863
+  Lower Price: $6.4863
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±24.46% within 24h
+
+======================================================================
+Pair: NEAR/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.3001
+  Median: $2.3000
+  Std Dev: $0.0201
+  Min: $2.2360
+  Max: $2.3450
+  Range: $0.1090
+
+Percentage Change Statistics:
+  Mean: 0.000318%
+  Median: 0.000000%
+  Std Dev: 0.198180%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.5048
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.361678
+
+95% Probability Threshold (24 hours):
+  Threshold: ±21.9595%
+  Upper Price: $2.8052
+  Lower Price: $1.7950
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±21.96% within 24h
+
+======================================================================
+Pair: BONK/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0000
+  Median: $0.0000
+  Std Dev: $0.0000
+  Min: $0.0000
+  Max: $0.0000
+  Range: $0.0000
+
+Percentage Change Statistics:
+  Mean: -0.002176%
+  Median: 0.000000%
+  Std Dev: 0.246221%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.6248
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.289531
+
+95% Probability Threshold (24 hours):
+  Threshold: ±15.3686%
+  Upper Price: $0.0000
+  Lower Price: $0.0000
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±15.37% within 24h
+
+======================================================================
+Pair: DOGE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0001
+  Median: $0.0001
+  Std Dev: $0.0000
+  Min: $0.0001
+  Max: $0.0001
+  Range: $0.0000
+
+Percentage Change Statistics:
+  Mean: 0.001011%
+  Median: 0.000000%
+  Std Dev: 0.232890%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.2464
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.468201
+
+95% Probability Threshold (24 hours):
+  Threshold: ±25.8055%
+  Upper Price: $0.0001
+  Lower Price: $0.0000
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±25.81% within 24h
+
+======================================================================
+Pair: MEME/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0016
+  Median: $0.0016
+  Std Dev: $0.0000
+  Min: $0.0016
+  Max: $0.0017
+  Range: $0.0001
+
+Percentage Change Statistics:
+  Mean: 0.002836%
+  Median: 0.000000%
+  Std Dev: 0.232197%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.2584
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.470985
+
+95% Probability Threshold (24 hours):
+  Threshold: ±25.7287%
+  Upper Price: $0.0020
+  Lower Price: $0.0012
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±25.73% within 24h
+
+======================================================================
+Pair: MEW/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0019
+  Median: $0.0019
+  Std Dev: $0.0000
+  Min: $0.0018
+  Max: $0.0019
+  Range: $0.0001
+
+Percentage Change Statistics:
+  Mean: -0.000340%
+  Median: 0.000000%
+  Std Dev: 0.188825%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.3184
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.446469
+
+95% Probability Threshold (24 hours):
+  Threshold: ±20.9229%
+  Upper Price: $0.0023
+  Lower Price: $0.0015
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±20.92% within 24h
+
+======================================================================
+Pair: PEPE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0000
+  Median: $0.0000
+  Std Dev: $0.0000
+  Min: $0.0000
+  Max: $0.0000
+  Range: $0.0000
+
+Percentage Change Statistics:
+  Mean: -0.000341%
+  Median: 0.000000%
+  Std Dev: 0.214410%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.6702
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.173467
+
+95% Probability Threshold (24 hours):
+  Threshold: ±13.3830%
+  Upper Price: $0.0000
+  Lower Price: $0.0000
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±13.38% within 24h
+
+======================================================================
+Pair: PONKE/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0629
+  Median: $0.0626
+  Std Dev: $0.0015
+  Min: $0.0600
+  Max: $0.0656
+  Range: $0.0056
+
+Percentage Change Statistics:
+  Mean: 0.004342%
+  Median: 0.000000%
+  Std Dev: 0.267129%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.2407
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.469636
+
+95% Probability Threshold (24 hours):
+  Threshold: ±29.5995%
+  Upper Price: $0.0815
+  Lower Price: $0.0443
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±29.60% within 24h
+
+======================================================================
+Pair: POPCAT/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.1571
+  Median: $0.1572
+  Std Dev: $0.0040
+  Min: $0.1494
+  Max: $0.1641
+  Range: $0.0147
+
+Percentage Change Statistics:
+  Mean: 0.004855%
+  Median: 0.000000%
+  Std Dev: 0.302560%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.4643
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.409839
+
+95% Probability Threshold (24 hours):
+  Threshold: ±33.5254%
+  Upper Price: $0.2098
+  Lower Price: $0.1044
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±33.53% within 24h
+
+======================================================================
+Pair: TRUMP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $8.3408
+  Median: $8.3560
+  Std Dev: $0.1302
+  Min: $8.0210
+  Max: $8.6720
+  Range: $0.6510
+
+Percentage Change Statistics:
+  Mean: 0.002135%
+  Median: 0.000000%
+  Std Dev: 0.322831%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.9016
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.104287
+
+95% Probability Threshold (24 hours):
+  Threshold: ±20.1504%
+  Upper Price: $10.0215
+  Lower Price: $6.6601
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±20.15% within 24h
+
+======================================================================
+Pair: ATH/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.0283
+  Median: $0.0283
+  Std Dev: $0.0003
+  Min: $0.0275
+  Max: $0.0288
+  Range: $0.0013
+
+Percentage Change Statistics:
+  Mean: -0.000257%
+  Median: 0.000000%
+  Std Dev: 0.215930%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.4085
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.414310
+
+95% Probability Threshold (24 hours):
+  Threshold: ±23.9263%
+  Upper Price: $0.0351
+  Lower Price: $0.0215
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±23.93% within 24h
+
+======================================================================
+Pair: NANO/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.6795
+  Median: $0.6803
+  Std Dev: $0.0059
+  Min: $0.6647
+  Max: $0.6886
+  Range: $0.0239
+
+Percentage Change Statistics:
+  Mean: 0.001117%
+  Median: 0.000000%
+  Std Dev: 0.229604%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.2369
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.466317
+
+95% Probability Threshold (24 hours):
+  Threshold: ±25.4415%
+  Upper Price: $0.8524
+  Lower Price: $0.5067
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±25.44% within 24h
+
+======================================================================
+Pair: RAY/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $1.8201
+  Median: $1.8220
+  Std Dev: $0.0216
+  Min: $1.7610
+  Max: $1.8580
+  Range: $0.0970
+
+Percentage Change Statistics:
+  Mean: 0.000013%
+  Median: 0.000000%
+  Std Dev: 0.219825%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.3108
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.447198
+
+95% Probability Threshold (24 hours):
+  Threshold: ±13.7210%
+  Upper Price: $2.0699
+  Lower Price: $1.5704
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±13.72% within 24h
+
+======================================================================
+Pair: RENDER/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.4300
+  Median: $2.4240
+  Std Dev: $0.0278
+  Min: $2.3600
+  Max: $2.4890
+  Range: $0.1290
+
+Percentage Change Statistics:
+  Mean: -0.000717%
+  Median: 0.000000%
+  Std Dev: 0.225400%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.5976
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.325119
+
+95% Probability Threshold (24 hours):
+  Threshold: ±14.0690%
+  Upper Price: $2.7719
+  Lower Price: $2.0881
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±14.07% within 24h
+
+======================================================================
+Pair: SUPER/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.3900
+  Median: $0.3898
+  Std Dev: $0.0039
+  Min: $0.3802
+  Max: $0.3971
+  Range: $0.0169
+
+Percentage Change Statistics:
+  Mean: -0.000121%
+  Median: 0.000000%
+  Std Dev: 0.180926%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.2570
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.466903
+
+95% Probability Threshold (24 hours):
+  Threshold: ±20.0476%
+  Upper Price: $0.4682
+  Lower Price: $0.3118
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±20.05% within 24h
+
+======================================================================
+Pair: TON/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $2.2298
+  Median: $2.2290
+  Std Dev: $0.0130
+  Min: $2.1750
+  Max: $2.2670
+  Range: $0.0920
+
+Percentage Change Statistics:
+  Mean: -0.002491%
+  Median: 0.000000%
+  Std Dev: 0.152312%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.5693
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.319672
+
+95% Probability Threshold (24 hours):
+  Threshold: ±16.8770%
+  Upper Price: $2.6061
+  Lower Price: $1.8535
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±16.88% within 24h
+
+======================================================================
+Pair: TRX/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.2963
+  Median: $0.2962
+  Std Dev: $0.0010
+  Min: $0.2910
+  Max: $0.2982
+  Range: $0.0072
+
+Percentage Change Statistics:
+  Mean: 0.000715%
+  Median: 0.000000%
+  Std Dev: 0.062056%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.6007
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.211177
+
+95% Probability Threshold (24 hours):
+  Threshold: ±3.8734%
+  Upper Price: $0.3077
+  Lower Price: $0.2848
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±3.87% within 24h
+
+======================================================================
+Pair: WAL/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $0.2242
+  Median: $0.2248
+  Std Dev: $0.0031
+  Min: $0.2182
+  Max: $0.2281
+  Range: $0.0099
+
+Percentage Change Statistics:
+  Mean: 0.000599%
+  Median: 0.000000%
+  Std Dev: 0.208923%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.0978
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Student T
+  Degrees of Freedom: 2
+  Distribution Type: Fat Tails
+  → Has heavier tails than normal distribution (df=2)
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.489902
+
+95% Probability Threshold (24 hours):
+  Threshold: ±23.1499%
+  Upper Price: $0.2761
+  Lower Price: $0.1723
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±23.15% within 24h
+
+======================================================================
+Pair: GBP/USD
+======================================================================
+
+Price Statistics:
+  Count: 721 minute samples
+  Mean: $1.3202
+  Median: $1.3197
+  Std Dev: $0.0021
+  Min: $1.3141
+  Max: $1.3246
+  Range: $0.0105
+
+Percentage Change Statistics:
+  Mean: -0.000314%
+  Median: 0.000000%
+  Std Dev: 0.022415%
+
+Normality Test (Shapiro-Wilk):
+  Test Statistic: 0.8094
+  P-value: 0.000000
+  Is Normal: ✗ NO (p > 0.05)
+  → Distribution does NOT follow normal pattern
+
+Distribution Fit Analysis:
+  Best Fit: Normal
+  Distribution Type: Normal (Gaussian)
+  → Standard normal distribution
+  Fit Quality: Poor
+  P-value: 0.000000
+  KS Statistic: 0.145657
+
+95% Probability Threshold (24 hours):
+  Threshold: ±1.3991%
+  Upper Price: $1.3386
+  Lower Price: $1.3017
+  Confidence: LOW
+
+  → 95% probability price will move beyond ±1.40% within 24h
+
+
+######################################################################
+# SUMMARY TABLE
+######################################################################
+
+Pair            Mean         Median       StdDev       Distribution         95% Threshold   Confidence
+======================================================================================================
+XXBTZUSD        $110,995.59  $111,053.20  $515.1236    Normal               ±5.35%          LOW       
+XXBTZEUR        $95,559.49   $95,501.20   $399.7041    Normal               ±5.13%          LOW       
+XBTUSDT         $110,984.24  $111,050.10  $514.1186    Normal               ±5.54%          LOW       
+XETHZUSD        $3,939.80    $3,940.30    $27.7312     Normal               ±9.40%          LOW       
+SOLUSD          $195.39      $195.49      $1.5108      Normal               ±10.64%         LOW       
+XLTCZUSD        $99.03       $99.08       $0.5041      Normal               ±9.18%          LOW       
+XXRPZUSD        $2.60        $2.59        $0.0291      Normal               ±9.70%          LOW       
+XXMRZUSD        $339.43      $339.53      $3.1626      Normal               ±8.84%          LOW       
+AAVEUSD         $230.15      $229.84      $2.3412      Normal               ±11.33%         LOW       
+ATOMUSD         $3.12        $3.11        $0.0241      Normal               ±8.77%          LOW       
+COMPUSD         $36.88       $36.95       $0.4313      Fat tails (t, df=3)  ±13.03%         LOW       
+DYDXUSD         $0.34        $0.34        $0.0050      Fat tails (t, df=2)  ±24.59%         LOW       
+EGLDUSD         $9.74        $9.75        $0.1052      Normal               ±15.72%         LOW       
+ENSUSD          $15.68       $15.66       $0.1552      Normal               ±10.38%         LOW       
+FILUSD          $1.61        $1.61        $0.0129      Fat tails (t, df=2)  ±22.71%         LOW       
+INJUSD          $8.59        $8.59        $0.0909      Fat tails (t, df=2)  ±24.46%         LOW       
+NEARUSD         $2.30        $2.30        $0.0201      Fat tails (t, df=2)  ±21.96%         LOW       
+BONKUSD         $0.00        $0.00        $0.0000      Normal               ±15.37%         LOW       
+DOGSUSD         $0.00        $0.00        $0.0000      Fat tails (t, df=2)  ±25.81%         LOW       
+MEMEUSD         $0.00        $0.00        $0.0000      Fat tails (t, df=2)  ±25.73%         LOW       
+MEWUSD          $0.00        $0.00        $0.0000      Fat tails (t, df=2)  ±20.92%         LOW       
+PEPEUSD         $0.00        $0.00        $0.0000      Normal               ±13.38%         LOW       
+PONKEUSD        $0.06        $0.06        $0.0015      Fat tails (t, df=2)  ±29.60%         LOW       
+POPCATUSD       $0.16        $0.16        $0.0040      Fat tails (t, df=2)  ±33.53%         LOW       
+TRUMPUSD        $8.34        $8.36        $0.1302      Normal               ±20.15%         LOW       
+ATHUSD          $0.03        $0.03        $0.0003      Fat tails (t, df=2)  ±23.93%         LOW       
+NANOUSD         $0.68        $0.68        $0.0059      Fat tails (t, df=2)  ±25.44%         LOW       
+RAYUSD          $1.82        $1.82        $0.0216      Normal               ±13.72%         LOW       
+RENDERUSD       $2.43        $2.42        $0.0278      Normal               ±14.07%         LOW       
+SUPERUSD        $0.39        $0.39        $0.0039      Fat tails (t, df=2)  ±20.05%         LOW       
+TONUSD          $2.23        $2.23        $0.0130      Fat tails (t, df=2)  ±16.88%         LOW       
+TRXUSD          $0.30        $0.30        $0.0010      Normal               ±3.87%          LOW       
+WALUSD          $0.22        $0.22        $0.0031      Fat tails (t, df=2)  ±23.15%         LOW       
+GBPUSD          $1.32        $1.32        $0.0021      Normal               ±1.40%          LOW       
+
+
+Total pairs analyzed: 34
+Normal distributions: 19/34 (55.9%)
+Student's t-distributions: 15/34 (44.1%)
+Fat tails detected: 15/34 (44.1%)
+Insufficient data: 0/34 (0.0%)
+
+✓ Summary table saved to summary_stats.csv
+✓ HTML graph viewer saved to ./graphs/index.html
+  Open in browser: file:///home/tc3/ttslo/tools/graphs/index.html
+
+======================================================================
+BRACKET STRATEGY CONFIG GENERATION
+======================================================================
+Total pairs analyzed: 34
+Total entries (2 per pair): 68
+Per-entry probability: 4.31%
+Portfolio probability (at least one triggers): 95.0%
+Bracket offset: ±4.0% from current price
+Trailing offset: 2.0%
+Target USD volume: $100.00 +/- 25%
+======================================================================
+
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'XXBTZUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'XXBTZEUR'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'XBTUSDT'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'XETHZUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'SOLUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'XLTCZUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'XXRPZUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'XXMRZUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'AAVEUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'ATOMUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'COMPUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'DYDXUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'EGLDUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'ENSUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'FILUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'INJUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'NEARUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'BONKUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'DOGSUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'MEMEUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'MEWUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'PEPEUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'PONKEUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'POPCATUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'TRUMPUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'ATHUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'NANOUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'RAYUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'RENDERUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'SUPERUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'TONUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'TRXUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+[DEBUG] KrakenAPI._query_public: Calling https://api.kraken.com/0/public/AssetPairs with params={'pair': 'WALUSD'}
+[DEBUG] KrakenAPI._query_public: Response status=200
+Config generation complete:
+  Pairs included: 33
+  Pairs excluded (insufficient volatility): 1
+  Total entries generated: 66
+
+
+======================================================================
+SUGGESTED CONFIG WITH BRACKET STRATEGY
+======================================================================
+
+In order to create items that have a high chance of triggering
+in the next 24 hours, add these lines to your config.csv:
+
+✓ Suggested config saved to suggested_config.csv
+
+Bracket Strategy Details:
+  - Each pair gets TWO entries: buy bracket (-4.0%) and sell bracket (+4.0%)
+  - Trailing offset: 2.0%
+  - Target USD volume: $100.00 +/- 25%
+  - Volumes ensure Kraken minimum order requirements (ordermin) are met
+  - Portfolio optimized for 95% chance at least ONE entry triggers
+  - Uses Student's t-distribution to account for fat tails
+  - Random walk model: 24h volatility = minute volatility × sqrt(1440)
+  - Decimal places adjusted based on coin value (more for low-value coins)
+  - Each pair has up to two entries (above/below thresholds)
+
+⚠️  WARNING: These are suggestions based on statistical analysis.
+   Review and adjust volumes before using in production!
+
+✅ Analysis complete!

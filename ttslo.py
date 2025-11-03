@@ -349,8 +349,8 @@ class TTSLO:
             return (False, 'No API credentials available for balance check', None)
         
         try:
-            # Get account balance
-            balance = self.kraken_api_readwrite.get_balance()
+            # Get normalized account balance (spot + funding summed)
+            balance = self.kraken_api_readwrite.get_normalized_balances()
             if not balance:
                 return (False, 'Could not retrieve account balance', None)
         except KrakenAPIError as e:

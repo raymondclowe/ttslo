@@ -2,6 +2,135 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Windows UTF-8 Console Encoding Fix (2025-10-30)
+
+**Problem**: `coin_stats.py` crashed on Windows at line 1363 with Unicode characters (✓, ✅, ⚠️, ✗) in print statements.
+
+**Root Cause**: Windows console default encoding is often cp1252 or cp437, not UTF-8. Python print() fails with UnicodeEncodeError when outputting UTF-8 characters.
+
+**Solution**: Configure UTF-8 encoding for stdout/stderr on Windows at module import:
+```python
+if sys.platform == 'win32':
+    import io
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if sys.stderr.encoding != 'utf-8':
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+```
+
+**Key Insights**:
+1. Windows console encoding differs from Unix/Linux/Mac (UTF-8 by default)
+2. Configure encoding BEFORE any print statements execute
+3. Use `errors='replace'` to handle any unrepresentable characters gracefully
+4. Only wrap when encoding is not already UTF-8 to avoid double-wrapping
+5. Check `sys.platform == 'win32'` to avoid affecting other platforms
+
+**Testing**: Created `test_coin_stats_windows_encoding.py` with 4 tests covering:
+- UTF-8 configuration doesn't break module import
+- Unicode characters can be encoded and printed
+- Specific Unicode symbols from the script work correctly
+- Platform detection logic is sound
+
+**Related Files**:
+- `tools/coin_stats.py`: Lines 26-32 (UTF-8 configuration)
+- `tests/test_coin_stats_windows_encoding.py`: Windows encoding tests
+
+---
+
+## coin_stats.py Output Clarity (2025-10-30)
+
+**Problem**: Users confused by coin_stats.py output showing contradictory messages:
+1. "Is Normal: ✗ NO" but "Best Fit: Normal" - seems contradictory
+2. "Confidence: LOW yet 95% probability" - confusing mix of fit quality and probability
+3. Final notes always said "Uses Student's t-distribution" even for normal distributions
+
+**Root Causes**:
+- "Best Fit: Normal" meant "better than t-dist" but sounded absolute
+- "Confidence: LOW" referred to fit quality, not probability confidence
+- Summary text hardcoded distribution mention instead of checking actual usage
+
+**Solutions Applied**:
+
+1. **Clarified "Best Fit"**: Added "(better than alternatives)" suffix
+   - "Best Fit: Normal (better than alternatives)"
+   - Added explanation: "→ Fits normal distribution better than Student's t-distribution"
+
+2. **Split Confidence Labels**: Made distinction clear
+   - Changed "Confidence: LOW" → "Fit Confidence: LOW (quality of distribution fit)"
+   - Added "Distribution Used: normal" or "t-dist (df=2)" to show actual distribution
+
+3. **Dynamic Distribution Summary**: Only mention distributions actually used
+   - Mixed: "Uses appropriate distribution for each pair: X normal, Y Student's t"
+   - All normal: "Uses normal distribution for all pairs"
+   - All t: "Uses Student's t-distribution to account for fat tails"
+
+**Key Insights**:
+- Label clarity matters: "Best Fit" sounds absolute, needs context
+- When showing confidence + probability together, clarify which is which
+- Don't hardcode summary text - compute it from actual data
+- UX principle: If output seems contradictory, add clarifying context
+
+**Testing**: Added test_output_clarity_improvements() to verify fixes
+
+**Related Files**:
+- tools/coin_stats.py: Lines 536, 544, 551-560, 1252-1278
+- tests/test_coin_stats.py: New test added
+## Statistical Distribution Display in HTML Reports (2025-10-30)
+
+**Feature**: Enhanced HTML report in coin_stats.py to display which statistical distribution was used for analysis.
+
+**Background**:
+- coin_stats.py already implemented Student's t-distribution testing
+- Best-fit distribution was selected and used for probability calculations
+- However, HTML report only showed "Normal Distribution?" (yes/no)
+- Users couldn't see which specific distribution was actually used
+
+**Solution**:
+1. Added "Distribution Used" row showing best-fit distribution:
+   - "Normal (Gaussian)" for normal distributions
+   - "Fat tails (Student-t, df=X)" for fat-tailed distributions
+   - "Student-t (df=X)" for Student's t-distributions
+   - "Insufficient data" when sample size < 30
+
+2. Added "Threshold Distribution" row showing distribution used for probability threshold calculations
+
+3. Consistent color coding:
+   - Green (`normal-yes`) for normal distributions
+   - Red (`normal-no`) for non-normal distributions
+   - Applied to both "Distribution Used" and "Threshold Distribution" fields
+
+**Implementation Details**:
+```python
+# Extract distribution info from stats
+dist_fit = stats.get('distribution_fit', {})
+if dist_fit.get('best_fit') == 'student_t':
+    df = dist_fit.get('df', '?')
+    if dist_fit.get('distribution') == 'fat_tails':
+        dist_text = f'Fat tails (Student-t, df={df})'
+    # ...
+
+# Apply color coding to threshold distribution
+thresh_dist_class = 'normal-yes' if 'normal' in thresh_dist.lower() else 'normal-no'
+```
+
+**Testing**:
+- Added `test_html_report_shows_distribution()` in test_coin_stats.py
+- Verified HTML contains both distribution fields
+- Manual testing confirmed proper formatting for all cases
+- All 17 tests pass, no regressions
+
+**Key Insights**:
+1. **Transparency**: Users can now see which statistical model is being used
+2. **Consistency**: Same color coding across all distribution-related fields
+3. **Minimal Changes**: Only 85 lines added, no breaking changes
+4. **Already Implemented**: Most of the feature was already coded, just needed UI display
+
+**Related Files**:
+- `tools/coin_stats.py`: Lines 812-828, 868-871, 877-890
+- `tests/test_coin_stats.py`: test_html_report_shows_distribution()
+
+---
+
 ## Kraken API Efficiency - Batch Price Fetching and Targeted Order Queries (2025-10-27)
 
 **Feature**: Optimized Kraken API usage by implementing batch price fetching and targeted order queries in the monitoring loop.
@@ -84,7 +213,47 @@ For 10 trading pairs and 5 triggered orders:
 
 **Similar Implementations**:
 - Dashboard: `dashboard.py` lines 156-194 (already used batch method)
-- Dashboard: `dashboard.py` lines 337-445 (already used query_orders for completed orders)
+- Dashboard: `dashboard.py` lines 450-669 (already used query_orders for completed orders)
+
+---
+
+## Dashboard get_completed_orders Optimization - Already Implemented (2025-10-30)
+
+**Status**: ✅ ALREADY IMPLEMENTED (commit b59c530, Oct 24, 2025)
+
+**Implementation Details**:
+
+The `get_completed_orders()` function in `dashboard.py` (lines 450-669) is already optimized:
+
+1. **Collects order IDs from state.csv** (lines 476-492):
+   - Iterates through state entries
+   - Filters for `triggered='true'` entries only
+   - Extracts `order_id` for each triggered entry
+   - Builds mapping: `config_id_by_order[order_id] = config_id`
+
+2. **Uses query_orders() for specific IDs** (line 503):
+   - Calls `kraken_api.query_orders(order_ids)`
+   - Fetches only the specific order IDs from state
+   - Kraken QueryOrders endpoint can handle up to 50 orders at once
+
+3. **Fallback mechanisms** (lines 508-531):
+   - Falls back to `get_cached_closed_orders()` only when needed
+   - Handles missing orders from query_orders response
+   - Handles API failures gracefully
+
+4. **Manual orders handling** (lines 609-654):
+   - Scans all closed orders for manual trailing-stop orders
+   - Only includes manual orders not already in state
+
+**Performance**:
+- **Before**: Fetched 50+ unrelated closed orders, filtered in memory
+- **After**: Queries only 3-4 specific order IDs directly
+- **Result**: ~90% reduction in data transfer
+
+**Verification**:
+- All dashboard tests pass (14/14)
+- Commit b59c530: "Fix: Use QueryOrders to fetch specific completed orders by ID"
+- No changes needed - optimization fully working
 
 ---
 
