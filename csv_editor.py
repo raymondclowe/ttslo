@@ -500,7 +500,7 @@ class InlineCellEditor(ModalScreen[str]):
                     id="cell-select"
                 )
                 yield select
-                yield Label("↑↓ to navigate, Enter to select", id="shortcuts-hint")
+                yield Label("↑↓ to navigate and select (auto-saves)", id="shortcuts-hint")
             else:
                 # Use Input for text fields
                 yield Input(value=self.current_value, id="cell-input")
@@ -678,8 +678,9 @@ class InlineCellEditor(ModalScreen[str]):
     
     def on_select_changed(self, event: Select.Changed) -> None:
         """Handle Select value change."""
-        # Optionally auto-save when selection changes
-        pass
+        if self.is_linked_order_field:
+            # Auto-save when selection changes for linked_order_id
+            self.action_save()
 
 
 class HelpScreen(ModalScreen):
@@ -748,6 +749,10 @@ class HelpScreen(ModalScreen):
   • Press T for True, F for False (enabled)
   • Selection auto-saves on keypress
 
+  [bold cyan]Smart Editing for Linked Orders:[/bold cyan]
+  • linked_order_id uses dropdown with available order IDs
+  • ↑↓ arrow keys or mouse to select (auto-saves on selection)
+
 [bold yellow]Row Operations:[/bold yellow]
   Ctrl+N           Add new row
   Ctrl+D           Delete current row
@@ -779,6 +784,7 @@ class HelpScreen(ModalScreen):
   • Financial validation prevents "buy high, sell low"
   • Binary fields (above/below, buy/sell) have dropdown + shortcuts
   • Press first letter to quick-select in dropdowns
+  • Linked order dropdown auto-saves when you select an order
 
 [bold yellow]Safety:[/bold yellow]
   • File locking prevents conflicts with service
