@@ -2,6 +2,65 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Kraken API Credentials Security - Debug Logging (2025-11-03)
+
+**Problem**: Private API requests logged full headers (including `API-Key` and `API-Sign`) and payload in debug output:
+```
+[DEBUG] Headers: {'API-Key': 'test_key', 'API-Sign': 'bOEi9vdpGkT0...', 'Content-Type': 'application/json'}
+[DEBUG] Payload: {"nonce": "1762154978402"}
+```
+
+**Security Issue**: Credentials exposed in:
+- Console output
+- Log files
+- Test output
+- CI/CD logs
+
+**Root Cause**:
+- Lines 504-505 in `kraken_api.py`: `print(f"[DEBUG] Headers: {headers}")` and `print(f"[DEBUG] Payload: {json_data}")`
+- Lines 509-510: `print(f"[DEBUG] Response headers={response.headers}")` and `print(f"[DEBUG] Response body={response.text}")`
+- Debug output included all headers without filtering sensitive values
+
+**Solution**: Remove sensitive debug logging, keep only safe information:
+```python
+# BEFORE (unsafe)
+print(f"[DEBUG] Headers: {headers}")  # ❌ Exposes API-Key and API-Sign
+print(f"[DEBUG] Payload: {json_data}")  # ❌ Exposes nonce and params
+print(f"[DEBUG] Response headers={response.headers}")  # ❌ May expose sensitive data
+print(f"[DEBUG] Response body={response.text}")  # ❌ Exposes account balances
+
+# AFTER (safe)
+print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")  # ✅ Safe
+print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")  # ✅ Safe
+```
+
+**Testing**:
+- Created `tests/test_api_credentials_not_logged.py` with 4 comprehensive tests
+- Tests verify credentials NOT in captured output
+- Tests verify safe logging still present (method, URL, status)
+- All 45 API tests pass
+
+**Key Insights**:
+1. **Never log full headers** - Always filter sensitive fields (Authorization, API-Key, API-Sign)
+2. **Never log request/response bodies** - May contain sensitive account data
+3. **Log safe identifiers only** - Method name, URL, status code, error types
+4. **Test security** - Explicitly test that credentials don't appear in logs
+5. **Defense in depth** - Even debug/development logging should be secure
+
+**Best Practice for Debug Logging**:
+```python
+# Safe debug logging pattern
+safe_headers = {k: v for k, v in headers.items() if k.lower() not in ['api-key', 'api-sign', 'authorization']}
+print(f"[DEBUG] Headers (filtered): {safe_headers}")
+
+# Or just log specific safe fields
+print(f"[DEBUG] Content-Type: {headers.get('Content-Type')}")
+```
+
+**Related Files**:
+- `kraken_api.py`: Lines 502-510 (removed unsafe logging)
+- `tests/test_api_credentials_not_logged.py`: Complete security test suite
+- GitHub Issue: "Stop logging Kraken API credentials in private request debug output"
 ## Dashboard Linked Order Annotations (2025-11-04)
 
 **Problem**: Linked orders feature lacked context in dashboard. Users couldn't tell:
