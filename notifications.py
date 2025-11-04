@@ -843,16 +843,25 @@ users =
 [notify.trigger_reached]
 # Notified when a trigger price threshold is reached
 # Triggered by: Current price crosses the configured threshold (above/below)
+# Note: If order has a linked_order_id, notification will mention it
 users = 
 
 [notify.tsl_created]
 # Notified when a Trailing Stop Loss order is created on Kraken
 # Triggered by: Successful order placement after trigger price reached
+# Note: If order has a linked_order_id, notification will mention it
 users = 
 
 [notify.tsl_filled]
 # Notified when a Trailing Stop Loss order is filled/executed
 # Triggered by: Order execution detected by Kraken API
+# Note: If order has a linked_order_id, notification will mention it
+users = 
+
+[notify.linked_order_activated]
+# Notified when a linked order is automatically activated after parent fills
+# Triggered by: Parent order fills and enables the linked child order
+# Note: This is a separate notification in addition to the filled notification
 users = 
 
 [notify.insufficient_balance]
@@ -889,9 +898,13 @@ users =
 # - service_stopped: "🛑 TTSLO Monitor stopped. Reason: Received SIGTERM signal"
 # - config_changed: "⚙️ TTSLO: Configuration file (config.csv) has been modified and reloaded."
 # - validation_error: "❌ TTSLO: Configuration validation errors found: [config_id] field: message"
-# - trigger_reached: "🎯 TTSLO: Trigger price reached! Config: xyz, Pair: BTC/USD, Current: 50000"
-# - tsl_created: "✅ TTSLO: Trailing Stop Loss order created! Order ID: ABC123"
-# - tsl_filled: "💰 TTSLO: Trailing Stop Loss order FILLED! Order ID: ABC123"
+# - trigger_reached: "🎯 TTSLO: Trigger price reached! Config: xyz, Pair: BTC/USD, Current: 50000
+#                     🔗 Linked Order: sell_xyz (if configured)"
+# - tsl_created: "✅ TTSLO: Trailing Stop Loss order created! Order ID: ABC123
+#                 🔗 Linked Order: sell_xyz (if configured)"
+# - tsl_filled: "💰 TTSLO: Trailing Stop Loss order FILLED! Order ID: ABC123
+#                🔗 Linked Order: sell_xyz ✓ Now being activated... (if configured)"
+# - linked_order_activated: "🔗 TTSLO: Linked order activated! Parent: buy_xyz → Activated: sell_xyz"
 # - insufficient_balance: "⚠️ TTSLO: Cannot create order - Insufficient balance!"
 # - order_failed: "❌ TTSLO: Order creation failed! Error: [Kraken error message]"
 # - app_exit: "🛑 TTSLO: Application has exited. Reason: Unexpected exception"
