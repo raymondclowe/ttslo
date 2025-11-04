@@ -507,9 +507,6 @@ class KrakenAPI:
         
         if self.debug:
             print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
-            print(f"[DEBUG] Headers: {headers}")
-            print(f"[DEBUG] Payload: {json_data}")
-        
         
         
         try:

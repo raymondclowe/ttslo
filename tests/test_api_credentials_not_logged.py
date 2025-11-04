@@ -46,10 +46,10 @@ class TestCredentialsNotLogged:
         })
         mock_post.return_value = mock_response
         
-        # Create API client with test credentials
+        # Create API client with test credentials and debug mode enabled
         api_key = "test_api_key_12345"
         api_secret = "dGVzdF9zZWNyZXQ="  # base64 encoded "test_secret"
-        api = KrakenAPI(api_key=api_key, api_secret=api_secret)
+        api = KrakenAPI(api_key=api_key, api_secret=api_secret, debug=True)
         
         # Call a private endpoint
         result = api.get_balance()
@@ -84,8 +84,8 @@ class TestCredentialsNotLogged:
         })
         mock_post.return_value = mock_response
         
-        # Create API client
-        api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=")
+        # Create API client with debug mode enabled
+        api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=", debug=True)
         
         # Call a private endpoint
         result = api.query_open_orders()
@@ -111,8 +111,8 @@ class TestCredentialsNotLogged:
         })
         mock_post.return_value = mock_response
         
-        # Create API client
-        api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=")
+        # Create API client with debug mode enabled
+        api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=", debug=True)
         
         # Call endpoint
         result = api.get_balance()
@@ -135,8 +135,8 @@ class TestCredentialsNotLogged:
         mock_response = MockResponse({"error": [], "result": {}})
         mock_post.return_value = mock_response
         
-        # Create API client
-        api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=")
+        # Create API client with debug mode enabled
+        api = KrakenAPI(api_key="test_key", api_secret="dGVzdF9zZWNyZXQ=", debug=True)
         
         # Call endpoint
         result = api.get_balance()

@@ -280,6 +280,14 @@ def get_pending_orders():
         if linked_id:
             parent_order_map[linked_id] = config.get('id')
     
+    # Build a map of which order is linked FROM which parent
+    # This tells us: config_id -> parent_config_id (who is waiting for whom)
+    parent_order_map = {}  # child_id -> parent_id
+    for config in configs:
+        linked_id = config.get('linked_order_id', '').strip()
+        if linked_id:
+            parent_order_map[linked_id] = config.get('id')
+    
     pending = []
     for config in configs:
         config_id = config.get('id')
