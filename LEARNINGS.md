@@ -2,6 +2,40 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Terminology Overlap Analysis (2025-11-04)
+
+**Problem**: Multiple terms with overlapping meanings cause confusion:
+- "trigger" = 3 different meanings (threshold met, TSL execution, API parameter)
+- "offset" = 2 different meanings (TSL trailing %, distance to threshold)
+- "TTSLO" vs "TSL" = 2 operational layers with similar terms
+
+**Analysis**: Comprehensive report created in `TERMINOLOGY_ANALYSIS_REPORT.md`
+
+**Key Findings**:
+1. **"Trigger" HIGH confusion**: 
+   - TTSLO threshold reached (activation)
+   - TSL order fills on Kraken (execution)
+   - Kraken API price source parameter
+   
+2. **"Offset" MEDIUM confusion**:
+   - Config: `trailing_offset_percent` (TSL parameter)
+   - Validation: gap/distance to threshold (also a percentage)
+
+3. **Layer confusion**: TTSLO (monitor) vs TSL (Kraken orders) use same terms
+
+**Recommendations**:
+- Phase 1: Documentation improvements (glossary, comments) - NO CODE CHANGES
+- Phase 2: Field renames if doing major refactor (requires migration)
+- Phase 3: Comprehensive rename (40+ hours estimated)
+
+**Current Action**: Documentation-first approach per issue requirements.
+
+**Related Files**:
+- `TERMINOLOGY_ANALYSIS_REPORT.md`: Complete analysis with solutions
+- GitHub Issue: "Terminology problems"
+
+---
+
 ## Dashboard Order Details Grid Removal (2025-11-04)
 
 **Problem**: Order details cards in dashboard were too cramped with 2-column grid layout, reducing readability.
