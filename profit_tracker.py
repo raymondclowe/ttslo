@@ -174,7 +174,7 @@ class ProfitTracker:
                         return float(profit_loss), float(profit_loss_pct)
                     
                 except (ValueError, InvalidOperation, ZeroDivisionError) as e:
-                    print(f"Error calculating profit for {config_id}: {e}")
+                    print(f"Error calculating profit for trade {config_id}: {e}")
                     return None, None
                 
                 break

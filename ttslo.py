@@ -1166,7 +1166,6 @@ class TTSLO:
                 # Record order fill for profit tracking
                 if self.profit_tracker and fill_price:
                     try:
-                        from datetime import datetime, timezone
                         fill_time = datetime.now(timezone.utc).isoformat()
                         profit, profit_pct = self.profit_tracker.record_order_fill(
                             config_id=config_id,

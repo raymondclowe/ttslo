@@ -17,6 +17,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from profit_tracker import ProfitTracker
 
+# Display formatting constants
+MAX_PCT_DISPLAY_LENGTH = 8   # Maximum length for percentage display
+MAX_PL_DISPLAY_LENGTH = 10    # Maximum length for profit/loss display
+
 
 def format_currency(value):
     """Format currency value with appropriate precision."""
@@ -78,8 +82,8 @@ def print_detailed_trades(trades_file):
                 pl_str = f"{pl_indicator} {format_currency(pl_val)}"
                 pct_str = f"{pct_val:+.2f}%"
             except (ValueError, InvalidOperation):
-                pl_str = profit_loss[:10]
-                pct_str = profit_loss_pct[:8]
+                pl_str = profit_loss[:MAX_PL_DISPLAY_LENGTH]
+                pct_str = profit_loss_pct[:MAX_PCT_DISPLAY_LENGTH]
         
         print(f"{trade_id:<30} {pair:<12} {direction:<5} {volume:<12} {entry_price:<12} {exit_price:<12} {pl_str:<12} {pct_str:<10} {status:<12}")
     
