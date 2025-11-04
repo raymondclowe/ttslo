@@ -952,6 +952,68 @@ class CSVEditor(App):
         self.modified = modified
         self._update_title()
 
+    def _normalize_columns(self) -> bool:
+        """
+        Normalize column order: required/system fields at left, user-defined fields at right.
+        Preserves all data while reordering columns.
+        
+        Returns True if normalization was performed, False otherwise.
+        """
+        if not self.data or len(self.data) < 1:
+            return False
+        
+        headers = self.data[0]
+        headers_lower = [h.lower() for h in headers]
+        
+        # Build ordered list: required columns first (in REQUIRED_COLUMNS order), then user columns
+        required_cols = []
+        user_cols = []
+        
+        # Add required columns in the order defined in REQUIRED_COLUMNS
+        for req_col in self.REQUIRED_COLUMNS:
+            req_lower = req_col.lower()
+            if req_lower in headers_lower:
+                # Find the actual column name (may have different case)
+                idx = headers_lower.index(req_lower)
+                required_cols.append(headers[idx])
+        
+        # Add user-defined columns (preserving their relative order)
+        for col in headers:
+            if col.lower() not in [r.lower() for r in self.REQUIRED_COLUMNS]:
+                user_cols.append(col)
+        
+        # Check if columns are already in correct order
+        expected_order = required_cols + user_cols
+        if headers == expected_order:
+            return False  # Already normalized
+        
+        # Build mapping from old position to new position
+        new_order = required_cols + user_cols
+        col_mapping = {old_idx: new_order.index(headers[old_idx]) 
+                      for old_idx in range(len(headers))}
+        
+        # Reorder headers
+        self.data[0] = new_order
+        
+        # Reorder all data rows
+        for row_idx in range(1, len(self.data)):
+            old_row = self.data[row_idx][:]
+            new_row = [''] * len(new_order)
+            
+            for old_idx, new_idx in col_mapping.items():
+                if old_idx < len(old_row):
+                    new_row[new_idx] = old_row[old_idx]
+            
+            self.data[row_idx] = new_row
+        
+        self.notify(
+            f"Normalized column order: {len(required_cols)} required, {len(user_cols)} user-defined",
+            title="Column Normalization",
+            severity="information"
+        )
+        
+        return True
+    
     def _upgrade_config_if_needed(self) -> bool:
         """
         Check if the config file is missing required columns and upgrade it.
@@ -1170,6 +1232,9 @@ class CSVEditor(App):
 
         # Check if config needs upgrading
         upgraded = self._upgrade_config_if_needed()
+        
+        # Normalize column order (required fields left, user fields right)
+        normalized = self._normalize_columns()
 
         table = self.query_one(DataTable)
         table.clear(columns=True)
@@ -1196,14 +1261,17 @@ class CSVEditor(App):
             row = row[:len(headers)]  # Trim if too long
             table.add_row(*row)
         
+        status_msg = f"Loaded {len(rows)} rows from {self.filename.name}"
+        if upgraded:
+            status_msg += " (upgraded)"
+        if normalized:
+            status_msg += " (normalized)"
+        
         self.notify(
-            f"Loaded {len(rows)} rows from {self.filename.name}" + (" (upgraded)" if upgraded else ""),
+            status_msg,
             title="File Loaded",
             severity="information"
         )
-
-        # Check and upgrade config if needed
-        self._upgrade_config_if_needed()
 
     @work(exclusive=True, group="file_ops", thread=True)
     def action_save_csv(self) -> None:
@@ -1224,6 +1292,11 @@ class CSVEditor(App):
         
         updated_data = [headers] + rows
         
+        # Normalize column order before saving
+        self.data = updated_data
+        normalized = self._normalize_columns()
+        updated_data = self.data
+        
         # Write to the CSV file
         try:
             with open(self.filename, 'w', newline='') as f:
@@ -1232,8 +1305,13 @@ class CSVEditor(App):
             
             self.data = updated_data
             self._set_modified(False)
+            
+            status_msg = f"File saved: {self.filename}"
+            if normalized:
+                status_msg += " (normalized)"
+            
             self.notify(
-                f"File saved: {self.filename}",
+                status_msg,
                 title="Saved",
                 severity="information"
             )
