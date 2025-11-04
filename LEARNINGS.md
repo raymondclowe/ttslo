@@ -2,6 +2,70 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## CSV Editor Column Normalization (2025-11-04)
+
+**Problem**: Users add custom columns (worker, notes, tags) to config.csv for their own tracking, making it hard to read in csv_editor. Columns appear in random order mixing system fields with user fields.
+
+**Solution**: Automatic column normalization that reorders columns on every load/save:
+- Required/system columns at left (in REQUIRED_COLUMNS order)
+- User-defined columns at right (preserving their relative order)
+- All data preserved during reordering
+- Case-insensitive column matching
+
+**Implementation**:
+```python
+def _normalize_columns(self) -> bool:
+    # Identify required vs user-defined columns
+    required_cols = []
+    for req_col in self.REQUIRED_COLUMNS:
+        if req_lower in headers_lower:
+            required_cols.append(headers[headers_lower.index(req_lower)])
+    
+    user_cols = [col for col in headers 
+                 if col.lower() not in [r.lower() for r in self.REQUIRED_COLUMNS]]
+    
+    # Build new order: required first, user-defined after
+    new_order = required_cols + user_cols
+    
+    # Remap data to new column positions
+    # ... (mapping and reordering logic)
+```
+
+**Applied**:
+- `read_csv_to_table()`: Normalizes after loading file
+- `action_save_csv()`: Normalizes before saving file
+- User notified when normalization occurs: "(normalized)"
+
+**Key Insights**:
+1. **Preserve relative order**: User columns maintain their order relative to each other
+2. **REQUIRED_COLUMNS order matters**: System fields appear in this exact order
+3. **Case-insensitive**: "ID" and "id" both recognized as required column
+4. **No-op when already normalized**: Returns False if columns already in correct order
+5. **Data preservation critical**: Cell values must move with their columns
+
+**Example**:
+```
+BEFORE: worker,notes,id,pair,threshold_price,...,tags,priority
+AFTER:  id,pair,threshold_price,...,worker,notes,tags,priority
+        ^-- Required fields --^    ^-- User fields ----^
+```
+
+**Testing**: 8 comprehensive tests covering:
+- Column reordering correctness
+- Data preservation
+- Already-normalized files (no-op)
+- Only required columns
+- Empty files
+- Case-insensitive matching
+- Normalization on load
+- Empty cell preservation
+
+**Related Files**:
+- `csv_editor.py`: Lines 955-1007 (_normalize_columns), 1171-1173 (load), 1225-1227 (save)
+- `tests/test_csv_column_normalization.py`: Complete test suite (8 tests)
+
+---
+
 ## Dashboard Linked Order Annotations (2025-11-04)
 
 **Problem**: Linked orders feature lacked context in dashboard. Users couldn't tell:
