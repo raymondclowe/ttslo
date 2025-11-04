@@ -510,12 +510,11 @@ class KrakenAPI:
             print(f"[DEBUG] Headers: {headers}")
             print(f"[DEBUG] Payload: {json_data}")
         
+        
         try:
             response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
             if self.debug:
                 print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
-                print(f"[DEBUG] KrakenAPI._query_private: Response headers={response.headers}")
-                print(f"[DEBUG] KrakenAPI._query_private: Response body={response.text}")
             
             # Check for rate limiting
             if response.status_code == 429:

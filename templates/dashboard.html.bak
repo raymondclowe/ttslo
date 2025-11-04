@@ -800,26 +800,17 @@
                                         <span class="detail-label">Trailing Offset:</span>
                                         <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
                                     </div>
-${order.waiting_for_parent ? `
-                                    <div class="detail-row" style="border-top: 1px solid #34495e; margin-top: 8px; padding-top: 8px; background-color: rgba(241, 196, 15, 0.1); padding: 8px; border-radius: 4px;">
-                                        <span class="detail-label" style="color: #f39c12;">⏳ Status:</span>
-                                        <span class="detail-value" style="font-size: 11px; color: #f39c12; font-weight: 600;">
-                                            ${order.parent_is_active ? `Waiting for <strong>${order.waiting_for_parent}</strong> to be filled` : `Linked to ${order.waiting_for_parent} (not triggered yet)`}
-                                        </span>
-                                    </div>
-                                    ` : ''}
-                                    ${order.linked_order_id && !order.waiting_for_parent ? `
+                                    ${order.linked_order_id ? `
                                     <div class="detail-row" style="border-top: 1px solid #34495e; margin-top: 8px; padding-top: 8px;">
-                                        <span class="detail-label">🔗 Will Enable:</span>
+                                        <span class="detail-label">🔗 Linked Order:</span>
                                         <span class="detail-value" style="font-family: monospace; font-size: 11px;">
                                             ${order.linked_order_id}
                                             ${!order.linked_order_exists ? '<span style="color:#e74c3c;margin-left:4px;" data-tooltip="Linked order not found in config">⚠️</span>' : ''}
-                                            ${order.linked_order_exists && order.linked_order_enabled ? '<span style="color:#2ecc71;margin-left:4px;" data-tooltip="Linked order is already enabled">✓</span>' : ''}
+                                            ${order.linked_order_exists && order.linked_order_enabled ? '<span style="color:#2ecc71;margin-left:4px;" data-tooltip="Linked order is enabled">✓</span>' : ''}
                                             ${order.linked_order_exists && !order.linked_order_enabled ? '<span style="color:#95a5a6;margin-left:4px;" data-tooltip="Linked order disabled (will enable when this order fills)">○</span>' : ''}
                                         </span>
                                     </div>
                                     ` : ''}
-
                                 </div>
                                 ${progressHTML}
                                 <div class="order-actions">
@@ -910,26 +901,17 @@ ${order.waiting_for_parent ? `
                                         <span class="detail-label">Trailing Offset:</span>
                                         <span class="detail-value">${order.trailing_offset_percent ? parseFloat(order.trailing_offset_percent).toFixed(2) + '%' : 'N/A'}</span>
                                     </div>
-${order.waiting_for_parent ? `
-                                    <div class="detail-row" style="border-top: 1px solid #34495e; margin-top: 8px; padding-top: 8px; background-color: rgba(241, 196, 15, 0.1); padding: 8px; border-radius: 4px;">
-                                        <span class="detail-label" style="color: #f39c12;">⏳ Status:</span>
-                                        <span class="detail-value" style="font-size: 11px; color: #f39c12; font-weight: 600;">
-                                            ${order.parent_is_active ? `Waiting for <strong>${order.waiting_for_parent}</strong> to be filled` : `Linked to ${order.waiting_for_parent} (not triggered yet)`}
-                                        </span>
-                                    </div>
-                                    ` : ''}
-                                    ${order.linked_order_id && !order.waiting_for_parent ? `
+                                    ${order.linked_order_id ? `
                                     <div class="detail-row" style="border-top: 1px solid #34495e; margin-top: 8px; padding-top: 8px;">
-                                        <span class="detail-label">🔗 Will Enable:</span>
+                                        <span class="detail-label">🔗 Linked Order:</span>
                                         <span class="detail-value" style="font-family: monospace; font-size: 11px;">
                                             ${order.linked_order_id}
                                             ${!order.linked_order_exists ? '<span style="color:#e74c3c;margin-left:4px;" data-tooltip="Linked order not found in config">⚠️</span>' : ''}
-                                            ${order.linked_order_exists && order.linked_order_enabled ? '<span style="color:#2ecc71;margin-left:4px;" data-tooltip="Linked order is already enabled">✓</span>' : ''}
+                                            ${order.linked_order_exists && order.linked_order_enabled ? '<span style="color:#2ecc71;margin-left:4px;" data-tooltip="Linked order is enabled">✓</span>' : ''}
                                             ${order.linked_order_exists && !order.linked_order_enabled ? '<span style="color:#95a5a6;margin-left:4px;" data-tooltip="Linked order disabled (will enable when this order fills)">○</span>' : ''}
                                         </span>
                                     </div>
                                     ` : ''}
-
                                 </div>
                                 ${progressHTML}
                                 <div class="order-actions">
@@ -1022,16 +1004,7 @@ ${order.waiting_for_parent ? `
                                     <span class="detail-label">Triggered:</span>
                                     <span class="detail-value">${order.trigger_time ? new Date(order.trigger_time).toLocaleString() : 'N/A'}</span>
                                 </div>
-                                ${order.linked_order_id ? `
-                                <div class="detail-row" style="border-top: 1px solid #34495e; margin-top: 8px; padding-top: 8px; background-color: rgba(46, 204, 113, 0.1); padding: 8px; border-radius: 4px;">
-                                    <span class="detail-label" style="color: #27ae60;">🎯 When Filled:</span>
-                                    <span class="detail-value" style="font-family: monospace; font-size: 11px; color: #27ae60; font-weight: 600;">
-                                        Will enable ${order.linked_order_id}
-                                    </span>
-                                </div>
-                                ` : ''}
                             </div>
-
                             <div class="order-actions">
                                 <button class="btn-small btn-danger" onclick="cancelActiveOrder('${order.order_id}')">Cancel Order</button>
                             </div>

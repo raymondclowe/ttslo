@@ -2,6 +2,185 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## CSV Editor Column Normalization (2025-11-04)
+
+**Problem**: Users add custom columns (worker, notes, tags) to config.csv for their own tracking, making it hard to read in csv_editor. Columns appear in random order mixing system fields with user fields.
+
+**Solution**: Automatic column normalization that reorders columns on every load/save:
+- Required/system columns at left (in REQUIRED_COLUMNS order)
+- User-defined columns at right (preserving their relative order)
+- All data preserved during reordering
+- Case-insensitive column matching
+
+**Implementation**:
+```python
+def _normalize_columns(self) -> bool:
+    # Identify required vs user-defined columns
+    required_cols = []
+    for req_col in self.REQUIRED_COLUMNS:
+        if req_lower in headers_lower:
+            required_cols.append(headers[headers_lower.index(req_lower)])
+    
+    user_cols = [col for col in headers 
+                 if col.lower() not in [r.lower() for r in self.REQUIRED_COLUMNS]]
+    
+    # Build new order: required first, user-defined after
+    new_order = required_cols + user_cols
+    
+    # Remap data to new column positions
+    # ... (mapping and reordering logic)
+```
+
+**Applied**:
+- `read_csv_to_table()`: Normalizes after loading file
+- `action_save_csv()`: Normalizes before saving file
+- User notified when normalization occurs: "(normalized)"
+
+**Key Insights**:
+1. **Preserve relative order**: User columns maintain their order relative to each other
+2. **REQUIRED_COLUMNS order matters**: System fields appear in this exact order
+3. **Case-insensitive**: "ID" and "id" both recognized as required column
+4. **No-op when already normalized**: Returns False if columns already in correct order
+5. **Data preservation critical**: Cell values must move with their columns
+
+**Example**:
+```
+BEFORE: worker,notes,id,pair,threshold_price,...,tags,priority
+AFTER:  id,pair,threshold_price,...,worker,notes,tags,priority
+        ^-- Required fields --^    ^-- User fields ----^
+```
+
+**Testing**: 8 comprehensive tests covering:
+- Column reordering correctness
+- Data preservation
+- Already-normalized files (no-op)
+- Only required columns
+- Empty files
+- Case-insensitive matching
+- Normalization on load
+- Empty cell preservation
+
+**Related Files**:
+- `csv_editor.py`: Lines 955-1007 (_normalize_columns), 1171-1173 (load), 1225-1227 (save)
+- `tests/test_csv_column_normalization.py`: Complete test suite (8 tests)
+
+---
+
+## Kraken API Credentials Security - Debug Logging (2025-11-03)
+
+**Problem**: Private API requests logged full headers (including `API-Key` and `API-Sign`) and payload in debug output:
+```
+[DEBUG] Headers: {'API-Key': 'test_key', 'API-Sign': 'bOEi9vdpGkT0...', 'Content-Type': 'application/json'}
+[DEBUG] Payload: {"nonce": "1762154978402"}
+```
+
+**Security Issue**: Credentials exposed in:
+- Console output
+- Log files
+- Test output
+- CI/CD logs
+
+**Root Cause**:
+- Lines 504-505 in `kraken_api.py`: `print(f"[DEBUG] Headers: {headers}")` and `print(f"[DEBUG] Payload: {json_data}")`
+- Lines 509-510: `print(f"[DEBUG] Response headers={response.headers}")` and `print(f"[DEBUG] Response body={response.text}")`
+- Debug output included all headers without filtering sensitive values
+
+**Solution**: Remove sensitive debug logging, keep only safe information:
+```python
+# BEFORE (unsafe)
+print(f"[DEBUG] Headers: {headers}")  # ❌ Exposes API-Key and API-Sign
+print(f"[DEBUG] Payload: {json_data}")  # ❌ Exposes nonce and params
+print(f"[DEBUG] Response headers={response.headers}")  # ❌ May expose sensitive data
+print(f"[DEBUG] Response body={response.text}")  # ❌ Exposes account balances
+
+# AFTER (safe)
+print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")  # ✅ Safe
+print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")  # ✅ Safe
+```
+
+**Testing**:
+- Created `tests/test_api_credentials_not_logged.py` with 4 comprehensive tests
+- Tests verify credentials NOT in captured output
+- Tests verify safe logging still present (method, URL, status)
+- All 45 API tests pass
+
+**Key Insights**:
+1. **Never log full headers** - Always filter sensitive fields (Authorization, API-Key, API-Sign)
+2. **Never log request/response bodies** - May contain sensitive account data
+3. **Log safe identifiers only** - Method name, URL, status code, error types
+4. **Test security** - Explicitly test that credentials don't appear in logs
+5. **Defense in depth** - Even debug/development logging should be secure
+
+**Best Practice for Debug Logging**:
+```python
+# Safe debug logging pattern
+safe_headers = {k: v for k, v in headers.items() if k.lower() not in ['api-key', 'api-sign', 'authorization']}
+print(f"[DEBUG] Headers (filtered): {safe_headers}")
+
+# Or just log specific safe fields
+print(f"[DEBUG] Content-Type: {headers.get('Content-Type')}")
+```
+
+**Related Files**:
+- `kraken_api.py`: Lines 502-510 (removed unsafe logging)
+- `tests/test_api_credentials_not_logged.py`: Complete security test suite
+- GitHub Issue: "Stop logging Kraken API credentials in private request debug output"
+## Dashboard Linked Order Annotations (2025-11-04)
+
+**Problem**: Linked orders feature lacked context in dashboard. Users couldn't tell:
+- Why a pending order was disabled (waiting for parent)
+- Whether parent order was active or not triggered yet
+- What would happen when active order fills
+
+**Key Insight**: When parent order triggers (moves to Active), child order is STILL `enabled='false'` waiting for parent to FILL. Child must show in Pending pane with clear "waiting" status.
+
+**Solution**:
+1. **Build parent_order_map**: Map child_id → parent_id to identify waiting relationships
+2. **Show disabled linked orders**: Include `enabled='false'` orders IF they're waiting for parent
+3. **Add parent_is_active flag**: Check if parent has `triggered='true'` and `order_id`
+4. **Visual annotations**:
+   - Pending: "⏳ Waiting for [parent] to be filled" (yellow background)
+   - Pending: "🔗 Will Enable: [child]" (for active orders with linked_order_id)
+   - Active: "🎯 When Filled: Will enable [child]" (green background)
+
+**Implementation**:
+```python
+# dashboard.py - Build parent map
+parent_order_map = {}  # child_id -> parent_id
+for config in configs:
+    linked_id = config.get('linked_order_id', '').strip()
+    if linked_id:
+        parent_order_map[linked_id] = config.get('id')
+
+# Check if order is waiting for parent
+waiting_for_parent = None
+parent_is_active = False
+if config_id in parent_order_map:
+    parent_id = parent_order_map[config_id]
+    waiting_for_parent = parent_id
+    parent_state = state.get(parent_id, {})
+    if parent_state.get('triggered') == 'true' and parent_state.get('order_id'):
+        parent_is_active = True
+
+# Show if enabled OR waiting for parent
+should_show = (enabled or enabled_raw == 'pending' or (waiting_for_parent and not enabled))
+```
+
+**Key Patterns**:
+1. **Inverse relationships**: Build maps for both directions (A→B and B→A lookups)
+2. **State checking**: Use `triggered='true'` + `order_id` to detect active orders
+3. **Conditional display**: Show different annotations based on relationship type
+4. **Visual hierarchy**: Use background colors to distinguish status types
+
+**Testing**: 4 tests covering all cases (waiting, active parent, linked orders, disabled)
+
+**Related Files**:
+- `dashboard.py`: Lines 247-274 (parent map), 260-281 (show logic), 350-382 (data structure)
+- `templates/dashboard.html`: Lines 803-827 (pending display), 1024-1032 (active display)
+- `tests/test_dashboard_linked_annotations.py`: Complete test suite
+
+---
+
 ## CSV Editor - Forgiving Status Values (2025-11-03)
 
 **Problem**: CSV editor crashed when trying to edit status/enabled field with value "canceled" (set by dashboard cancel button):
