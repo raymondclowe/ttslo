@@ -2,6 +2,50 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Order Details Grid Removal (2025-11-04)
+
+**Problem**: Order details cards in dashboard were too cramped with 2-column grid layout, reducing readability.
+
+**Root Cause**:
+- `.order-details` CSS used `display: grid` with `grid-template-columns: repeat(2, 1fr)`
+- Forced detail rows into 2 columns, making cards narrow and cramped
+- Especially problematic with longer labels like "Direction: Sell WAL to buy USD"
+
+**Solution**: Removed grid layout to allow full-width detail rows
+```css
+/* BEFORE - cramped 2-column layout */
+.order-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+/* AFTER - full-width rows, easier to read */
+.order-details {
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 14px;
+}
+```
+
+**Key Insights**:
+1. **Grid not always better**: 2-column grid works for short labels, but fails with descriptive text
+2. **Vertical space is cheap**: Stacking details vertically improves readability
+3. **Each row still uses flexbox**: `.detail-row { display: flex; justify-content: space-between; }` provides label/value alignment
+4. **Mobile media query cleanup**: Removed redundant `.order-details { grid-template-columns: 1fr; }` rule
+
+**Visual Impact**:
+- Before: Details cramped in 2 columns, hard to scan
+- After: Each detail on its own row, full card width, easy to read
+
+**Related Files**:
+- `templates/dashboard.html`: Lines 217-221 (main CSS), 464-468 (media query)
+- `tests/test_dashboard.py`: All tests passing (HTML structure unchanged)
+
+---
+
 ## CSV Editor Column Normalization (2025-11-04)
 
 **Problem**: Users add custom columns (worker, notes, tags) to config.csv for their own tracking, making it hard to read in csv_editor. Columns appear in random order mixing system fields with user fields.

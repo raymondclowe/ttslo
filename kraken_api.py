@@ -511,6 +511,7 @@ class KrakenAPI:
             print(f"[DEBUG] Payload: {json_data}")
         
         
+        
         try:
             response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
             if self.debug:
