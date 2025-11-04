@@ -244,17 +244,47 @@ def get_pending_orders():
         except Exception as e:
             print(f"[PERF] Could not fetch balances for pending orders: {e}")
     
+    # Build a map of which order is linked FROM which parent
+    # This tells us: config_id -> parent_config_id (who is waiting for whom)
+    parent_order_map = {}  # child_id -> parent_id
+    for config in configs:
+        linked_id = config.get('linked_order_id', '').strip()
+        if linked_id:
+            parent_order_map[linked_id] = config.get('id')
+    
     pending = []
     for config in configs:
         config_id = config.get('id')
-        enabled = config.get('enabled', '').lower() == 'true'
+        enabled_raw = config.get('enabled', '').lower()
+        enabled = enabled_raw == 'true'
         
-        # Skip if already triggered or disabled
-        if not enabled:
-            continue
-        
+        # Skip if already triggered
         config_state = state.get(config_id, {})
         if config_state.get('triggered') == 'true':
+            continue
+        
+        # Check if this order is waiting for parent to fill
+        waiting_for_parent = None
+        parent_is_active = False
+        if config_id in parent_order_map:
+            parent_id = parent_order_map[config_id]
+            waiting_for_parent = parent_id
+            # Check if parent has triggered (is active)
+            parent_state = state.get(parent_id, {})
+            if parent_state.get('triggered') == 'true' and parent_state.get('order_id'):
+                parent_is_active = True
+        
+        # Include order in pending if:
+        # 1. enabled='true' (normal active order)
+        # 2. enabled='pending' (explicitly marked as pending/waiting)
+        # 3. enabled='false' but is a linked child waiting for parent (especially if parent is active)
+        should_show = (
+            enabled or 
+            enabled_raw == 'pending' or 
+            (waiting_for_parent and not enabled)
+        )
+        
+        if not should_show:
             continue
         
         # Get current price
@@ -354,7 +384,11 @@ def get_pending_orders():
             'cost_message': cost_message,
             'linked_order_id': linked_order_id,
             'linked_order_exists': linked_order_exists,
-            'linked_order_enabled': linked_order_enabled
+            'linked_order_enabled': linked_order_enabled,
+            'waiting_for_parent': waiting_for_parent,  # Parent order ID this order is waiting for
+            'parent_is_active': parent_is_active,  # True if parent has triggered and is active
+            'enabled': enabled,  # Include enabled status for display logic
+            'enabled_raw': enabled_raw  # Raw value for display
         })
     
     elapsed = time.time() - start_time
@@ -407,6 +441,7 @@ def get_active_orders():
                     'order_type': order_info.get('descr', {}).get('ordertype'),
                     'price': order_info.get('descr', {}).get('price'),
                     'trailing_offset_percent': config.get('trailing_offset_percent'),
+                    'linked_order_id': config.get('linked_order_id', '').strip(),  # Will enable this order when filled
                 })
         filter_elapsed = time.time() - filter_start
         print(f"[PERF] Filtering/matching {len(state)} state entries took {filter_elapsed:.3f}s")
