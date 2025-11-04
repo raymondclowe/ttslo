@@ -20,6 +20,7 @@ import statistics
 from pathlib import Path
 import json
 import csv
+import math
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -1019,8 +1020,6 @@ def calculate_profit_based_params(stats, analyzer, target_profit_pct, profit_day
             'reason': 'Insufficient statistics'
         }
     
-    import math
-    
     pct_stdev_minute = stats.get('pct_stdev', 0)
     if pct_stdev_minute == 0:
         return {
@@ -1033,9 +1032,17 @@ def calculate_profit_based_params(stats, analyzer, target_profit_pct, profit_day
             'reason': 'Zero volatility'
         }
     
+    # Import scipy stats once at function level
+    from scipy import stats as scipy_stats
+    
     # Calculate volatility over profit_days period
     time_horizon_minutes = profit_days * 1440  # days to minutes
     pct_stdev_horizon = pct_stdev_minute * math.sqrt(time_horizon_minutes)
+    
+    # Get distribution info
+    dist_fit = stats.get('distribution_fit', {})
+    best_fit = dist_fit.get('best_fit', 'normal')
+    df = dist_fit.get('df')
     
     # Strategy: Start with minimum trailing offset, iterate to find optimal
     best_config = None
@@ -1044,23 +1051,15 @@ def calculate_profit_based_params(stats, analyzer, target_profit_pct, profit_day
         # Total movement needed = target profit + trailing offset slippage
         total_movement_needed_pct = target_profit_pct + trailing_offset_pct
         
-        # Calculate probability of achieving this movement
-        # Use distribution fit from stats
-        dist_fit = stats.get('distribution_fit', {})
-        best_fit = dist_fit.get('best_fit', 'normal')
-        df = dist_fit.get('df')
-        
         # Calculate z-score (or t-score)
         z_score = total_movement_needed_pct / pct_stdev_horizon
         
+        # Calculate probability of achieving this movement
         if best_fit == 'student_t' and df is not None:
             # Use Student's t-distribution
-            from scipy import stats as scipy_stats
-            # Probability of exceeding threshold in either direction
             prob = 2 * (1 - scipy_stats.t.cdf(z_score, df))
         else:
             # Use normal distribution
-            from scipy import stats as scipy_stats
             prob = 2 * (1 - scipy_stats.norm.cdf(z_score))
         
         # We want >50% probability for at least one bracket to trigger
@@ -1083,7 +1082,6 @@ def calculate_profit_based_params(stats, analyzer, target_profit_pct, profit_day
         trailing_offset_pct = min_trailing_offset_pct
         
         # Find maximum movement with >50% probability
-        from scipy import stats as scipy_stats
         if best_fit == 'student_t' and df is not None:
             # For 50% probability, we need z_score where P(|X| > z) = 0.5
             # This means P(X > z) = 0.25
@@ -1432,8 +1430,8 @@ def main():
     parser.add_argument(
         '--percentage-profit',
         type=float,
-        default=5.0,
-        help='Target profit percentage including slippage from trailing offset (default: 5.0)'
+        default=None,
+        help='Target profit percentage including slippage from trailing offset (e.g., 5.0). When set, enables profit-based mode.'
     )
     parser.add_argument(
         '--profit-days',

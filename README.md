@@ -403,15 +403,16 @@ The tool:
 - Generates distribution graphs as PNGs
 - Exports summary to CSV for spreadsheet analysis
 - Creates HTML viewer for easy browser viewing of all graphs
-- **NEW: Profit-based config generation** (default mode)
+- **NEW: Profit-based config generation** (opt-in with --percentage-profit)
   - Automatically calculates optimal trigger prices and trailing offsets
   - Targets specific profit percentage INCLUDING slippage from trailing offset
   - Ensures >50% probability of success within specified timeframe
   - Reports unsuitable coins with plausible profit alternatives
   - Example: `--percentage-profit 5.0 --profit-days 7` finds pairs that can achieve 5% profit within 7 days
-- Legacy: Bracket strategy with fixed offsets
-  - Uses fixed bracket and trailing offsets
+- Legacy: Bracket strategy with fixed offsets (default mode)
+  - Uses fixed bracket and trailing offsets (--suggestbracket, --suggestoffset)
   - Portfolio-optimized for 95% chance at least one entry triggers
+  - Active when --percentage-profit is NOT specified
 - Intelligent volume calculation based on target USD value
   - Converts USD target to coin units with +/- 25% variance
   - Ensures Kraken minimum order requirements (ordermin) are met
