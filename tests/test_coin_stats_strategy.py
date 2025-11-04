@@ -27,9 +27,10 @@ class MockKrakenAPI:
         return {'ordermin': '0.001'}
 
 
+import random
+
 def create_mock_candles(num_candles=100, base_price=100.0, volatility=10.0):
     """Create mock OHLC candles with specified volatility."""
-    import random
     random.seed(42)  # For reproducibility
     
     candles = []

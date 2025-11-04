@@ -1607,22 +1607,27 @@ def main():
             print(f"  ✓ SELL when price rises (take profit, enabled=false, linked)")
             print(f"  → Best for accumulating assets or trading volatile coins")
         
+        # Common description for both modes
+        chained_orders_desc = "Each pair gets TWO chained entries (linked orders)"
+        volume_desc = f"Target USD volume: ${args.target_usd_volume:.2f} +/- 25%"
+        ordermin_desc = "Volumes ensure Kraken minimum order requirements (ordermin) are met"
+        
         if args.percentage_profit:
             print(f"\nProfit-Based Strategy Details:")
             print(f"  - Target profit: {args.percentage_profit:.1f}% (after trailing offset slippage)")
             print(f"  - Profit window: {args.profit_days} days")
-            print(f"  - Each pair gets TWO chained entries (linked orders)")
+            print(f"  - {chained_orders_desc}")
             print(f"  - Trigger prices and trailing offsets optimized per pair")
-            print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
-            print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
+            print(f"  - {volume_desc}")
+            print(f"  - {ordermin_desc}")
             print(f"  - Each bracket has >50% probability of triggering within {args.profit_days} days")
         else:
             print(f"\nBracket Strategy Details (Legacy Mode):")
-            print(f"  - Each pair gets TWO chained entries (linked orders)")
+            print(f"  - {chained_orders_desc}")
             print(f"  - Brackets: ±{args.suggestbracket}% from current price")
             print(f"  - Trailing offset: {args.suggestoffset}%")
-            print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
-            print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
+            print(f"  - {volume_desc}")
+            print(f"  - {ordermin_desc}")
             print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
         
         # Only mention the distributions that are actually used

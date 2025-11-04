@@ -3344,3 +3344,81 @@ elif quote == 'EUR':
 **User Impact**: Users can now transact with small gaps (with warnings) instead of being completely blocked.
 
 ---
+
+---
+
+## Sell-Then-Buy Strategy Implementation (2025-11-04)
+
+**Feature**: Added `--strategy` parameter to coin_stats.py for generating chained orders with two strategies.
+
+**Problem**: Current system only supports "buy dip then sell" strategy. Users holding long-term assets (BTC, ETH) want "sell boom then buy back" for taking profit while maintaining position.
+
+**Solution**: Added strategy parameter with two options:
+1. **buy-then-sell** (default): Buy dip first (enabled), sell high after (linked)
+2. **sell-then-buy** (new): Sell boom first (enabled), buy back after (linked)
+
+**Implementation Details**:
+
+1. **Parameter Addition** (`tools/coin_stats.py`):
+   - Added `--strategy` argument with choices=['buy-then-sell', 'sell-then-buy']
+   - Default is 'buy-then-sell' (preserves existing behavior)
+   - Passed through to `generate_config_suggestions()` function
+
+2. **Config Generation Logic**:
+   - Both strategies create TWO chained orders using `linked_order_id`
+   - Order structure differs based on strategy:
+     
+     **Buy-then-sell**:
+     ```csv
+     buy_id,PAIR,lower_price,below,buy,volume,offset,true,sell_id
+     sell_id,PAIR,upper_price,above,sell,volume,offset,false,
+     ```
+     
+     **Sell-then-buy**:
+     ```csv
+     sell_id,PAIR,upper_price,above,sell,volume,offset,true,buy_id
+     buy_id,PAIR,lower_price,below,buy,volume,offset,false,
+     ```
+
+3. **CSV Output**:
+   - Added `linked_order_id` to fieldnames
+   - First order has enabled=true and links to second
+   - Second order has enabled=false and no link
+
+4. **Output Messages**:
+   - Updated console output to describe strategy
+   - Added clear explanation of order flow
+   - Indicated best use cases for each strategy
+
+**Testing**:
+- Fixed 2 existing tests to be order-agnostic (find by direction, not index)
+- Added 3 new comprehensive tests covering both strategies
+- All 21 coin_stats tests pass
+- All 32 chained_orders tests pass
+
+**Key Insights**:
+
+1. **Reuse Existing Features**: Used existing `linked_order_id` feature instead of creating new mechanism
+2. **Order Matters**: First order written is enabled, second is disabled (linked)
+3. **Backward Compatible**: Default behavior unchanged, new feature is opt-in
+4. **Test Brittleness**: Tests assuming order matters (rows[0], rows[1]) broke easily
+
+5. **Strategy Trade-offs**:
+   - Buy-then-sell: Risk buying falling knife, captures upside
+   - Sell-then-buy: Risk missing gains, takes profit and re-enters
+
+**Documentation**:
+- Updated README.md with strategy examples
+- Updated docs/COIN_STATS.md with comprehensive strategy guide
+- Added comparison table and execution flow examples
+
+**Related Files**:
+- `tools/coin_stats.py`: Main implementation (lines 1108-1365)
+- `tests/test_coin_stats_strategy.py`: New test file (3 tests)
+- `tests/test_coin_stats.py`: Fixed existing tests (lines 409-420, 569-580)
+- `README.md`: Added strategy examples
+- `docs/COIN_STATS.md`: Added comprehensive strategy section
+
+**User Impact**: Users can now generate configs for both accumulation strategies (buy-then-sell) and profit-taking strategies (sell-then-buy) for long-term holdings.
+
+---
