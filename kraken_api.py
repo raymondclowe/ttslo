@@ -283,30 +283,32 @@ class KrakenAPI:
         # Remove funding suffix
         if asset.endswith('.F'):
             asset = asset[:-2]
-        # Strip leading X/Z
-        asset = asset.lstrip('XZ')
-        # Special case: BTC always normalized to 'XXBT'
+        
+        # Special cases: Check BEFORE stripping prefixes to handle double-prefix assets
+        # BTC: XXBT, XBT all normalized to 'XXBT'
         if asset in ('XBT', 'XXBT'):
             return 'XXBT'
-        # ETH always normalized to 'XETH'
-        if asset in ('ETH', 'XETH'):
+        # ETH: XETH, ETH all normalized to 'XETH'
+        if asset in ('ETH', 'XETH', 'XXETH'):
             return 'XETH'
-        # USDT always normalized to 'USDT'
-        if asset in ('USDT', 'USDT'):
-            return 'USDT'
-        # USDC always normalized to 'USDC'
-        if asset in ('USDC', 'USDC'):
-            return 'USDC'
-        # ZUSD always normalized to 'ZUSD'
+        # Fiat currencies: normalize to Z-prefixed form
         if asset in ('USD', 'ZUSD'):
             return 'ZUSD'
-        # ZGBP always normalized to 'ZGBP'
-        if asset in ('GBP', 'ZGBP'):
-            return 'ZGBP'
-        # ZEUR always normalized to 'ZEUR'
         if asset in ('EUR', 'ZEUR'):
             return 'ZEUR'
-        return asset
+        if asset in ('GBP', 'ZGBP'):
+            return 'ZGBP'
+        # Stablecoins: keep as-is (no prefix)
+        if asset in ('USDT', 'USDC'):
+            return asset
+        
+        # For other assets: strip leading X/Z prefix
+        # This handles cases like XDYDX -> DYDX, but NOT double-X cases which should be caught above
+        stripped = asset.lstrip('XZ')
+        # If stripping removed everything, return original (edge case)
+        if not stripped:
+            return asset
+        return stripped
 
     def get_normalized_balances(self) -> dict:
         """
@@ -330,7 +332,6 @@ class KrakenAPI:
         #     if len(contribs) > 1:
         #         print(f"[DEBUG] {norm} combined from: {contribs}")
         return normalized
-    """Client for interacting with Kraken API."""
     
     # Shared WebSocket price provider (singleton pattern for efficiency)
     _ws_provider = None

@@ -77,12 +77,24 @@ def mock_prices():
 
 def test_insufficient_balance_sell_order(mock_configs_sell, mock_state, mock_prices):
     """Test that insufficient balance is detected for sell orders."""
+    from kraken_api import KrakenAPI
+    
     mock_api = MagicMock()
     mock_api.get_balance.return_value = {
         'ZUSD': '100.0',  # $100 USD
         'SOL': '5.0',      # 5 SOL
         'XXBT': '0.001'    # 0.001 BTC
     }
+    # Add the normalization method
+    mock_api._normalize_asset_key = KrakenAPI._normalize_asset_key
+    # Add get_normalized_balances method
+    def get_normalized_balances():
+        result = {}
+        for k, v in mock_api.get_balance().items():
+            norm = KrakenAPI._normalize_asset_key(k)
+            result[norm] = float(v)
+        return result
+    mock_api.get_normalized_balances = get_normalized_balances
     
     # Patch at the module level to bypass cache
     with patch.object(dashboard, 'get_cached_config', return_value=mock_configs_sell), \
@@ -108,12 +120,24 @@ def test_insufficient_balance_sell_order(mock_configs_sell, mock_state, mock_pri
 
 def test_insufficient_balance_buy_order(mock_configs_buy, mock_state, mock_prices):
     """Test that insufficient balance is detected for buy orders."""
+    from kraken_api import KrakenAPI
+    
     mock_api = MagicMock()
     mock_api.get_balance.return_value = {
         'ZUSD': '100.0',  # $100 USD
         'SOL': '5.0',      # 5 SOL
         'XXBT': '0.001'    # 0.001 BTC
     }
+    # Add the normalization method
+    mock_api._normalize_asset_key = KrakenAPI._normalize_asset_key
+    # Add get_normalized_balances method
+    def get_normalized_balances():
+        result = {}
+        for k, v in mock_api.get_balance().items():
+            norm = KrakenAPI._normalize_asset_key(k)
+            result[norm] = float(v)
+        return result
+    mock_api.get_normalized_balances = get_normalized_balances
     
     with patch.object(dashboard, 'get_cached_config', return_value=mock_configs_buy), \
          patch.object(dashboard, 'get_cached_state', return_value=mock_state), \
@@ -176,7 +200,8 @@ def test_balance_check_error_handling():
     }]
     
     mock_api = MagicMock()
-    mock_api.get_balance.side_effect = Exception("API error")
+    # Make get_normalized_balances raise an error
+    mock_api.get_normalized_balances.side_effect = Exception("API error")
     
     with patch.object(dashboard, 'get_cached_config', return_value=mock_configs), \
          patch.object(dashboard, 'get_cached_state', return_value={}), \

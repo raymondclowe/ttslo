@@ -207,26 +207,25 @@ class TTSLO:
     def _normalize_asset(self, asset: str) -> str:
         """
         Normalize asset key by removing X prefix and .F suffix.
+        Must match the normalization used in kraken_api._normalize_asset_key()
+        to ensure balance lookups work correctly.
         
         Examples:
-            'XXBT' -> 'BT'
-            'XBT.F' -> 'BT'
+            'XXBT' -> 'XXBT' (BTC always uses double-X form)
+            'XBT' -> 'XXBT'
+            'XBT.F' -> 'XXBT' (funding wallet)
+            'XETH' -> 'XETH'
+            'ETH' -> 'XETH'
             
         Args:
             asset: Asset key from Kraken API
             
         Returns:
-            Normalized asset key
+            Normalized asset key matching kraken_api._normalize_asset_key()
         """
-        if not asset:
-            return ''
-        asset = asset.upper().strip()
-        # Remove funding suffix
-        if asset.endswith('.F'):
-            asset = asset[:-2]
-        # Strip leading X or Z characters commonly used by Kraken
-        asset = asset.lstrip('XZ')
-        return asset
+        # Use the same normalization as kraken_api to ensure consistency
+        from kraken_api import KrakenAPI
+        return KrakenAPI._normalize_asset_key(asset)
     
     def _extract_base_asset(self, pair: str) -> str:
         """
