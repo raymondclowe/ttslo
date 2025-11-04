@@ -77,9 +77,11 @@ def test_trigger_notification_sent_only_once_on_insufficient_balance():
     
     # Verify trigger notification was sent in cycle 1
     assert notification_manager.notify_trigger_price_reached.call_count == 1
-    assert notification_manager.notify_trigger_price_reached.call_args[0] == (
-        config_id, 'XXBTZUSD', 100.0, 99.0, 'above'
-    )
+    # Note: linked_order_id is now the 6th parameter (optional, defaults to None)
+    call_args = notification_manager.notify_trigger_price_reached.call_args[0]
+    assert call_args[0:5] == (config_id, 'XXBTZUSD', 100.0, 99.0, 'above')
+    # The 6th parameter is linked_order_id which should be None for this test
+    assert len(call_args) == 6 and call_args[5] is None
     
     # Verify insufficient balance notification was sent in cycle 1
     # Note: This goes through _handle_order_error_state which checks error_notified flag
