@@ -332,7 +332,6 @@ class KrakenAPI:
         #     if len(contribs) > 1:
         #         print(f"[DEBUG] {norm} combined from: {contribs}")
         return normalized
-    """Client for interacting with Kraken API."""
     
     # Shared WebSocket price provider (singleton pattern for efficiency)
     _ws_provider = None

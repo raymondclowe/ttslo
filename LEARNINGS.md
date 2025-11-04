@@ -2,6 +2,58 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Kraken Balance Normalization - Double Prefix Bug (2025-11-04)
+
+**Problem**: Assets with double prefixes (XXBT, XXETH) failed to normalize correctly, breaking balance aggregation.
+
+**Root Cause**:
+- `_normalize_asset_key()` used `asset.lstrip('XZ')` to remove leading X/Z characters
+- **`lstrip()` removes ALL leading occurrences**, not just first char:
+  - `'XXBT'.lstrip('XZ')` = `'BT'` (removes BOTH X's)
+  - `'XETH'.lstrip('XZ')` = `'ETH'` (removes one X)
+- Special case checks happened AFTER stripping, so `if asset in ('XBT', 'XXBT')` never matched
+- Result: XXBT normalized to 'BT', XBT normalized to 'BT', XBT.F normalized to 'BT'
+- But Kraken API returns balances with keys like 'XXBT' and 'XBT.F'
+- Balance lookups for 'BT' vs 'XXBT' failed
+
+**Solution**: Check special cases BEFORE stripping to handle double-prefix assets correctly:
+```python
+# BEFORE (broken)
+asset = asset.lstrip('XZ')  # Strips ALL leading X/Z
+if asset in ('XBT', 'XXBT'):  # Never matches after strip
+    return 'XXBT'
+
+# AFTER (fixed)
+# Check special cases FIRST
+if asset in ('XBT', 'XXBT'):
+    return 'XXBT'
+if asset in ('ETH', 'XETH', 'XXETH'):
+    return 'XETH'
+# Then strip for other assets
+return asset.lstrip('XZ')
+```
+
+**Key Insights**:
+1. **`lstrip()` behavior**: Removes ALL leading chars in set, not just one
+2. **Order matters**: Check special cases BEFORE generic transformations
+3. **Consistency critical**: Both `kraken_api.py` and `ttslo.py` must use same normalization
+4. **Test all variants**: XXBT, XBT, XBT.F, XETH, ETH, ETH.F, etc.
+5. **Balance aggregation**: Spot wallet ('XXBT') + funding wallet ('XBT.F') must aggregate under same key
+
+**Testing**:
+- 15 new tests in `test_kraken_balance_double_prefix.py`
+- All BTC variants (XXBT, XBT, XBT.F) → 'XXBT'
+- All ETH variants (XETH, ETH, ETH.F) → 'XETH'
+- Updated existing tests to match new normalization
+
+**Related Files**:
+- `kraken_api.py`: Lines 274-309 (_normalize_asset_key)
+- `ttslo.py`: Lines 207-228 (_normalize_asset, now delegates to kraken_api)
+- `tests/test_kraken_balance_double_prefix.py`: Comprehensive test suite
+- `tests/test_insufficient_balance.py`: Updated expectations
+
+---
+
 ## Dashboard Order Details Grid Removal (2025-11-04)
 
 **Problem**: Order details cards in dashboard were too cramped with 2-column grid layout, reducing readability.
