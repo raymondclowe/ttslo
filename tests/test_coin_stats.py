@@ -408,8 +408,16 @@ def test_generate_config_suggestions_custom_params():
             
             # Check bracket offset by comparing prices
             mean_price = analyzer.calculate_statistics(candles)['mean']
-            sell_price = float(rows[0]['threshold_price'])
-            buy_price = float(rows[1]['threshold_price'])
+            
+            # Find buy and sell orders (order may vary based on strategy)
+            buy_row = next((r for r in rows if r['direction'] == 'buy'), None)
+            sell_row = next((r for r in rows if r['direction'] == 'sell'), None)
+            
+            assert buy_row is not None, "Should have buy order"
+            assert sell_row is not None, "Should have sell order"
+            
+            sell_price = float(sell_row['threshold_price'])
+            buy_price = float(buy_row['threshold_price'])
             
             # Sell should be ~10% above mean
             sell_offset = ((sell_price - mean_price) / mean_price) * 100
@@ -560,8 +568,16 @@ def test_generate_config_suggestions_custom_params():
             
             # Check bracket offset by comparing prices
             mean_price = analyzer.calculate_statistics(candles)['mean']
-            sell_price = float(rows[0]['threshold_price'])
-            buy_price = float(rows[1]['threshold_price'])
+            
+            # Find buy and sell orders (order may vary based on strategy)
+            buy_row = next((r for r in rows if r['direction'] == 'buy'), None)
+            sell_row = next((r for r in rows if r['direction'] == 'sell'), None)
+            
+            assert buy_row is not None, "Should have buy order"
+            assert sell_row is not None, "Should have sell order"
+            
+            sell_price = float(sell_row['threshold_price'])
+            buy_price = float(buy_row['threshold_price'])
             
             # Sell should be ~10% above mean
             sell_offset = ((sell_price - mean_price) / mean_price) * 100

@@ -1107,13 +1107,25 @@ def calculate_profit_based_params(stats, analyzer, target_profit_pct, profit_day
 
 def generate_config_suggestions(results, analyzer, output_file='suggested_config.csv', 
                                bracket_offset_pct=2.0, trailing_offset_pct=1.0,
-                               target_usd_volume=1.0, target_profit_pct=None, profit_days=7):
+                               target_usd_volume=1.0, target_profit_pct=None, profit_days=7,
+                               strategy='buy-then-sell'):
     """
     Generate suggested config.csv entries using bracket strategy.
     
     TWO MODES:
     1. LEGACY MODE (target_profit_pct=None): Uses fixed bracket_offset_pct and trailing_offset_pct
     2. PROFIT-BASED MODE (target_profit_pct set): Calculates optimal params for target profit
+    
+    TWO STRATEGIES:
+    1. BUY-THEN-SELL (default): Buy dip first (enabled=true), then sell high (linked, enabled=false)
+       - Best for accumulating assets or trading volatile coins
+       - First order: BUY when price drops below threshold
+       - Second order: SELL when price rises above threshold (activates after buy fills)
+    
+    2. SELL-THEN-BUY: Sell boom first (enabled=true), then buy back lower (linked, enabled=false)
+       - Best for assets you want to hold long-term (BTC, ETH)
+       - First order: SELL when price rises above threshold (take profit)
+       - Second order: BUY when price drops below threshold (re-accumulate, activates after sell fills)
     
     PROFIT-BASED MODE:
     - Calculates trigger price and trailing offset to achieve target profit
@@ -1151,6 +1163,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         target_usd_volume: Target volume in USD (default: 1.0)
         target_profit_pct: Target profit percentage (default: None for legacy mode)
         profit_days: Number of days for profit window (default: 7)
+        strategy: 'buy-then-sell' or 'sell-then-buy' (default: 'buy-then-sell')
     """
     if not results:
         return None
@@ -1174,6 +1187,13 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         print(f"Total pairs analyzed: {len(valid_results)}")
         print(f"Target profit: {target_profit_pct:.1f}% (after trailing offset slippage)")
         print(f"Profit window: {profit_days} days")
+        print(f"Strategy: {strategy}")
+        if strategy == 'sell-then-buy':
+            print(f"  - SELL when price rises (take profit, enabled=true)")
+            print(f"  - BUY when price drops (re-accumulate, enabled=false, linked)")
+        else:
+            print(f"  - BUY when price drops (accumulate, enabled=true)")
+            print(f"  - SELL when price rises (take profit, enabled=false, linked)")
         print(f"Target USD volume: ${target_usd_volume:.2f} +/- 25%")
         print(f"Timestamp: {timestamp_str}")
         print(f"{'='*70}\n")
@@ -1195,6 +1215,13 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         print(f"{'='*70}")
         print(f"Total pairs analyzed: {len(valid_results)}")
         print(f"Total entries (2 per pair): {n_total_entries}")
+        print(f"Strategy: {strategy}")
+        if strategy == 'sell-then-buy':
+            print(f"  - SELL when price rises (take profit, enabled=true)")
+            print(f"  - BUY when price drops (re-accumulate, enabled=false, linked)")
+        else:
+            print(f"  - BUY when price drops (accumulate, enabled=true)")
+            print(f"  - SELL when price rises (take profit, enabled=false, linked)")
         print(f"Per-entry probability: {per_entry_probability*100:.2f}%")
         print(f"Portfolio probability (at least one triggers): 95.0%")
         print(f"Bracket offset: ±{bracket_offset_pct:.1f}% from current price")
@@ -1205,7 +1232,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     
     with open(output_file, 'w', newline='') as csvfile:
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
-                     'direction', 'volume', 'trailing_offset_percent', 'enabled']
+                     'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         
@@ -1291,32 +1318,70 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             else:
                 volume_format = '.8f'
             
-            # Create SELL bracket entry (price goes above)
-            entry_count += 1
+            # Generate order IDs
             pair_short = analyzer.format_pair_name(pair).replace('/', '_').lower()
-            writer.writerow({
-                'id': f"{pair_short}_sell_{timestamp_str}_{entry_count}",
-                'pair': pair,
-                'threshold_price': f"{upper_bracket:{price_format}}",
-                'threshold_type': 'above',
-                'direction': 'sell',
-                'volume': f"{volume:{volume_format}}",
-                'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
-                'enabled': 'true'
-            })
+            sell_id = f"{pair_short}_sell_{timestamp_str}_{entry_count + 1}"
+            buy_id = f"{pair_short}_buy_{timestamp_str}_{entry_count + 2}"
             
-            # Create BUY bracket entry (price goes below)
-            entry_count += 1
-            writer.writerow({
-                'id': f"{pair_short}_buy_{timestamp_str}_{entry_count}",
-                'pair': pair,
-                'threshold_price': f"{lower_bracket:{price_format}}",
-                'threshold_type': 'below',
-                'direction': 'buy',
-                'volume': f"{volume:{volume_format}}",
-                'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
-                'enabled': 'true'
-            })
+            # Create orders based on strategy
+            if strategy == 'sell-then-buy':
+                # SELL-THEN-BUY: Sell boom first (take profit), then buy back lower (re-accumulate)
+                # First order: SELL when price goes ABOVE (enabled=true)
+                entry_count += 1
+                writer.writerow({
+                    'id': sell_id,
+                    'pair': pair,
+                    'threshold_price': f"{upper_bracket:{price_format}}",
+                    'threshold_type': 'above',
+                    'direction': 'sell',
+                    'volume': f"{volume:{volume_format}}",
+                    'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
+                    'enabled': 'true',
+                    'linked_order_id': buy_id
+                })
+                
+                # Second order: BUY when price goes BELOW (enabled=false, activates after sell fills)
+                entry_count += 1
+                writer.writerow({
+                    'id': buy_id,
+                    'pair': pair,
+                    'threshold_price': f"{lower_bracket:{price_format}}",
+                    'threshold_type': 'below',
+                    'direction': 'buy',
+                    'volume': f"{volume:{volume_format}}",
+                    'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
+                    'enabled': 'false',
+                    'linked_order_id': ''
+                })
+            else:
+                # BUY-THEN-SELL (default): Buy dip first, then sell high
+                # First order: BUY when price goes BELOW (enabled=true)
+                entry_count += 1
+                writer.writerow({
+                    'id': buy_id,
+                    'pair': pair,
+                    'threshold_price': f"{lower_bracket:{price_format}}",
+                    'threshold_type': 'below',
+                    'direction': 'buy',
+                    'volume': f"{volume:{volume_format}}",
+                    'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
+                    'enabled': 'true',
+                    'linked_order_id': sell_id
+                })
+                
+                # Second order: SELL when price goes ABOVE (enabled=false, activates after buy fills)
+                entry_count += 1
+                writer.writerow({
+                    'id': sell_id,
+                    'pair': pair,
+                    'threshold_price': f"{upper_bracket:{price_format}}",
+                    'threshold_type': 'above',
+                    'direction': 'sell',
+                    'volume': f"{volume:{volume_format}}",
+                    'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
+                    'enabled': 'false',
+                    'linked_order_id': ''
+                })
     
     print(f"\n{'='*70}")
     print(f"Config generation complete:")
@@ -1439,6 +1504,13 @@ def main():
         default=7,
         help='Number of days within which profit should be achievable (default: 7)'
     )
+    parser.add_argument(
+        '--strategy',
+        type=str,
+        choices=['buy-then-sell', 'sell-then-buy'],
+        default='buy-then-sell',
+        help='Trading strategy: "buy-then-sell" (default, buy dip then sell high) or "sell-then-buy" (sell boom then buy back lower, useful for assets you want to hold)'
+    )
     
     args = parser.parse_args()
     
@@ -1510,7 +1582,8 @@ def main():
                                               trailing_offset_pct=args.suggestoffset,
                                               target_usd_volume=args.target_usd_volume,
                                               target_profit_pct=args.percentage_profit,
-                                              profit_days=args.profit_days)
+                                              profit_days=args.profit_days,
+                                              strategy=args.strategy)
     if config_path:
         # Count how many pairs use each distribution
         normal_count = sum(1 for r in results 
@@ -1523,18 +1596,30 @@ def main():
         print(f"{'='*70}")
         print(f"\n✓ Suggested config saved to {config_path}")
         
+        # Print strategy description
+        print(f"\nStrategy: {args.strategy}")
+        if args.strategy == 'sell-then-buy':
+            print(f"  ✓ SELL when price rises (take profit, enabled=true)")
+            print(f"  ✓ BUY when price drops (re-accumulate, enabled=false, linked)")
+            print(f"  → Best for assets you want to hold long-term (BTC, ETH)")
+        else:
+            print(f"  ✓ BUY when price drops (accumulate, enabled=true)")
+            print(f"  ✓ SELL when price rises (take profit, enabled=false, linked)")
+            print(f"  → Best for accumulating assets or trading volatile coins")
+        
         if args.percentage_profit:
             print(f"\nProfit-Based Strategy Details:")
             print(f"  - Target profit: {args.percentage_profit:.1f}% (after trailing offset slippage)")
             print(f"  - Profit window: {args.profit_days} days")
-            print(f"  - Each pair gets TWO entries: buy and sell brackets")
+            print(f"  - Each pair gets TWO chained entries (linked orders)")
             print(f"  - Trigger prices and trailing offsets optimized per pair")
             print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
             print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
             print(f"  - Each bracket has >50% probability of triggering within {args.profit_days} days")
         else:
             print(f"\nBracket Strategy Details (Legacy Mode):")
-            print(f"  - Each pair gets TWO entries: buy bracket (-{args.suggestbracket}%) and sell bracket (+{args.suggestbracket}%)")
+            print(f"  - Each pair gets TWO chained entries (linked orders)")
+            print(f"  - Brackets: ±{args.suggestbracket}% from current price")
             print(f"  - Trailing offset: {args.suggestoffset}%")
             print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
             print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
