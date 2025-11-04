@@ -882,9 +882,11 @@ class TTSLO:
         # Send notification about TSL order created
         if self.notification_manager:
             try:
+                # Get linked order ID if present
+                linked_order_id = config.get('linked_order_id', '').strip() or None
                 self.notification_manager.notify_tsl_order_created(
                     config_id, order_id, pair, direction, volume,
-                    trailing_offset, trigger_price_float
+                    trailing_offset, trigger_price_float, linked_order_id
                 )
             except Exception as e:
                 self.log('WARNING', f'Failed to send TSL created notification: {str(e)}',
@@ -1123,12 +1125,14 @@ class TTSLO:
                 self.log('INFO', f'Order {order_id} for config {config_id} has been filled',
                         config_id=config_id, order_id=order_id)
                 
-                # Find the config to get pair information
+                # Find the config to get pair and linked order information
                 pair = None
+                linked_order_id = None
                 if self.configs:
                     for config in self.configs:
                         if config.get('id') == config_id:
                             pair = config.get('pair')
+                            linked_order_id = config.get('linked_order_id', '').strip() or None
                             break
                 
                 # Gather additional context we can provide in the notification.
@@ -1152,6 +1156,7 @@ class TTSLO:
                             trigger_price=trigger_price,
                             trigger_time=trigger_time,
                             offset=offset,
+                            linked_order_id=linked_order_id,
                         )
                         self.log('INFO', f'Sent fill notification for order {order_id}',
                                 config_id=config_id, order_id=order_id)
@@ -1357,9 +1362,11 @@ class TTSLO:
             if self.notification_manager and not self.state[config_id].get('trigger_notified'):
                 try:
                     threshold_price_float = float(threshold_price) if threshold_price != 'unknown' else 0
+                    # Get linked order ID if present
+                    linked_order_id = config.get('linked_order_id', '').strip() or None
                     self.notification_manager.notify_trigger_price_reached(
                         config_id, pair, float(current_price), 
-                        threshold_price_float, str(threshold_type)
+                        threshold_price_float, str(threshold_type), linked_order_id
                     )
                     # Mark that we've sent the trigger notification
                     self.state[config_id]['trigger_notified'] = True

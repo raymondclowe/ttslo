@@ -441,7 +441,7 @@ class NotificationManager:
     
     def notify_trigger_price_reached(self, config_id: str, pair: str, 
                                      current_price: float, threshold_price: float,
-                                     threshold_type: str):
+                                     threshold_type: str, linked_order_id: Optional[str] = None):
         """
         Notify that a trigger price has been reached.
         
@@ -451,6 +451,7 @@ class NotificationManager:
             current_price: Current price
             threshold_price: Threshold price
             threshold_type: Type of threshold (above/below)
+            linked_order_id: ID of linked order that will be activated when this order fills (optional)
         """
         message = (f"🎯 TTSLO: Trigger price reached!\n\n"
                   f"Config: {config_id}\n"
@@ -458,11 +459,15 @@ class NotificationManager:
                   f"Current Price: {current_price}\n"
                   f"Threshold: {threshold_price} ({threshold_type})")
         
+        if linked_order_id:
+            message += f"\n\n🔗 Linked Order: {linked_order_id}\n💡 Will be activated when this order fills"
+        
         self.notify_event('trigger_reached', message)
     
     def notify_tsl_order_created(self, config_id: str, order_id: str, 
                                 pair: str, direction: str, volume: str,
-                                trailing_offset: float, trigger_price: float):
+                                trailing_offset: float, trigger_price: float,
+                                linked_order_id: Optional[str] = None):
         """
         Notify that a TSL order has been created.
         
@@ -474,6 +479,7 @@ class NotificationManager:
             volume: Order volume
             trailing_offset: Trailing offset percentage
             trigger_price: Price at which threshold was triggered
+            linked_order_id: ID of linked order that will be activated when this order fills (optional)
         """
         message = (f"✅ TTSLO: Trailing Stop Loss order created!\n\n"
                   f"Config: {config_id}\n"
@@ -484,6 +490,9 @@ class NotificationManager:
                   f"Trailing Offset: {trailing_offset}%\n"
                   f"Trigger Price: {trigger_price}")
         
+        if linked_order_id:
+            message += f"\n\n🔗 Linked Order: {linked_order_id}\n💡 Will be activated when this order fills"
+        
         self.notify_event('tsl_created', message)
     
     def notify_tsl_order_filled(self, config_id: str, order_id: str,
@@ -492,7 +501,8 @@ class NotificationManager:
                                 trigger_price: Optional[str] = None,
                                 trigger_time: Optional[str] = None,
                                 offset: Optional[str] = None,
-                                fill_time: Optional[float] = None):
+                                fill_time: Optional[float] = None,
+                                linked_order_id: Optional[str] = None):
         """
         Notify that a TSL order has been filled.
         
@@ -501,6 +511,12 @@ class NotificationManager:
             order_id: Kraken order ID
             pair: Trading pair
             fill_price: Price at which order was filled (optional)
+            volume: Executed volume (optional)
+            trigger_price: Price at which order was triggered (optional)
+            trigger_time: Time at which order was triggered (optional)
+            offset: Trailing offset percentage (optional)
+            fill_time: Time at which order was filled (optional)
+            linked_order_id: ID of linked order that will be activated (optional)
         """
         message = (f"💰 TTSLO: Trailing Stop Loss order FILLED!\n\n"
                   f"Config: {config_id}\n"
@@ -541,6 +557,9 @@ class NotificationManager:
         if fill_time:
             ff = _format_hkt(fill_time)
             message += f"\nFilled At: {ff if ff else fill_time}"
+        
+        if linked_order_id:
+            message += f"\n\n🔗 Linked Order: {linked_order_id}\n✓ Now being activated..."
 
         self.notify_event('tsl_filled', message)
     
