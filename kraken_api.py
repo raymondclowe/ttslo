@@ -509,6 +509,7 @@ class KrakenAPI:
             print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
         
         
+        
         try:
             response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
             if self.debug:
