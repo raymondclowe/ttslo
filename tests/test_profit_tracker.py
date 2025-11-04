@@ -275,3 +275,22 @@ def test_print_summary_no_crash(temp_trades_file):
     tracker.record_order_fill('trade1', 49000, '2024-01-01T01:00:00', 'ORDER1')
     
     tracker.print_summary()
+
+
+def test_coin_stats_pattern_detection():
+    """Test detection of coin_stats generated config IDs."""
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tools'))
+    from profit_report import is_coin_stats_suggestion
+    
+    # coin_stats patterns (should return True)
+    assert is_coin_stats_suggestion('eth_usd_sell_202510300602_1')
+    assert is_coin_stats_suggestion('btc_usd_buy_202510300602_2')
+    assert is_coin_stats_suggestion('sol_usd_sell_202510300602_3')
+    
+    # Manual config patterns (should return False)
+    assert not is_coin_stats_suggestion('my_btc_trade')
+    assert not is_coin_stats_suggestion('btc_1')
+    assert not is_coin_stats_suggestion('custom_sell')
+    assert not is_coin_stats_suggestion('eth_sell')  # Missing full pattern

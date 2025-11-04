@@ -90,6 +90,79 @@ def print_detailed_trades(trades_file):
     print("="*120)
 
 
+def is_coin_stats_suggestion(config_id):
+    """Check if config_id is from coin_stats suggestions."""
+    import re
+    # Pattern: {pair}_{direction}_{YYYYMMDDHHMM}_{count}
+    # Example: eth_usd_sell_202510300602_1
+    pattern = r'.*_(buy|sell)_\d{12}_\d+$'
+    return bool(re.match(pattern, config_id))
+
+
+def print_profit_by_source(trades_file):
+    """Print profit summary by source (coin_stats vs manual)."""
+    if not os.path.exists(trades_file):
+        return
+    
+    trades = []
+    with open(trades_file, 'r', newline='') as f:
+        reader = csv.DictReader(f)
+        trades = list(reader)
+    
+    # Group by source
+    source_stats = {
+        'coin_stats': {'count': 0, 'profit': Decimal('0'), 'wins': 0, 'losses': 0},
+        'manual': {'count': 0, 'profit': Decimal('0'), 'wins': 0, 'losses': 0}
+    }
+    
+    for trade in trades:
+        if trade.get('status') != 'completed':
+            continue
+        
+        config_id = trade.get('config_id', '')
+        profit_loss = trade.get('profit_loss', '0')
+        
+        try:
+            pl = Decimal(profit_loss)
+        except (ValueError, InvalidOperation):
+            continue
+        
+        # Determine source
+        source = 'coin_stats' if is_coin_stats_suggestion(config_id) else 'manual'
+        
+        source_stats[source]['count'] += 1
+        source_stats[source]['profit'] += pl
+        if pl > 0:
+            source_stats[source]['wins'] += 1
+        elif pl < 0:
+            source_stats[source]['losses'] += 1
+    
+    if source_stats['coin_stats']['count'] == 0 and source_stats['manual']['count'] == 0:
+        return
+    
+    print("\n" + "="*80)
+    print("PROFIT BY SOURCE (coin_stats suggestions vs manual configs)")
+    print("="*80)
+    print(f"{'Source':<20} {'Trades':<10} {'Wins':<8} {'Losses':<10} {'Total P&L':<15} {'Win Rate':<12}")
+    print("-"*80)
+    
+    for source in ['coin_stats', 'manual']:
+        stats = source_stats[source]
+        if stats['count'] == 0:
+            continue
+        
+        count = stats['count']
+        profit = float(stats['profit'])
+        wins = stats['wins']
+        losses = stats['losses']
+        win_rate = (wins / count * 100) if count > 0 else 0
+        
+        source_label = 'coin_stats.py' if source == 'coin_stats' else 'Manual Config'
+        print(f"{source_label:<20} {count:<10} {wins:<8} {losses:<10} {format_currency(profit):<15} {win_rate:.1f}%")
+    
+    print("="*80)
+
+
 def print_profit_by_pair(trades_file):
     """Print profit summary grouped by trading pair."""
     if not os.path.exists(trades_file):
@@ -212,10 +285,12 @@ Examples:
                        help='Show detailed trade history')
     parser.add_argument('--by-pair', action='store_true',
                        help='Show profit grouped by trading pair')
+    parser.add_argument('--by-source', action='store_true',
+                       help='Show profit by source (coin_stats suggestions vs manual configs)')
     parser.add_argument('--metrics', action='store_true',
                        help='Show advanced performance metrics')
     parser.add_argument('--all', action='store_true',
-                       help='Show all reports (summary + detailed + by-pair + metrics)')
+                       help='Show all reports (summary + detailed + by-pair + by-source + metrics)')
     
     args = parser.parse_args()
     
@@ -236,6 +311,9 @@ Examples:
     if args.all or args.detailed:
         print_detailed_trades(args.trades_file)
     
+    if args.all or args.by_source:
+        print_profit_by_source(args.trades_file)
+    
     if args.all or args.by_pair:
         print_profit_by_pair(args.trades_file)
     
@@ -243,8 +321,8 @@ Examples:
         print_performance_metrics(tracker)
     
     # If no optional flags, suggest using them
-    if not (args.detailed or args.by_pair or args.metrics or args.all):
-        print("\nTip: Use --detailed, --by-pair, --metrics, or --all for more details")
+    if not (args.detailed or args.by_pair or args.by_source or args.metrics or args.all):
+        print("\nTip: Use --detailed, --by-pair, --by-source, --metrics, or --all for more details")
 
 
 if __name__ == '__main__':
