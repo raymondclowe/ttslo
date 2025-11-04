@@ -174,6 +174,13 @@ python3 tools/coin_stats.py --output-dir /path/to/graphs
 --target-usd-volume TARGET_USD_VOLUME
     Target volume in USD for suggested config (default: 1.0)
     Adds +/- 25% variance and ensures Kraken minimums are met
+
+--strategy STRATEGY
+    Trading strategy: 'buy-then-sell' or 'sell-then-buy' (default: 'buy-then-sell')
+    - buy-then-sell: Buy dip first (enabled), then sell high (linked, activates after buy fills)
+      Best for accumulating assets or trading volatile coins
+    - sell-then-buy: Sell boom first (enabled), then buy back lower (linked, activates after sell fills)
+      Best for assets you want to hold long-term (BTC, ETH)
     
 --json-output JSON_OUTPUT
     Save complete results to JSON file for further processing
@@ -358,6 +365,80 @@ Each pair generates a PNG file with two histograms:
 - Orange bars: Actual distribution
 - Red curve: Theoretical normal distribution (if applicable)
 - Centered around zero for stable assets
+
+## Trading Strategies
+
+The tool supports two trading strategies via the `--strategy` parameter:
+
+### Buy-Then-Sell (Default)
+
+**Best for**: Accumulating assets, trading volatile coins
+
+**How it works**:
+1. BUY order (enabled=true): Triggers when price drops below threshold
+2. SELL order (enabled=false, linked): Automatically activates when buy fills
+
+**Example**:
+```bash
+python3 tools/coin_stats.py \
+  --pairs SOLUSD ADAUSD \
+  --strategy buy-then-sell \
+  --suggestbracket 3.0 \
+  --suggestoffset 1.5
+```
+
+**Generated config**:
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id
+sol_usd_buy_1,SOLUSD,195.00,below,buy,0.0100,1.5,true,sol_usd_sell_2
+sol_usd_sell_2,SOLUSD,207.00,above,sell,0.0100,1.5,false,
+```
+
+**Execution flow**:
+1. Price drops to $195 → BUY order triggers (TSL with 1.5% offset)
+2. Buy fills → SELL order automatically enabled
+3. Price rises to $207 → SELL order triggers
+4. Result: Profit from $195 buy → $207 sell
+
+### Sell-Then-Buy
+
+**Best for**: Assets you want to hold long-term (BTC, ETH)
+
+**How it works**:
+1. SELL order (enabled=true): Triggers when price rises above threshold (take profit)
+2. BUY order (enabled=false, linked): Automatically activates when sell fills (re-accumulate)
+
+**Example**:
+```bash
+python3 tools/coin_stats.py \
+  --pairs XBTUSDT XETHZUSD \
+  --strategy sell-then-buy \
+  --suggestbracket 2.0 \
+  --suggestoffset 1.0
+```
+
+**Generated config**:
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id
+btc_usdt_sell_1,XBTUSDT,110500.00,above,sell,0.00005,1.0,true,btc_usdt_buy_2
+btc_usdt_buy_2,XBTUSDT,106000.00,below,buy,0.00005,1.0,false,
+```
+
+**Execution flow**:
+1. Price rises to $110,500 → SELL order triggers (take profit)
+2. Sell fills → BUY order automatically enabled
+3. Price drops to $106,000 → BUY order triggers (re-accumulate)
+4. Result: Hold BTC long-term while capturing profit cycles
+
+### Strategy Comparison
+
+| Feature | Buy-Then-Sell | Sell-Then-Buy |
+|---------|---------------|---------------|
+| **First action** | Buy the dip | Sell the boom |
+| **Use case** | Accumulation, trading | Long-term holding |
+| **Best for** | Volatile altcoins | BTC, ETH, quality assets |
+| **Risk** | May buy falling knife | May miss further gains |
+| **Benefit** | Captures upside | Takes profit, re-enters lower |
 
 ## Use Cases
 

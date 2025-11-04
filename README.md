@@ -384,7 +384,15 @@ python3 tools/coin_stats.py \
   --profit-days 7 \
   --target-usd-volume 2.0
 
-# Legacy bracket strategy
+# Sell-then-buy strategy for HODLed assets (BTC, ETH)
+python3 tools/coin_stats.py \
+  --pairs XBTUSDT XETHZUSD \
+  --strategy sell-then-buy \
+  --suggestbracket 2.0 \
+  --suggestoffset 1.0 \
+  --target-usd-volume 2.0
+
+# Legacy bracket strategy (buy-then-sell)
 python3 tools/coin_stats.py \
   --pairs XXBTZUSD XETHZUSD SOLUSD \
   --hours 48 \
@@ -409,10 +417,16 @@ The tool:
   - Ensures >50% probability of success within specified timeframe
   - Reports unsuitable coins with plausible profit alternatives
   - Example: `--percentage-profit 5.0 --profit-days 7` finds pairs that can achieve 5% profit within 7 days
+- **NEW: Strategy selection** (--strategy parameter)
+  - **buy-then-sell** (default): Buy dip first (enabled), then sell high (linked, activates after buy fills)
+    - Best for accumulating assets or trading volatile coins
+  - **sell-then-buy**: Sell boom first (enabled), then buy back lower (linked, activates after sell fills)
+    - Best for assets you want to hold long-term (BTC, ETH) - take profit on rallies, re-accumulate on dips
 - Legacy: Bracket strategy with fixed offsets (default mode)
   - Uses fixed bracket and trailing offsets (--suggestbracket, --suggestoffset)
   - Portfolio-optimized for 95% chance at least one entry triggers
   - Active when --percentage-profit is NOT specified
+  - Generates chained orders using linked_order_id feature
 - Intelligent volume calculation based on target USD value
   - Converts USD target to coin units with +/- 25% variance
   - Ensures Kraken minimum order requirements (ordermin) are met
