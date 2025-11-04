@@ -117,6 +117,7 @@ class TestBalancesAPI:
         
         # Import function directly to bypass caching
         from dashboard import get_balances_and_risks
+        from kraken_api import KrakenAPI
         
         # Setup: Buy 2.40 ATOM at $10 each = need $24 USD
         mock_pending.return_value = [
@@ -126,7 +127,16 @@ class TestBalancesAPI:
         mock_prices.return_value = {'ATOMUSD': 10.0}  # $10 per ATOM
         
         # User has 0 ATOM but $50 ZUSD - should be SAFE for buy order
-        mock_api.get_balance.return_value = {'ATOM': 0.0, 'ZUSD': 50.0}
+        raw_balance = {'ATOM': 0.0, 'ZUSD': 50.0}
+        mock_api.get_balance.return_value = raw_balance
+        # Add _normalize_asset_key to the mock
+        mock_api._normalize_asset_key = KrakenAPI._normalize_asset_key
+        # Provide get_normalized_balances using real normalization logic
+        normalized_balance = {
+            'ATOM': 0.0,      # ATOM stays as ATOM (no normalization needed)
+            'ZUSD': 50.0      # ZUSD stays as ZUSD  
+        }
+        mock_api.get_normalized_balances.return_value = normalized_balance
         
         # Call function directly, bypassing Flask/cache
         data = get_balances_and_risks()

@@ -28,6 +28,25 @@ class MockKrakenAPI:
         """Return mock balance."""
         return self.balance
     
+    def get_normalized_balances(self):
+        """Return normalized balances using same logic as real API."""
+        from kraken_api import KrakenAPI
+        normalized = {}
+        for k, v in self.balance.items():
+            norm = KrakenAPI._normalize_asset_key(k)
+            try:
+                amount = float(v)
+            except Exception:
+                continue
+            normalized.setdefault(norm, 0.0)
+            normalized[norm] += amount
+        return normalized
+    
+    def get_asset_pair_info(self, pair):
+        """Return mock pair info."""
+        # Return None to skip minimum volume check in tests
+        return None
+    
     def add_trailing_stop_loss(self, pair, direction, volume, trailing_offset_percent, **kwargs):
         """Mock order creation."""
         self.add_order_calls.append({
@@ -356,12 +375,13 @@ def test_normalize_asset():
     )
     
     # Test various asset key formats
-    assert ttslo._normalize_asset('XXBT') == 'BT'
-    assert ttslo._normalize_asset('XBT.F') == 'BT'
-    assert ttslo._normalize_asset('XETH') == 'ETH'
-    assert ttslo._normalize_asset('ETH.F') == 'ETH'
+    # After fixing double-prefix bug, XXBT normalizes to XXBT (not BT)
+    assert ttslo._normalize_asset('XXBT') == 'XXBT'
+    assert ttslo._normalize_asset('XBT.F') == 'XXBT'
+    assert ttslo._normalize_asset('XETH') == 'XETH'
+    assert ttslo._normalize_asset('ETH.F') == 'XETH'
     assert ttslo._normalize_asset('SOL') == 'SOL'
-    assert ttslo._normalize_asset('ZUSD') == 'USD'
+    assert ttslo._normalize_asset('ZUSD') == 'ZUSD'
 
 
 def test_extract_base_asset():
