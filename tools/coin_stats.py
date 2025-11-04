@@ -20,6 +20,7 @@ import statistics
 from pathlib import Path
 import json
 import csv
+import math
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -977,13 +978,150 @@ def calculate_volume_for_pair(api, pair, current_price, target_usd_volume=1.0):
     return volume
 
 
+def calculate_profit_based_params(stats, analyzer, target_profit_pct, profit_days, 
+                                  min_trailing_offset_pct=1.0):
+    """
+    Calculate optimal trigger price and trailing offset to achieve target profit.
+    
+    PROFIT CALCULATION:
+    - Actual profit = price_movement - trailing_offset_slippage
+    - For target profit of 5%: need movement of (5% + trailing_offset%)
+    - Example: 5% profit + 2% trailing = 7% total movement needed
+    
+    VOLATILITY ANALYSIS:
+    - Uses random walk model: σ_N_days = σ_minute × sqrt(N_days × 1440)
+    - Calculates probability of achieving required movement
+    - Ensures >50% probability for bracket to trigger
+    
+    Args:
+        stats: Statistics from calculate_statistics
+        analyzer: CoinStatsAnalyzer instance
+        target_profit_pct: Target profit percentage (e.g., 5.0)
+        profit_days: Number of days for profit window (e.g., 7)
+        min_trailing_offset_pct: Minimum trailing offset (default: 1.0, TTSLO minimum)
+        
+    Returns:
+        dict with:
+        - achievable: bool, whether target is achievable with >50% probability
+        - trigger_offset_pct: Recommended trigger price offset from current
+        - trailing_offset_pct: Recommended trailing offset
+        - plausible_profit_pct: Maximum plausible profit given volatility
+        - probability: Probability of achieving target profit
+        - total_movement_needed_pct: Total price movement needed (profit + slippage)
+    """
+    if not stats or 'pct_stdev' not in stats:
+        return {
+            'achievable': False,
+            'trigger_offset_pct': 0,
+            'trailing_offset_pct': min_trailing_offset_pct,
+            'plausible_profit_pct': 0,
+            'probability': 0,
+            'total_movement_needed_pct': 0,
+            'reason': 'Insufficient statistics'
+        }
+    
+    pct_stdev_minute = stats.get('pct_stdev', 0)
+    if pct_stdev_minute == 0:
+        return {
+            'achievable': False,
+            'trigger_offset_pct': 0,
+            'trailing_offset_pct': min_trailing_offset_pct,
+            'plausible_profit_pct': 0,
+            'probability': 0,
+            'total_movement_needed_pct': 0,
+            'reason': 'Zero volatility'
+        }
+    
+    # Import scipy stats once at function level
+    from scipy import stats as scipy_stats
+    
+    # Calculate volatility over profit_days period
+    time_horizon_minutes = profit_days * 1440  # days to minutes
+    pct_stdev_horizon = pct_stdev_minute * math.sqrt(time_horizon_minutes)
+    
+    # Get distribution info
+    dist_fit = stats.get('distribution_fit', {})
+    best_fit = dist_fit.get('best_fit', 'normal')
+    df = dist_fit.get('df')
+    
+    # Strategy: Start with minimum trailing offset, iterate to find optimal
+    best_config = None
+    
+    for trailing_offset_pct in [min_trailing_offset_pct, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]:
+        # Total movement needed = target profit + trailing offset slippage
+        total_movement_needed_pct = target_profit_pct + trailing_offset_pct
+        
+        # Calculate z-score (or t-score)
+        z_score = total_movement_needed_pct / pct_stdev_horizon
+        
+        # Calculate probability of achieving this movement
+        if best_fit == 'student_t' and df is not None:
+            # Use Student's t-distribution
+            prob = 2 * (1 - scipy_stats.t.cdf(z_score, df))
+        else:
+            # Use normal distribution
+            prob = 2 * (1 - scipy_stats.norm.cdf(z_score))
+        
+        # We want >50% probability for at least one bracket to trigger
+        # With two brackets (buy + sell), single bracket needs >25% probability
+        if prob >= 0.50:  # At least 50% chance for portfolio (both brackets)
+            if not best_config or trailing_offset_pct < best_config['trailing_offset_pct']:
+                best_config = {
+                    'achievable': True,
+                    'trigger_offset_pct': total_movement_needed_pct,
+                    'trailing_offset_pct': trailing_offset_pct,
+                    'plausible_profit_pct': target_profit_pct,
+                    'probability': prob,
+                    'total_movement_needed_pct': total_movement_needed_pct,
+                    'reason': 'Target achievable'
+                }
+    
+    # If no configuration works, calculate plausible profit
+    if not best_config:
+        # Use minimum trailing offset
+        trailing_offset_pct = min_trailing_offset_pct
+        
+        # Find maximum movement with >50% probability
+        if best_fit == 'student_t' and df is not None:
+            # For 50% probability, we need z_score where P(|X| > z) = 0.5
+            # This means P(X > z) = 0.25
+            z_50pct = scipy_stats.t.ppf(0.75, df)
+        else:
+            z_50pct = scipy_stats.norm.ppf(0.75)
+        
+        max_movement_pct = z_50pct * pct_stdev_horizon
+        plausible_profit_pct = max(0, max_movement_pct - trailing_offset_pct)
+        
+        best_config = {
+            'achievable': False,
+            'trigger_offset_pct': max_movement_pct,
+            'trailing_offset_pct': trailing_offset_pct,
+            'plausible_profit_pct': plausible_profit_pct,
+            'probability': 0.50,
+            'total_movement_needed_pct': max_movement_pct,
+            'reason': f'Insufficient volatility: max plausible profit ~{plausible_profit_pct:.2f}%'
+        }
+    
+    return best_config
+
+
 def generate_config_suggestions(results, analyzer, output_file='suggested_config.csv', 
                                bracket_offset_pct=2.0, trailing_offset_pct=1.0,
-                               target_usd_volume=1.0):
+                               target_usd_volume=1.0, target_profit_pct=None, profit_days=7):
     """
     Generate suggested config.csv entries using bracket strategy.
     
-    BRACKET STRATEGY:
+    TWO MODES:
+    1. LEGACY MODE (target_profit_pct=None): Uses fixed bracket_offset_pct and trailing_offset_pct
+    2. PROFIT-BASED MODE (target_profit_pct set): Calculates optimal params for target profit
+    
+    PROFIT-BASED MODE:
+    - Calculates trigger price and trailing offset to achieve target profit
+    - Accounts for slippage: actual_profit = movement - trailing_offset
+    - Uses volatility analysis to ensure >50% probability of success
+    - Reports unsuitable coins with plausible profit alternatives
+    
+    LEGACY MODE (BRACKET STRATEGY):
     - Each pair gets TWO entries: buy bracket below and sell bracket above
     - Configurable bracket offset from current price (default 2%)
     - Configurable trailing offset (default 1%, TTSLO minimum)
@@ -1008,9 +1146,11 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         results: List of analysis results
         analyzer: CoinStatsAnalyzer instance
         output_file: Path to suggested config CSV file
-        bracket_offset_pct: Percentage offset for brackets (default: 2.0)
-        trailing_offset_pct: Trailing offset percentage (default: 1.0)
+        bracket_offset_pct: Percentage offset for brackets (default: 2.0) [Legacy mode only]
+        trailing_offset_pct: Trailing offset percentage (default: 1.0) [Legacy mode only]
         target_usd_volume: Target volume in USD (default: 1.0)
+        target_profit_pct: Target profit percentage (default: None for legacy mode)
+        profit_days: Number of days for profit window (default: 7)
     """
     if not results:
         return None
@@ -1021,32 +1161,47 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
     if not valid_results:
         return None
     
-    # Calculate required per-entry probability for 95% portfolio probability
-    # Each pair contributes 2 entries (buy + sell bracket)
-    n_total_entries = len(valid_results) * 2
-    # Portfolio probability: 1 - (1-p)^n = 0.95
-    # Solving for p: p = 1 - (0.05)^(1/n)
-    import math
-    per_entry_probability = 1 - math.pow(0.05, 1.0 / n_total_entries)
-    
-    # Convert to "probability of exceeding threshold" (1 - tail_prob)
-    tail_probability = 1 - per_entry_probability
-    
     # Generate timestamp for IDs (format: YYYYMMDDHHMM)
     timestamp_str = datetime.now(timezone.utc).strftime('%Y%m%d%H%M')
     
-    print(f"\n{'='*70}")
-    print(f"BRACKET STRATEGY CONFIG GENERATION")
-    print(f"{'='*70}")
-    print(f"Total pairs analyzed: {len(valid_results)}")
-    print(f"Total entries (2 per pair): {n_total_entries}")
-    print(f"Per-entry probability: {per_entry_probability*100:.2f}%")
-    print(f"Portfolio probability (at least one triggers): 95.0%")
-    print(f"Bracket offset: ±{bracket_offset_pct:.1f}% from current price")
-    print(f"Trailing offset: {trailing_offset_pct:.1f}%")
-    print(f"Target USD volume: ${target_usd_volume:.2f} +/- 25%")
-    print(f"Timestamp: {timestamp_str}")
-    print(f"{'='*70}\n")
+    # Determine mode
+    profit_based_mode = target_profit_pct is not None
+    
+    if profit_based_mode:
+        print(f"\n{'='*70}")
+        print(f"PROFIT-BASED CONFIG GENERATION")
+        print(f"{'='*70}")
+        print(f"Total pairs analyzed: {len(valid_results)}")
+        print(f"Target profit: {target_profit_pct:.1f}% (after trailing offset slippage)")
+        print(f"Profit window: {profit_days} days")
+        print(f"Target USD volume: ${target_usd_volume:.2f} +/- 25%")
+        print(f"Timestamp: {timestamp_str}")
+        print(f"{'='*70}\n")
+    else:
+        # Legacy mode
+        # Calculate required per-entry probability for 95% portfolio probability
+        # Each pair contributes 2 entries (buy + sell bracket)
+        n_total_entries = len(valid_results) * 2
+        # Portfolio probability: 1 - (1-p)^n = 0.95
+        # Solving for p: p = 1 - (0.05)^(1/n)
+        import math
+        per_entry_probability = 1 - math.pow(0.05, 1.0 / n_total_entries)
+        
+        # Convert to "probability of exceeding threshold" (1 - tail_prob)
+        tail_probability = 1 - per_entry_probability
+        
+        print(f"\n{'='*70}")
+        print(f"BRACKET STRATEGY CONFIG GENERATION (Legacy Mode)")
+        print(f"{'='*70}")
+        print(f"Total pairs analyzed: {len(valid_results)}")
+        print(f"Total entries (2 per pair): {n_total_entries}")
+        print(f"Per-entry probability: {per_entry_probability*100:.2f}%")
+        print(f"Portfolio probability (at least one triggers): 95.0%")
+        print(f"Bracket offset: ±{bracket_offset_pct:.1f}% from current price")
+        print(f"Trailing offset: {trailing_offset_pct:.1f}%")
+        print(f"Target USD volume: ${target_usd_volume:.2f} +/- 25%")
+        print(f"Timestamp: {timestamp_str}")
+        print(f"{'='*70}\n")
     
     with open(output_file, 'w', newline='') as csvfile:
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
@@ -1057,34 +1212,63 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         entry_count = 0
         pairs_included = 0
         pairs_excluded = 0
+        unsuitable_pairs = []  # Track pairs that don't meet criteria
         
         for analysis in valid_results:
             pair = analysis['pair']
             stats = analysis['stats']
+            pair_name = analyzer.format_pair_name(pair)
             
             # Get current mean price
             current_price = stats['mean']
             
-            # Calculate threshold prices for brackets
-            upper_bracket = current_price * (1 + bracket_offset_pct / 100)
-            lower_bracket = current_price * (1 - bracket_offset_pct / 100)
-            
-            # Check if movement is achievable with required probability
-            # Calculate what probability the pair can achieve for the bracket offset
-            threshold = analyzer.calculate_probability_threshold(stats, probability=tail_probability)
-            
-            if not threshold:
-                pairs_excluded += 1
-                continue
-            
-            # Check if the pair's volatility can achieve bracket offset with required probability
-            # If threshold_pct >= bracket_offset_pct, then movement is achievable with this probability
-            if threshold['threshold_pct'] < bracket_offset_pct:
-                # This pair's volatility is too low for the bracket offset to be probable enough
-                pairs_excluded += 1
-                continue
+            if profit_based_mode:
+                # Calculate optimal parameters for target profit
+                profit_config = calculate_profit_based_params(
+                    stats, analyzer, target_profit_pct, profit_days
+                )
+                
+                if not profit_config['achievable']:
+                    unsuitable_pairs.append({
+                        'pair': pair_name,
+                        'plausible_profit': profit_config['plausible_profit_pct'],
+                        'reason': profit_config['reason']
+                    })
+                    pairs_excluded += 1
+                    continue
+                
+                # Use calculated parameters
+                bracket_offset_pct_actual = profit_config['trigger_offset_pct']
+                trailing_offset_pct_actual = profit_config['trailing_offset_pct']
+                
+                print(f"✓ {pair_name}: trigger ±{bracket_offset_pct_actual:.2f}%, "
+                      f"trailing {trailing_offset_pct_actual:.2f}%, "
+                      f"prob {profit_config['probability']*100:.1f}%")
+            else:
+                # Legacy mode: use fixed parameters
+                bracket_offset_pct_actual = bracket_offset_pct
+                trailing_offset_pct_actual = trailing_offset_pct
+                
+                # Check if movement is achievable with required probability
+                # Calculate what probability the pair can achieve for the bracket offset
+                threshold = analyzer.calculate_probability_threshold(stats, probability=tail_probability)
+                
+                if not threshold:
+                    pairs_excluded += 1
+                    continue
+                
+                # Check if the pair's volatility can achieve bracket offset with required probability
+                # If threshold_pct >= bracket_offset_pct, then movement is achievable with this probability
+                if threshold['threshold_pct'] < bracket_offset_pct:
+                    # This pair's volatility is too low for the bracket offset to be probable enough
+                    pairs_excluded += 1
+                    continue
             
             pairs_included += 1
+            
+            # Calculate threshold prices for brackets
+            upper_bracket = current_price * (1 + bracket_offset_pct_actual / 100)
+            lower_bracket = current_price * (1 - bracket_offset_pct_actual / 100)
             
             # Determine decimal places based on price magnitude
             if current_price >= 1000:
@@ -1107,7 +1291,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
             else:
                 volume_format = '.8f'
             
-            # Create SELL bracket entry (price goes above +2%)
+            # Create SELL bracket entry (price goes above)
             entry_count += 1
             pair_short = analyzer.format_pair_name(pair).replace('/', '_').lower()
             writer.writerow({
@@ -1117,7 +1301,7 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                 'threshold_type': 'above',
                 'direction': 'sell',
                 'volume': f"{volume:{volume_format}}",
-                'trailing_offset_percent': f"{trailing_offset_pct:.2f}",
+                'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
                 'enabled': 'true'
             })
             
@@ -1130,14 +1314,31 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                 'threshold_type': 'below',
                 'direction': 'buy',
                 'volume': f"{volume:{volume_format}}",
-                'trailing_offset_percent': f"{trailing_offset_pct:.2f}",
+                'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
                 'enabled': 'true'
             })
     
+    print(f"\n{'='*70}")
     print(f"Config generation complete:")
     print(f"  Pairs included: {pairs_included}")
     print(f"  Pairs excluded (insufficient volatility): {pairs_excluded}")
-    print(f"  Total entries generated: {entry_count}\n")
+    print(f"  Total entries generated: {entry_count}")
+    
+    if profit_based_mode and unsuitable_pairs:
+        print(f"\n{'='*70}")
+        print(f"UNSUITABLE PAIRS (Insufficient Volatility)")
+        print(f"{'='*70}")
+        print(f"The following pairs cannot achieve {target_profit_pct:.1f}% profit")
+        print(f"within {profit_days} days with >50% probability:\n")
+        
+        for info in unsuitable_pairs:
+            print(f"  ✗ {info['pair']:<15} Plausible profit: ~{info['plausible_profit']:.2f}%")
+            print(f"    {info['reason']}")
+        
+        print(f"\n💡 Suggestion: Run with lower --percentage-profit or higher --profit-days")
+        print(f"{'='*70}")
+    
+    print()  # Blank line
     
     return output_file
 
@@ -1226,6 +1427,18 @@ def main():
         default=1.0,
         help='Target volume in USD for suggested config (default: 1.0). Adds +/- 25%% variance and ensures Kraken minimums are met.'
     )
+    parser.add_argument(
+        '--percentage-profit',
+        type=float,
+        default=None,
+        help='Target profit percentage including slippage from trailing offset (e.g., 5.0). When set, enables profit-based mode.'
+    )
+    parser.add_argument(
+        '--profit-days',
+        type=int,
+        default=7,
+        help='Number of days within which profit should be achievable (default: 7)'
+    )
     
     args = parser.parse_args()
     
@@ -1295,7 +1508,9 @@ def main():
     config_path = generate_config_suggestions(results, analyzer, args.config_output,
                                               bracket_offset_pct=args.suggestbracket,
                                               trailing_offset_pct=args.suggestoffset,
-                                              target_usd_volume=args.target_usd_volume)
+                                              target_usd_volume=args.target_usd_volume,
+                                              target_profit_pct=args.percentage_profit,
+                                              profit_days=args.profit_days)
     if config_path:
         # Count how many pairs use each distribution
         normal_count = sum(1 for r in results 
@@ -1304,18 +1519,26 @@ def main():
                              if r.get('stats', {}).get('distribution_fit', {}).get('best_fit') == 'student_t')
         
         print(f"\n{'='*70}")
-        print(f"SUGGESTED CONFIG WITH BRACKET STRATEGY")
+        print(f"SUGGESTED CONFIG")
         print(f"{'='*70}")
-        print(f"\nIn order to create items that have a high chance of triggering")
-        print(f"in the next 24 hours, add these lines to your config.csv:")
         print(f"\n✓ Suggested config saved to {config_path}")
         
-        print(f"\nBracket Strategy Details:")
-        print(f"  - Each pair gets TWO entries: buy bracket (-{args.suggestbracket}%) and sell bracket (+{args.suggestbracket}%)")
-        print(f"  - Trailing offset: {args.suggestoffset}%")
-        print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
-        print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
-        print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
+        if args.percentage_profit:
+            print(f"\nProfit-Based Strategy Details:")
+            print(f"  - Target profit: {args.percentage_profit:.1f}% (after trailing offset slippage)")
+            print(f"  - Profit window: {args.profit_days} days")
+            print(f"  - Each pair gets TWO entries: buy and sell brackets")
+            print(f"  - Trigger prices and trailing offsets optimized per pair")
+            print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
+            print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
+            print(f"  - Each bracket has >50% probability of triggering within {args.profit_days} days")
+        else:
+            print(f"\nBracket Strategy Details (Legacy Mode):")
+            print(f"  - Each pair gets TWO entries: buy bracket (-{args.suggestbracket}%) and sell bracket (+{args.suggestbracket}%)")
+            print(f"  - Trailing offset: {args.suggestoffset}%")
+            print(f"  - Target USD volume: ${args.target_usd_volume:.2f} +/- 25%")
+            print(f"  - Volumes ensure Kraken minimum order requirements (ordermin) are met")
+            print(f"  - Portfolio optimized for 95% chance at least ONE entry triggers")
         
         # Only mention the distributions that are actually used
         if student_t_count > 0 and normal_count > 0:
