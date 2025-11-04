@@ -25,7 +25,13 @@ def test_trigger_notification_sent_only_once_on_insufficient_balance():
     # Create mocks
     config_manager = Mock(spec=ConfigManager)
     kraken_api_ro = Mock(spec=KrakenAPI)
+    kraken_api_ro.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_ro.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_ro._normalize_asset_key.side_effect = lambda x: x
     kraken_api_rw = Mock(spec=KrakenAPI)
+    kraken_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_rw._normalize_asset_key.side_effect = lambda x: x
     notification_manager = Mock()
     
     # Configure kraken_api_ro to return price
@@ -127,7 +133,13 @@ def test_trigger_notified_flag_reset_when_config_reenabled():
     """
     config_manager = Mock(spec=ConfigManager)
     kraken_api_ro = Mock(spec=KrakenAPI)
+    kraken_api_ro.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_ro.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_ro._normalize_asset_key.side_effect = lambda x: x
     kraken_api_rw = Mock(spec=KrakenAPI)
+    kraken_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_rw._normalize_asset_key.side_effect = lambda x: x
     notification_manager = Mock()
     
     kraken_api_ro.get_current_price.return_value = 100.0
@@ -211,6 +223,9 @@ def test_trigger_notified_flag_in_initial_state():
     """
     config_manager = Mock(spec=ConfigManager)
     kraken_api_ro = Mock(spec=KrakenAPI)
+    kraken_api_ro.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_ro.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_ro._normalize_asset_key.side_effect = lambda x: x
     
     kraken_api_ro.get_current_price.return_value = 50.0  # Below threshold
     
@@ -249,7 +264,13 @@ def test_minimum_volume_error_also_prevents_repeated_trigger_notification():
     """
     config_manager = Mock(spec=ConfigManager)
     kraken_api_ro = Mock(spec=KrakenAPI)
+    kraken_api_ro.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_ro.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_ro._normalize_asset_key.side_effect = lambda x: x
     kraken_api_rw = Mock(spec=KrakenAPI)
+    kraken_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_rw._normalize_asset_key.side_effect = lambda x: x
     notification_manager = Mock()
     
     kraken_api_ro.get_current_price.return_value = 100.0

@@ -23,6 +23,8 @@ def test_cost_check_passes_when_cost_sufficient():
         'costmin': '5.0'  # Minimum order cost is $5
     }
     mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     # Patch kraken_api in dashboard module
     with patch.object(dashboard, 'kraken_api', mock_api):
@@ -63,6 +65,8 @@ def test_cost_check_fails_when_cost_too_low():
         'costmin': '5.0'  # Minimum order cost is $5
     }
     mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     # Patch kraken_api in dashboard module
     with patch.object(dashboard, 'kraken_api', mock_api):
@@ -105,6 +109,8 @@ def test_cost_check_handles_missing_costmin():
         # No costmin field
     }
     mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:
@@ -142,6 +148,8 @@ def test_cost_check_handles_missing_current_price():
         'costmin': '5.0'
     }
     mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:
@@ -179,6 +187,8 @@ def test_cost_check_with_buy_order():
         'costmin': '10.0'  # Minimum order cost is $10
     }
     mock_api.get_balance.return_value = {'NEAR': '1.0', 'ZUSD': '100.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:
@@ -218,6 +228,8 @@ def test_cost_and_volume_both_too_low():
         'costmin': '10.0'   # Minimum $10
     }
     mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:

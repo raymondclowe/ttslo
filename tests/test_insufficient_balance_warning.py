@@ -83,6 +83,8 @@ def test_insufficient_balance_sell_order(mock_configs_sell, mock_state, mock_pri
         'SOL': '5.0',      # 5 SOL
         'XXBT': '0.001'    # 0.001 BTC
     }
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     # Patch at the module level to bypass cache
     with patch.object(dashboard, 'get_cached_config', return_value=mock_configs_sell), \
@@ -114,6 +116,8 @@ def test_insufficient_balance_buy_order(mock_configs_buy, mock_state, mock_price
         'SOL': '5.0',      # 5 SOL
         'XXBT': '0.001'    # 0.001 BTC
     }
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     with patch.object(dashboard, 'get_cached_config', return_value=mock_configs_buy), \
          patch.object(dashboard, 'get_cached_state', return_value=mock_state), \
@@ -219,6 +223,8 @@ def test_disabled_orders_not_checked():
     
     mock_api = MagicMock()
     mock_api.get_balance.return_value = {'SOL': '5.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     with patch.object(dashboard, 'get_cached_config', return_value=mock_configs), \
          patch.object(dashboard, 'get_cached_state', return_value={}), \
@@ -250,6 +256,8 @@ def test_triggered_orders_not_checked():
     
     mock_api = MagicMock()
     mock_api.get_balance.return_value = {'SOL': '5.0'}
+    mock_api._normalize_asset_key.side_effect = lambda x: x
+    mock_api.get_normalized_balances.return_value = mock_api.get_balance.return_value
     
     with patch.object(dashboard, 'get_cached_config', return_value=mock_configs), \
          patch.object(dashboard, 'get_cached_state', return_value=mock_state), \
