@@ -2,6 +2,62 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Dashboard Linked Order Annotations (2025-11-04)
+
+**Problem**: Linked orders feature lacked context in dashboard. Users couldn't tell:
+- Why a pending order was disabled (waiting for parent)
+- Whether parent order was active or not triggered yet
+- What would happen when active order fills
+
+**Key Insight**: When parent order triggers (moves to Active), child order is STILL `enabled='false'` waiting for parent to FILL. Child must show in Pending pane with clear "waiting" status.
+
+**Solution**:
+1. **Build parent_order_map**: Map child_id → parent_id to identify waiting relationships
+2. **Show disabled linked orders**: Include `enabled='false'` orders IF they're waiting for parent
+3. **Add parent_is_active flag**: Check if parent has `triggered='true'` and `order_id`
+4. **Visual annotations**:
+   - Pending: "⏳ Waiting for [parent] to be filled" (yellow background)
+   - Pending: "🔗 Will Enable: [child]" (for active orders with linked_order_id)
+   - Active: "🎯 When Filled: Will enable [child]" (green background)
+
+**Implementation**:
+```python
+# dashboard.py - Build parent map
+parent_order_map = {}  # child_id -> parent_id
+for config in configs:
+    linked_id = config.get('linked_order_id', '').strip()
+    if linked_id:
+        parent_order_map[linked_id] = config.get('id')
+
+# Check if order is waiting for parent
+waiting_for_parent = None
+parent_is_active = False
+if config_id in parent_order_map:
+    parent_id = parent_order_map[config_id]
+    waiting_for_parent = parent_id
+    parent_state = state.get(parent_id, {})
+    if parent_state.get('triggered') == 'true' and parent_state.get('order_id'):
+        parent_is_active = True
+
+# Show if enabled OR waiting for parent
+should_show = (enabled or enabled_raw == 'pending' or (waiting_for_parent and not enabled))
+```
+
+**Key Patterns**:
+1. **Inverse relationships**: Build maps for both directions (A→B and B→A lookups)
+2. **State checking**: Use `triggered='true'` + `order_id` to detect active orders
+3. **Conditional display**: Show different annotations based on relationship type
+4. **Visual hierarchy**: Use background colors to distinguish status types
+
+**Testing**: 4 tests covering all cases (waiting, active parent, linked orders, disabled)
+
+**Related Files**:
+- `dashboard.py`: Lines 247-274 (parent map), 260-281 (show logic), 350-382 (data structure)
+- `templates/dashboard.html`: Lines 803-827 (pending display), 1024-1032 (active display)
+- `tests/test_dashboard_linked_annotations.py`: Complete test suite
+
+---
+
 ## CSV Editor - Forgiving Status Values (2025-11-03)
 
 **Problem**: CSV editor crashed when trying to edit status/enabled field with value "canceled" (set by dashboard cancel button):
