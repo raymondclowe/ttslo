@@ -2,6 +2,43 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Profit Tracking Implementation (2025-11-04)
+
+**Problem**: Need to track profits from trades suggested by issue #195.
+
+**Solution**: Implemented comprehensive profit tracking system:
+- `ProfitTracker` class records trades from trigger to fill
+- Automatic profit calculation based on direction (buy vs sell)
+- Executive summary reports via `tools/profit_report.py`
+
+**Key Insights**:
+1. **CSV handling**: Must initialize file before reading to avoid empty file issues
+   - Check file exists AND has content before assuming headers present
+   - Use `os.path.getsize()` to verify file not empty
+   
+2. **Profit calculation logic**:
+   - SELL orders: profit = (entry - exit) × volume (sell high, buy back low)
+   - BUY orders: profit = (exit - entry) × volume (buy low, sell high)
+   - Always use Decimal for financial calculations (avoid float rounding)
+
+3. **Test mocking**:
+   - When adding optional parameters to classes, update ALL test instantiations
+   - Mock `get_normalized_balances()` not `get_balance()` for balance checks
+   - Mock `get_asset_pair_info()` for minimum volume validation
+
+4. **Integration pattern**:
+   - Pass tracker as optional parameter to TTSLO constructor
+   - Record at two points: order trigger (entry) and order fill (exit)
+   - Handle case where fill occurs without tracked entry (standalone fills)
+
+**Files Created**:
+- `profit_tracker.py`: Core tracking logic
+- `tools/profit_report.py`: Reporting tool
+- `tests/test_profit_tracker.py`: Test suite
+- `PROFIT_TRACKING.md`: User documentation
+
+**Related Issue**: #195 (suggestions for profitable trades)
+
 ## Terminology Overlap Analysis (2025-11-04)
 
 **Problem**: Multiple terms with overlapping meanings cause confusion:
