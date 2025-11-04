@@ -371,19 +371,28 @@ For a complete explanation with examples, see: [Understanding Benefit (Slippage)
 
 ### Cryptocurrency Statistics Analysis
 
-Analyze minute-by-minute price statistics to predict price movements with 95% confidence.
+Analyze minute-by-minute price statistics to predict price movements and generate profitable trading configurations.
 
 ```bash
 # Analyze default pairs (30+ popular coins)
 python3 tools/coin_stats.py
 
-# Complete analysis with all exports
+# Profit-based config generation (NEW!)
+python3 tools/coin_stats.py \
+  --pairs XXBTZUSD XETHZUSD SOLUSD \
+  --percentage-profit 5.0 \
+  --profit-days 7 \
+  --target-usd-volume 2.0
+
+# Legacy bracket strategy
 python3 tools/coin_stats.py \
   --pairs XXBTZUSD XETHZUSD SOLUSD \
   --hours 48 \
   --csv-output summary.csv \
   --html-output index.html \
   --config-output suggested_config.csv \
+  --suggestbracket 2.0 \
+  --suggestoffset 1.0 \
   --target-usd-volume 2.0
 ```
 
@@ -392,25 +401,41 @@ The tool:
 - Calculates mean, median, standard deviation of prices
 - Tests for normal distribution (Shapiro-Wilk test)
 - Generates distribution graphs as PNGs
-- **NEW:** Exports summary to CSV for spreadsheet analysis
-- **NEW:** Creates HTML viewer for easy browser viewing of all graphs
-- **NEW:** Generates suggested config.csv entries for TTSLO
-- **NEW:** Intelligent volume calculation based on target USD value
+- Exports summary to CSV for spreadsheet analysis
+- Creates HTML viewer for easy browser viewing of all graphs
+- **NEW: Profit-based config generation** (default mode)
+  - Automatically calculates optimal trigger prices and trailing offsets
+  - Targets specific profit percentage INCLUDING slippage from trailing offset
+  - Ensures >50% probability of success within specified timeframe
+  - Reports unsuitable coins with plausible profit alternatives
+  - Example: `--percentage-profit 5.0 --profit-days 7` finds pairs that can achieve 5% profit within 7 days
+- Legacy: Bracket strategy with fixed offsets
+  - Uses fixed bracket and trailing offsets
+  - Portfolio-optimized for 95% chance at least one entry triggers
+- Intelligent volume calculation based on target USD value
   - Converts USD target to coin units with +/- 25% variance
   - Ensures Kraken minimum order requirements (ordermin) are met
   - Customizable via `--target-usd-volume` (default: $1.00)
-- Predicts 95% probability thresholds for 24-hour price movements
 
-**Example Output**:
+**Example Output (Profit-Based Mode)**:
 ```
-Pair: BTC/USD
-  Mean: $109,848.15, StdDev: $200.19
-  95% Threshold: ±0.06%
-  → 95% probability price will move beyond ±0.06% within 24h
+PROFIT-BASED CONFIG GENERATION
+======================================================================
+Target profit: 5.0% (after trailing offset slippage)
+Profit window: 7 days
 
-✓ Summary table saved to summary_stats.csv
-✓ HTML graph viewer saved to graphs/index.html
+✓ BTC/USD: trigger ±6.5%, trailing 1.5%, prob 52.3%
+✓ ETH/USD: trigger ±7.2%, trailing 2.0%, prob 51.8%
+✗ STABLE/USD: Plausible profit: ~1.2%
+    Insufficient volatility: max plausible profit ~1.2%
+
+Config generation complete:
+  Pairs included: 25
+  Pairs excluded (insufficient volatility): 7
+  
 ✓ Suggested config saved to suggested_config.csv
+
+💡 Suggestion: Run with lower --percentage-profit or higher --profit-days
 ```
 
 See [COIN_STATS.md](docs/COIN_STATS.md) for detailed documentation.
