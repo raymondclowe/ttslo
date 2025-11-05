@@ -274,6 +274,42 @@ class TTSLO:
         
         return ''
     
+    def _extract_quote_asset(self, pair: str) -> str:
+        """
+        Extract the quote asset from a trading pair.
+        
+        Args:
+            pair: Trading pair (e.g., 'XXBTZUSD', 'XETHZUSD', 'DYDXUSD')
+            
+        Returns:
+            Quote asset code (e.g., 'ZUSD', 'ZEUR') normalized to Kraken's internal notation
+            
+        Note:
+            Kraken uses 'Z' prefix for fiat currencies in API responses:
+            - USD → ZUSD
+            - EUR → ZEUR
+            - GBP → ZGBP
+            - JPY → ZJPY
+        """
+        # Try to extract from pattern
+        # Note: Order matters - check longer suffixes first (e.g., USDT before USD)
+        for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
+            if pair.endswith(quote):
+                # Normalize to Kraken's internal notation (Z-prefixed for fiat)
+                if quote == 'USD':
+                    return 'ZUSD'
+                elif quote == 'EUR':
+                    return 'ZEUR'
+                elif quote == 'GBP':
+                    return 'ZGBP'
+                elif quote == 'JPY':
+                    return 'ZJPY'
+                else:
+                    # Already in correct format (ZUSD, ZEUR, USDT, etc)
+                    return quote
+        
+        return ''
+    
     def check_minimum_volume(self, pair: str, volume: float, config_id: str = None) -> tuple:
         """
         Check if the volume meets Kraken's minimum order size for the pair.
@@ -330,7 +366,7 @@ class TTSLO:
             # On error, allow order to proceed - actual validation happens at Kraken
             return (True, 'Error checking minimum volume', None)
     
-    def check_sufficient_balance(self, pair: str, direction: str, volume: float, config_id: str = None) -> tuple:
+    def check_sufficient_balance(self, pair: str, direction: str, volume: float, config_id: str = None, current_price: float = None) -> tuple:
         """
         Check if there is sufficient balance to create an order.
         
@@ -339,13 +375,11 @@ class TTSLO:
             direction: Order direction ('buy' or 'sell')
             volume: Order volume
             config_id: Configuration ID for logging (optional)
+            current_price: Current market price (required for buy orders)
             
         Returns:
             Tuple of (is_sufficient: bool, message: str, available: Decimal or None)
         """
-        # Only check balance for sell orders (we don't check quote currency for buy orders)
-        if direction.lower() != 'sell':
-            return (True, 'Balance check skipped for buy orders', None)
         
         # Validate we have API access
         if not self.kraken_api_readwrite:
@@ -374,11 +408,16 @@ class TTSLO:
             return (False, f'Error checking balance: {str(e)}', None)
         
         try:
-            
             # Extract base asset from pair
             base_asset = self._extract_base_asset(pair)
             if not base_asset:
                 return (False, f'Could not extract base asset from pair: {pair}', None)
+            
+            # For buy orders, also extract quote asset
+            if direction.lower() == 'buy':
+                quote_asset = self._extract_quote_asset(pair)
+                if not quote_asset:
+                    return (False, f'Could not extract quote asset from pair: {pair}', None)
             
             # Normalize all balance keys and sum totals for each normalized asset
             # This handles both spot wallet (e.g., 'XXBT') and funding wallet (e.g., 'XBT.F')
@@ -400,31 +439,75 @@ class TTSLO:
                 normalized_totals[norm] += amount
                 contributors.setdefault(norm, []).append((k, amount))
             
-            # Normalize the base_asset for lookup
-            canonical_norm = self._normalize_asset(base_asset)
+            # Handle buy vs sell orders differently
+            if direction.lower() == 'sell':
+                # SELL orders: Check base asset balance
+                # Normalize the base_asset for lookup
+                canonical_norm = self._normalize_asset(base_asset)
+                
+                # Get available balance for the asset
+                available = normalized_totals.get(canonical_norm, Decimal('0'))
+                contrib = contributors.get(canonical_norm, [])
+                
+                # Convert volume to Decimal
+                try:
+                    volume_dec = Decimal(str(volume))
+                except (InvalidOperation, Exception) as e:
+                    return (False, f'Invalid volume value: {volume}', None)
+                
+                # Build detailed message with contributors
+                contrib_str = ', '.join([f"{k}={amount}" for k, amount in contrib]) if contrib else 'none'
+                
+                # Check if balance is sufficient
+                if available >= volume_dec:
+                    message = (f'Sufficient {base_asset} balance: {available} '
+                              f'(Contributors: {contrib_str}) >= required {volume_dec}')
+                    return (True, message, available)
+                else:
+                    message = (f'Insufficient {base_asset} balance: {available} '
+                              f'(Contributors: {contrib_str}) < required {volume_dec}')
+                    return (False, message, available)
             
-            # Get available balance for the asset
-            available = normalized_totals.get(canonical_norm, Decimal('0'))
-            contrib = contributors.get(canonical_norm, [])
-            
-            # Convert volume to Decimal
-            try:
-                volume_dec = Decimal(str(volume))
-            except (InvalidOperation, Exception) as e:
-                return (False, f'Invalid volume value: {volume}', None)
-            
-            # Build detailed message with contributors
-            contrib_str = ', '.join([f"{k}={amount}" for k, amount in contrib]) if contrib else 'none'
-            
-            # Check if balance is sufficient
-            if available >= volume_dec:
-                message = (f'Sufficient {base_asset} balance: {available} '
-                          f'(Contributors: {contrib_str}) >= required {volume_dec}')
-                return (True, message, available)
             else:
-                message = (f'Insufficient {base_asset} balance: {available} '
-                          f'(Contributors: {contrib_str}) < required {volume_dec}')
-                return (False, message, available)
+                # BUY orders: Check quote asset balance (need USD to buy BTC)
+                # Need current price to calculate required quote currency
+                if current_price is None:
+                    return (False, 'Current price required for buy order balance check', None)
+                
+                try:
+                    current_price_dec = Decimal(str(current_price))
+                except (InvalidOperation, Exception) as e:
+                    return (False, f'Invalid current price value: {current_price}', None)
+                
+                # Calculate required quote currency amount
+                try:
+                    volume_dec = Decimal(str(volume))
+                except (InvalidOperation, Exception) as e:
+                    return (False, f'Invalid volume value: {volume}', None)
+                
+                required_quote = volume_dec * current_price_dec
+                
+                # Normalize the quote_asset for lookup
+                canonical_norm = self._normalize_asset(quote_asset)
+                
+                # Get available balance for the quote asset
+                available = normalized_totals.get(canonical_norm, Decimal('0'))
+                contrib = contributors.get(canonical_norm, [])
+                
+                # Build detailed message with contributors
+                contrib_str = ', '.join([f"{k}={amount}" for k, amount in contrib]) if contrib else 'none'
+                
+                # Check if balance is sufficient
+                if available >= required_quote:
+                    message = (f'Sufficient {quote_asset} balance: {available} '
+                              f'(Contributors: {contrib_str}) >= required {required_quote} '
+                              f'(volume {volume_dec} × price {current_price_dec})')
+                    return (True, message, available)
+                else:
+                    message = (f'Insufficient {quote_asset} balance: {available} '
+                              f'(Contributors: {contrib_str}) < required {required_quote} '
+                              f'(volume {volume_dec} × price {current_price_dec})')
+                    return (False, message, available)
                 
         except Exception as e:
             error_msg = f'Error checking balance: {str(e)}'
@@ -622,7 +705,8 @@ class TTSLO:
             pair=pair,
             direction=direction,
             volume=volume,
-            config_id=config_id
+            config_id=config_id,
+            current_price=trigger_price_float
         )
         
         if not is_sufficient:

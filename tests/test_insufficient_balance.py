@@ -17,7 +17,7 @@ class MockKrakenAPI:
         Initialize mock API.
         
         Args:
-            balance: Balance to return from get_balance()
+            balance: Balance to return from get_balance() and get_normalized_balances()
             add_order_error: Exception to raise from add_trailing_stop_loss()
         """
         self.balance = balance or {}
@@ -27,6 +27,15 @@ class MockKrakenAPI:
     def get_balance(self):
         """Return mock balance."""
         return self.balance
+    
+    def get_normalized_balances(self):
+        """Return mock normalized balance (same as get_balance for testing)."""
+        return self.balance
+    
+    def get_asset_pair_info(self, pair):
+        """Return mock pair info."""
+        # Return minimal info to pass checks
+        return {'ordermin': '0.0001'}
     
     def add_trailing_stop_loss(self, pair, direction, volume, trailing_offset_percent, **kwargs):
         """Mock order creation."""
@@ -314,12 +323,16 @@ def test_create_order_handles_kraken_insufficient_funds_error():
     assert 'Insufficient funds' in call_args['error']
 
 
-def test_balance_check_skips_buy_orders():
-    """Test that balance check is skipped for buy orders."""
+def test_balance_check_for_buy_orders():
+    """Test that balance check works for buy orders (checks quote currency)."""
     config_manager = Mock(spec=ConfigManager)
     config_manager.log = Mock()
     
-    balance = {}
+    # Balance with USD (quote currency for buy orders)
+    balance = {
+        'XXBT': '0.0',  # No BTC (base asset)
+        'ZUSD': '60000.00'  # Has USD (quote currency)
+    }
     api = MockKrakenAPI(balance=balance)
     
     ttslo = TTSLO(
@@ -329,18 +342,20 @@ def test_balance_check_skips_buy_orders():
         dry_run=False
     )
     
-    # Check balance for buy order
+    # Check balance for buy order - buying 1.0 BTC at $50,000
+    # Need 1.0 * $50,000 = $50,000 USD
     is_sufficient, message, available = ttslo.check_sufficient_balance(
         pair='XXBTZUSD',
         direction='buy',
         volume=1.0,
+        current_price=50000.0,
         config_id='test_config'
     )
     
-    # Balance check should be skipped for buy orders
+    # Balance check should pass (have $60k, need $50k)
     assert is_sufficient is True
-    assert 'skipped' in message.lower()
-    assert available is None
+    assert 'ZUSD' in message or 'USD' in message
+    assert available == Decimal('60000.00')
 
 
 def test_normalize_asset():
@@ -381,3 +396,70 @@ def test_extract_base_asset():
     assert ttslo._extract_base_asset('XETHZUSD') == 'XETH'
     assert ttslo._extract_base_asset('SOLUSDT') == 'SOL'
     assert ttslo._extract_base_asset('ADAUSDT') == 'ADA'
+
+
+def test_balance_check_insufficient_for_buy_orders():
+    """Test that balance check fails for buy orders with insufficient quote currency."""
+    config_manager = Mock(spec=ConfigManager)
+    config_manager.log = Mock()
+    
+    # Balance with insufficient USD for buy order
+    balance = {
+        'XXBT': '0.0',
+        'ZUSD': '10000.00'  # Not enough USD to buy 1 BTC at $50k
+    }
+    api = MockKrakenAPI(balance=balance)
+    
+    ttslo = TTSLO(
+        config_manager=config_manager,
+        kraken_api_readonly=api,
+        kraken_api_readwrite=api,
+        dry_run=False
+    )
+    
+    # Check balance for buy order - buying 1.0 BTC at $50,000
+    # Need 1.0 * $50,000 = $50,000 USD, but only have $10,000
+    is_sufficient, message, available = ttslo.check_sufficient_balance(
+        pair='XXBTZUSD',
+        direction='buy',
+        volume=1.0,
+        current_price=50000.0,
+        config_id='test_config'
+    )
+    
+    # Balance check should fail
+    assert is_sufficient is False
+    assert 'Insufficient' in message
+    assert 'ZUSD' in message or 'USD' in message
+    assert available == Decimal('10000.00')
+
+
+def test_buy_order_balance_without_current_price():
+    """Test that buy order balance check fails if current_price is not provided."""
+    config_manager = Mock(spec=ConfigManager)
+    config_manager.log = Mock()
+    
+    balance = {
+        'ZUSD': '10000.00'
+    }
+    api = MockKrakenAPI(balance=balance)
+    
+    ttslo = TTSLO(
+        config_manager=config_manager,
+        kraken_api_readonly=api,
+        kraken_api_readwrite=api,
+        dry_run=False
+    )
+    
+    # Check balance for buy order without current_price
+    is_sufficient, message, available = ttslo.check_sufficient_balance(
+        pair='XXBTZUSD',
+        direction='buy',
+        volume=1.0,
+        config_id='test_config'
+    )
+    
+    # Should fail with appropriate error
+    assert is_sufficient is False
+    assert 'Current price required' in message
+    assert available is None

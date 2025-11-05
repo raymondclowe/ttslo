@@ -20,6 +20,8 @@ def test_check_minimum_volume_passes_when_volume_sufficient():
     # Setup
     config_manager = Mock(spec=ConfigManager)
     kraken_api_readonly = Mock(spec=KrakenAPI)
+    kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
     
     # Mock pair info with ordermin of 0.7
     kraken_api_readonly.get_asset_pair_info.return_value = {
@@ -47,6 +49,8 @@ def test_check_minimum_volume_fails_when_volume_too_low():
     # Setup
     config_manager = Mock(spec=ConfigManager)
     kraken_api_readonly = Mock(spec=KrakenAPI)
+    kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
     
     # Mock pair info with ordermin of 0.7
     kraken_api_readonly.get_asset_pair_info.return_value = {
@@ -76,6 +80,8 @@ def test_check_minimum_volume_handles_missing_pair_info():
     # Setup
     config_manager = Mock(spec=ConfigManager)
     kraken_api_readonly = Mock(spec=KrakenAPI)
+    kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
     
     # Mock API returns None (pair not found)
     kraken_api_readonly.get_asset_pair_info.return_value = None
@@ -100,6 +106,8 @@ def test_check_minimum_volume_handles_missing_ordermin():
     # Setup
     config_manager = Mock(spec=ConfigManager)
     kraken_api_readonly = Mock(spec=KrakenAPI)
+    kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
     
     # Mock pair info without ordermin
     kraken_api_readonly.get_asset_pair_info.return_value = {
@@ -129,7 +137,12 @@ def test_volume_check_prevents_order_creation():
     config_manager.log = Mock()
     
     kraken_api_readonly = Mock(spec=KrakenAPI)
+    kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
     kraken_api_readwrite = Mock(spec=KrakenAPI)
+    kraken_api_readwrite.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readwrite.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_readwrite._normalize_asset_key.side_effect = lambda x: x
     
     # Mock pair info with minimum volume
     kraken_api_readonly.get_asset_pair_info.return_value = {
@@ -178,7 +191,13 @@ def test_error_notification_sent_only_once():
     config_manager.log = Mock()
     
     kraken_api_readonly = Mock(spec=KrakenAPI)
+    kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
     kraken_api_readwrite = Mock(spec=KrakenAPI)
+    kraken_api_readwrite.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readwrite.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_readwrite._normalize_asset_key.side_effect = lambda x: x
     notification_manager = Mock()
     
     # Mock pair info
@@ -231,6 +250,9 @@ def test_error_state_cleared_when_config_reenabled():
     config_manager.log = Mock()
     
     kraken_api_readonly = Mock(spec=KrakenAPI)
+    kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+    kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+    kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
     kraken_api_readonly.get_current_price.return_value = 2.5
     
     ttslo = TTSLO(

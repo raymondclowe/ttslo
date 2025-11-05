@@ -388,6 +388,10 @@ def test_fail_safe_order_creation():
         # Mock successful API response
         api_rw.add_trailing_stop_loss.return_value = {'txid': ['ORDER123']}
         # Mock balance check - sufficient balance for 0.01 BTC
+        api_rw.get_balance.return_value = {'XXBT': '1.0'}
+        api_rw.get_normalized_balances.return_value = api_rw.get_balance.return_value
+        api_rw.get_asset_pair_info.return_value = {"ordermin": "0.0001"}
+
         api_rw.get_normalized_balances.return_value = {'BT': '1.0'}
         # Mock asset pair info for minimum volume check
         api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}

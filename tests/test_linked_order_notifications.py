@@ -212,7 +212,13 @@ def test_ttslo_passes_linked_order_to_notifications():
         
         # Mock API with read-write access
         mock_api_ro = Mock(spec=KrakenAPI)
+        mock_api_ro.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+        mock_api_ro.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+        mock_api_ro._normalize_asset_key.side_effect = lambda x: x
         mock_api_rw = Mock(spec=KrakenAPI)
+        mock_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+        mock_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+        mock_api_rw._normalize_asset_key.side_effect = lambda x: x
         mock_api_rw.add_trailing_stop_loss.return_value = {'txid': ['ORDER123']}
         
         # Create TTSLO instance

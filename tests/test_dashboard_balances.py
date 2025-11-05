@@ -91,6 +91,8 @@ class TestBalancesAPI:
         mock_active.return_value = []
         mock_prices.return_value = {'LINKUSD': 10.0}
         mock_api.get_balance.return_value = {'LINK': 50.0}  # Only half what's needed
+        mock_api.get_normalized_balances.return_value = {'LINK': 50.0}
+        mock_api._normalize_asset_key.side_effect = lambda x: x  # Return as-is for testing
         
         response = client.get('/api/balances')
         data = response.get_json()
@@ -127,6 +129,8 @@ class TestBalancesAPI:
         
         # User has 0 ATOM but $50 ZUSD - should be SAFE for buy order
         mock_api.get_balance.return_value = {'ATOM': 0.0, 'ZUSD': 50.0}
+        mock_api.get_normalized_balances.return_value = {'ATOM': 0.0, 'ZUSD': 50.0}
+        mock_api._normalize_asset_key.side_effect = lambda x: x  # Return as-is for testing
         
         # Call function directly, bypassing Flask/cache
         data = get_balances_and_risks()
@@ -171,6 +175,8 @@ class TestBalancesAPI:
         
         # User has 0 ATOM but lots of ZUSD - should be DANGER for sell order
         mock_api.get_balance.return_value = {'ATOM': 0.0, 'ZUSD': 5000.0}
+        mock_api.get_normalized_balances.return_value = {'ATOM': 0.0, 'ZUSD': 5000.0}
+        mock_api._normalize_asset_key.side_effect = lambda x: x  # Return as-is for testing
         
         # Call function directly, bypassing Flask/cache
         data = get_balances_and_risks()
