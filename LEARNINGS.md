@@ -2,6 +2,77 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Profit Tracking Implementation (2025-11-04)
+
+**Problem**: Need to track profits from trades suggested by issue #195.
+
+**Solution**: Implemented comprehensive profit tracking system:
+- `ProfitTracker` class records trades from trigger to fill
+- Automatic profit calculation based on direction (buy vs sell)
+- Executive summary reports via `tools/profit_report.py`
+
+**Key Insights**:
+1. **CSV handling**: Must initialize file before reading to avoid empty file issues
+   - Check file exists AND has content before assuming headers present
+   - Use `os.path.getsize()` to verify file not empty
+   
+2. **Profit calculation logic**:
+   - SELL orders: profit = (entry - exit) × volume (sell high, buy back low)
+   - BUY orders: profit = (exit - entry) × volume (buy low, sell high)
+   - Always use Decimal for financial calculations (avoid float rounding)
+
+3. **Test mocking**:
+   - When adding optional parameters to classes, update ALL test instantiations
+   - Mock `get_normalized_balances()` not `get_balance()` for balance checks
+   - Mock `get_asset_pair_info()` for minimum volume validation
+
+4. **Integration pattern**:
+   - Pass tracker as optional parameter to TTSLO constructor
+   - Record at two points: order trigger (entry) and order fill (exit)
+   - Handle case where fill occurs without tracked entry (standalone fills)
+
+**Files Created**:
+- `profit_tracker.py`: Core tracking logic
+- `tools/profit_report.py`: Reporting tool
+- `tests/test_profit_tracker.py`: Test suite
+- `PROFIT_TRACKING.md`: User documentation
+
+**Related Issue**: #195 (suggestions for profitable trades)
+
+## Terminology Overlap Analysis (2025-11-04)
+
+**Problem**: Multiple terms with overlapping meanings cause confusion:
+- "trigger" = 3 different meanings (threshold met, TSL execution, API parameter)
+- "offset" = 2 different meanings (TSL trailing %, distance to threshold)
+- "TTSLO" vs "TSL" = 2 operational layers with similar terms
+
+**Analysis**: Comprehensive report created in `TERMINOLOGY_ANALYSIS_REPORT.md`
+
+**Key Findings**:
+1. **"Trigger" HIGH confusion**: 
+   - TTSLO threshold reached (activation)
+   - TSL order fills on Kraken (execution)
+   - Kraken API price source parameter
+   
+2. **"Offset" MEDIUM confusion**:
+   - Config: `trailing_offset_percent` (TSL parameter)
+   - Validation: gap/distance to threshold (also a percentage)
+
+3. **Layer confusion**: TTSLO (monitor) vs TSL (Kraken orders) use same terms
+
+**Recommendations**:
+- Phase 1: Documentation improvements (glossary, comments) - NO CODE CHANGES
+- Phase 2: Field renames if doing major refactor (requires migration)
+- Phase 3: Comprehensive rename (40+ hours estimated)
+
+**Current Action**: Documentation-first approach per issue requirements.
+
+**Related Files**:
+- `TERMINOLOGY_ANALYSIS_REPORT.md`: Complete analysis with solutions
+- GitHub Issue: "Terminology problems"
+
+---
+
 ## Dashboard Order Details Grid Removal (2025-11-04)
 
 **Problem**: Order details cards in dashboard were too cramped with 2-column grid layout, reducing readability.
@@ -3308,5 +3379,83 @@ elif quote == 'EUR':
 - `tests/test_ttslo.py`: Updated test_config_validator
 
 **User Impact**: Users can now transact with small gaps (with warnings) instead of being completely blocked.
+
+---
+
+---
+
+## Sell-Then-Buy Strategy Implementation (2025-11-04)
+
+**Feature**: Added `--strategy` parameter to coin_stats.py for generating chained orders with two strategies.
+
+**Problem**: Current system only supports "buy dip then sell" strategy. Users holding long-term assets (BTC, ETH) want "sell boom then buy back" for taking profit while maintaining position.
+
+**Solution**: Added strategy parameter with two options:
+1. **buy-then-sell** (default): Buy dip first (enabled), sell high after (linked)
+2. **sell-then-buy** (new): Sell boom first (enabled), buy back after (linked)
+
+**Implementation Details**:
+
+1. **Parameter Addition** (`tools/coin_stats.py`):
+   - Added `--strategy` argument with choices=['buy-then-sell', 'sell-then-buy']
+   - Default is 'buy-then-sell' (preserves existing behavior)
+   - Passed through to `generate_config_suggestions()` function
+
+2. **Config Generation Logic**:
+   - Both strategies create TWO chained orders using `linked_order_id`
+   - Order structure differs based on strategy:
+     
+     **Buy-then-sell**:
+     ```csv
+     buy_id,PAIR,lower_price,below,buy,volume,offset,true,sell_id
+     sell_id,PAIR,upper_price,above,sell,volume,offset,false,
+     ```
+     
+     **Sell-then-buy**:
+     ```csv
+     sell_id,PAIR,upper_price,above,sell,volume,offset,true,buy_id
+     buy_id,PAIR,lower_price,below,buy,volume,offset,false,
+     ```
+
+3. **CSV Output**:
+   - Added `linked_order_id` to fieldnames
+   - First order has enabled=true and links to second
+   - Second order has enabled=false and no link
+
+4. **Output Messages**:
+   - Updated console output to describe strategy
+   - Added clear explanation of order flow
+   - Indicated best use cases for each strategy
+
+**Testing**:
+- Fixed 2 existing tests to be order-agnostic (find by direction, not index)
+- Added 3 new comprehensive tests covering both strategies
+- All 21 coin_stats tests pass
+- All 32 chained_orders tests pass
+
+**Key Insights**:
+
+1. **Reuse Existing Features**: Used existing `linked_order_id` feature instead of creating new mechanism
+2. **Order Matters**: First order written is enabled, second is disabled (linked)
+3. **Backward Compatible**: Default behavior unchanged, new feature is opt-in
+4. **Test Brittleness**: Tests assuming order matters (rows[0], rows[1]) broke easily
+
+5. **Strategy Trade-offs**:
+   - Buy-then-sell: Risk buying falling knife, captures upside
+   - Sell-then-buy: Risk missing gains, takes profit and re-enters
+
+**Documentation**:
+- Updated README.md with strategy examples
+- Updated docs/COIN_STATS.md with comprehensive strategy guide
+- Added comparison table and execution flow examples
+
+**Related Files**:
+- `tools/coin_stats.py`: Main implementation (lines 1108-1365)
+- `tests/test_coin_stats_strategy.py`: New test file (3 tests)
+- `tests/test_coin_stats.py`: Fixed existing tests (lines 409-420, 569-580)
+- `README.md`: Added strategy examples
+- `docs/COIN_STATS.md`: Added comprehensive strategy section
+
+**User Impact**: Users can now generate configs for both accumulation strategies (buy-then-sell) and profit-taking strategies (sell-then-buy) for long-term holdings.
 
 ---

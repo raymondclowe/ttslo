@@ -21,6 +21,7 @@ from config import ConfigManager
 from validator import ConfigValidator, format_validation_result
 from creds import load_env, find_kraken_credentials, get_env_var
 from notifications import NotificationManager
+from profit_tracker import ProfitTracker
 
 
 # Use centralized creds helpers (load .env and lookup variants)
@@ -32,7 +33,7 @@ class TTSLO:
     """Main application for triggered trailing stop loss orders."""
     
     def __init__(self, config_manager, kraken_api_readonly, kraken_api_readwrite=None, 
-                 dry_run=False, verbose=False, debug=False, notification_manager=None):
+                 dry_run=False, verbose=False, debug=False, notification_manager=None, profit_tracker=None):
         """
         Initialize TTSLO application.
         
@@ -43,6 +44,7 @@ class TTSLO:
             dry_run: If True, don't actually create orders
             verbose: If True, print verbose output
             notification_manager: NotificationManager instance (optional)
+            profit_tracker: ProfitTracker instance (optional)
         """
         self.config_manager = config_manager
         self.kraken_api_readonly = kraken_api_readonly
@@ -52,6 +54,7 @@ class TTSLO:
         # debug mode enables very verbose, comparison-focused messages
         self.debug = debug
         self.notification_manager = notification_manager
+        self.profit_tracker = profit_tracker
         self.state = {}
         # Store configs in memory - loaded once at startup, not reloaded during runtime
         self.configs = None
@@ -963,6 +966,22 @@ class TTSLO:
                 f"TSL order created successfully: order_id={order_id}",
                 config_id=config_id, order_id=order_id)
         
+        # Record order trigger for profit tracking
+        if self.profit_tracker:
+            try:
+                trigger_time = datetime.now(timezone.utc).isoformat()
+                self.profit_tracker.record_order_trigger(
+                    config_id=config_id,
+                    pair=pair,
+                    direction=direction,
+                    volume=volume,
+                    trigger_price=trigger_price_float,
+                    trigger_time=trigger_time
+                )
+            except Exception as e:
+                self.log('WARNING', f'Failed to record profit tracking: {str(e)}',
+                        config_id=config_id, error=str(e))
+        
         # Send notification about TSL order created
         if self.notification_manager:
             try:
@@ -1227,6 +1246,24 @@ class TTSLO:
                 # If we couldn't find the pair in validated configs, fall back
                 # to the pair reported by Kraken's closed order record.
                 notify_pair = pair or api_pair or 'Unknown'
+
+                # Record order fill for profit tracking
+                if self.profit_tracker and fill_price:
+                    try:
+                        fill_time = datetime.now(timezone.utc).isoformat()
+                        profit, profit_pct = self.profit_tracker.record_order_fill(
+                            config_id=config_id,
+                            fill_price=fill_price,
+                            fill_time=fill_time,
+                            order_id=order_id
+                        )
+                        if profit is not None:
+                            self.log('INFO', f'Profit recorded: ${profit:.2f} ({profit_pct:.2f}%)',
+                                    config_id=config_id, order_id=order_id,
+                                    profit=profit, profit_pct=profit_pct)
+                    except Exception as e:
+                        self.log('WARNING', f'Failed to record profit: {str(e)}',
+                                config_id=config_id, order_id=order_id, error=str(e))
 
                 # Send notification with richer context
                 if self.notification_manager:
@@ -2109,6 +2146,19 @@ Environment variables:
         if args.verbose:
             print(f"Warning: Failed to initialize notifications: {str(e)}", file=sys.stderr)
     
+    # Step 10.5: Initialize profit tracker
+    profit_tracker = None
+    try:
+        # Use trades.csv in same directory as state file
+        state_dir = os.path.dirname(args.state) or '.'
+        trades_file = os.path.join(state_dir, 'trades.csv')
+        profit_tracker = ProfitTracker(trades_file=trades_file)
+        if args.verbose:
+            print(f"Profit tracking enabled (trades file: {trades_file})")
+    except Exception as e:
+        if args.verbose:
+            print(f"Warning: Failed to initialize profit tracker: {str(e)}", file=sys.stderr)
+    
     # Step 11: Initialize TTSLO application
     try:
         ttslo = TTSLO(
@@ -2118,7 +2168,8 @@ Environment variables:
             dry_run=args.dry_run,
             verbose=args.verbose,
             debug=args.debug,
-            notification_manager=notification_manager
+            notification_manager=notification_manager,
+            profit_tracker=profit_tracker
         )
     except Exception as e:
         print(f"ERROR: Failed to initialize TTSLO application: {str(e)}", file=sys.stderr)
