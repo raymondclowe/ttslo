@@ -18,21 +18,13 @@ class TestIndexUnavailableFallback:
         """Setup for each test method."""
         self.config_manager = Mock(spec=ConfigManager)
         self.kraken_api_readonly = Mock(spec=KrakenAPI)
-        self.kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
+        self.kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '10.0', 'XETH': '100.0', 'SOL': '1000.0', 'ZUSD': '100000.0'}
         self.kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
         self.kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
         self.kraken_api_readwrite = Mock(spec=KrakenAPI)
-    self.kraken_api_readwrite.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-    self.kraken_api_readwrite.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-    self.kraken_api_readwrite._normalize_asset_key.side_effect = lambda x: x
-        
-        # Mock get_balance to return sufficient balance
-        self.kraken_api_readwrite.get_balance = Mock(return_value={
-            'XXBT': '10.0',
-            'XETH': '100.0',
-            'SOL': '1000.0',  # For SOL tests
-            'ZUSD': '100000.0'
-        })
+        self.kraken_api_readwrite.get_normalized_balances.return_value = {'XXBT': '10.0', 'XETH': '100.0', 'SOL': '1000.0', 'ZUSD': '100000.0'}
+        self.kraken_api_readwrite.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
+        self.kraken_api_readwrite._normalize_asset_key.side_effect = lambda x: x
         
         # Create TTSLO instance
         self.ttslo = TTSLO(

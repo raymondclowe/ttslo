@@ -33,9 +33,6 @@ def test_check_order_filled_when_filled():
         
         # Mock API with read-write access
         mock_api_rw = Mock(spec=KrakenAPI)
-    mock_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-    mock_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-    mock_api_rw._normalize_asset_key.side_effect = lambda x: x
         # Updated to use query_orders instead of query_closed_orders
         mock_api_rw.query_orders.return_value = {
             'ORDER123': {
@@ -49,9 +46,6 @@ def test_check_order_filled_when_filled():
         ttslo = TTSLO(
             config_manager=config_manager,
             kraken_api_readonly=Mock(spec=KrakenAPI),
-            kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-            kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-            kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
             kraken_api_readwrite=mock_api_rw,
             dry_run=False,
             verbose=True
@@ -86,9 +80,6 @@ def test_check_order_filled_when_not_filled():
         
         # Mock API - order not in closed orders
         mock_api_rw = Mock(spec=KrakenAPI)
-    mock_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-    mock_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-    mock_api_rw._normalize_asset_key.side_effect = lambda x: x
         # Updated to use query_orders instead of query_closed_orders
         mock_api_rw.query_orders.return_value = {}
         
@@ -96,9 +87,6 @@ def test_check_order_filled_when_not_filled():
         ttslo = TTSLO(
             config_manager=config_manager,
             kraken_api_readonly=Mock(spec=KrakenAPI),
-            kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-            kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-            kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
             kraken_api_readwrite=mock_api_rw,
             dry_run=False,
             verbose=True
@@ -133,17 +121,11 @@ def test_check_order_filled_dry_run():
         
         # Mock API
         mock_api_rw = Mock(spec=KrakenAPI)
-    mock_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-    mock_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-    mock_api_rw._normalize_asset_key.side_effect = lambda x: x
         
         # Create TTSLO instance
         ttslo = TTSLO(
             config_manager=config_manager,
             kraken_api_readonly=Mock(spec=KrakenAPI),
-            kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-            kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-            kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
             kraken_api_readwrite=mock_api_rw,
             dry_run=False,
             verbose=True
@@ -179,9 +161,6 @@ def test_check_triggered_orders_sends_notification():
         
         # Mock API
         mock_api_rw = Mock(spec=KrakenAPI)
-    mock_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-    mock_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-    mock_api_rw._normalize_asset_key.side_effect = lambda x: x
         # Updated to use query_orders instead of query_closed_orders
         mock_api_rw.query_orders.return_value = {
             'ORDER123': {
@@ -198,9 +177,6 @@ def test_check_triggered_orders_sends_notification():
         ttslo = TTSLO(
             config_manager=config_manager,
             kraken_api_readonly=Mock(spec=KrakenAPI),
-            kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-            kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-            kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
             kraken_api_readwrite=mock_api_rw,
             dry_run=False,
             verbose=True,
@@ -254,9 +230,6 @@ def test_check_triggered_orders_no_duplicate_notification():
         
         # Mock API
         mock_api_rw = Mock(spec=KrakenAPI)
-    mock_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-    mock_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-    mock_api_rw._normalize_asset_key.side_effect = lambda x: x
         # Updated to use query_orders instead of query_closed_orders
         mock_api_rw.query_orders.return_value = {
             'ORDER123': {
@@ -272,9 +245,6 @@ def test_check_triggered_orders_no_duplicate_notification():
         ttslo = TTSLO(
             config_manager=config_manager,
             kraken_api_readonly=Mock(spec=KrakenAPI),
-            kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-            kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-            kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
             kraken_api_readwrite=mock_api_rw,
             dry_run=False,
             verbose=True,
@@ -320,17 +290,11 @@ def test_check_triggered_orders_skips_dry_run():
         
         # Mock API
         mock_api_rw = Mock(spec=KrakenAPI)
-    mock_api_rw.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-    mock_api_rw.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-    mock_api_rw._normalize_asset_key.side_effect = lambda x: x
         
         # Create TTSLO instance in dry-run mode
         ttslo = TTSLO(
             config_manager=config_manager,
             kraken_api_readonly=Mock(spec=KrakenAPI),
-            kraken_api_readonly.get_normalized_balances.return_value = {'XXBT': '1.0', 'ZUSD': '10000.0'}
-            kraken_api_readonly.get_asset_pair_info.return_value = {'ordermin': '0.0001'}
-            kraken_api_readonly._normalize_asset_key.side_effect = lambda x: x
             kraken_api_readwrite=mock_api_rw,
             dry_run=True,  # Dry-run mode
             verbose=True
