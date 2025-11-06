@@ -3459,3 +3459,64 @@ elif quote == 'EUR':
 **User Impact**: Users can now generate configs for both accumulation strategies (buy-then-sell) and profit-taking strategies (sell-then-buy) for long-term holdings.
 
 ---
+
+---
+
+## Linked Order Status Fix (2025-11-06)
+
+**Problem**: Dashboard showed inaccurate status for linked orders after parent filled.
+- Parent "buy the dip" orders filled and moved to completed
+- Linked "sell" orders still showed "⏳ Waiting for [parent] to be filled"
+- Status should change once parent completes and child is enabled
+
+**Root Cause**:
+- Dashboard checked if parent was *active* (`triggered='true'` + `order_id`)
+- Did NOT check if parent had *completed* (`fill_notified='true'`)
+- Once parent filled → child enabled → but status still showed "waiting"
+
+**Solution** (dashboard.py lines 266-280):
+1. Check `parent_state.get('fill_notified')` to detect completed parent
+2. Only show "waiting" if parent is active AND not yet filled
+3. Only apply waiting status if child is not enabled (`enabled != 'true'`)
+4. Once parent fills and child enabled → show as normal pending order
+
+**Key Code Changes**:
+```python
+# Check if parent has filled
+parent_has_filled = parent_state.get('fill_notified') == 'true'
+
+# Only mark as active if parent triggered but NOT filled
+if parent_state.get('triggered') == 'true' and parent_state.get('order_id') and not parent_has_filled:
+    parent_is_active = True
+
+# Only check parent status if child is not yet enabled
+if config_id in parent_order_map and not enabled:
+    # ... check parent status
+```
+
+**Key Insights**:
+1. **Multiple States**: Orders have multiple states - pending → active → filled
+2. **State Transitions**: Check ALL relevant state fields, not just one
+3. **Lifecycle Awareness**: Once child is enabled, it's no longer "waiting for parent"
+4. **UI Accuracy**: Status messages must reflect current state, not historical relationships
+
+**State Fields Involved**:
+- `triggered='true'` - Order threshold met, TSL order created
+- `order_id` - Kraken order ID (proves order exists)
+- `fill_notified='true'` - Order has filled (completed)
+- `enabled='true'/'false'` - Config enabled status
+
+**Testing**:
+- Created 4 comprehensive tests covering all scenarios
+- All tests pass including the critical "parent filled" scenario
+- Manual UI verification with before/after comparison
+
+**Related Files**:
+- `dashboard.py`: Lines 266-280 (status logic fix)
+- `tests/test_pending_link_order_status.py`: Complete test suite (4 tests)
+- GitHub Issue: "Status of pending link orders should change after the order is filled"
+
+**Visual Impact**: See PR screenshot showing before (incorrect "waiting") vs after (normal pending status)
+
+---
+
