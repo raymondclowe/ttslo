@@ -266,8 +266,8 @@ def get_pending_orders():
         # Check if this order is waiting for parent to fill
         # Only show "waiting for parent" status if:
         # 1. This order is linked to a parent (in parent_order_map)
-        # 2. This order is not yet enabled (enabled='false' or 'pending')
-        # Once parent fills and enables this order, it's no longer "waiting"
+        # 2. This order is not yet enabled (enabled != 'true', i.e., 'false' or 'pending')
+        # Once parent fills and child is enabled='true', it's no longer "waiting"
         waiting_for_parent = None
         parent_is_active = False
         if config_id in parent_order_map and not enabled:
