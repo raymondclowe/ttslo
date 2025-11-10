@@ -886,7 +886,14 @@ class ConfirmQuitScreen(ModalScreen[bool]):
 class CSVEditor(App):
     """A Textual app to edit CSV files."""
 
-    # Required columns for TTSLO config
+    # System/internal columns used by TTSLO (kept on left, in this order)
+    SYSTEM_COLUMNS = [
+        'id', 'pair', 'threshold_price', 'threshold_type', 
+        'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id',
+        'order_id', 'trigger_time', 'trigger_price'
+    ]
+    
+    # Required columns for TTSLO config (minimum needed for new configs)
     REQUIRED_COLUMNS = [
         'id', 'pair', 'threshold_price', 'threshold_type', 
         'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'
@@ -954,8 +961,11 @@ class CSVEditor(App):
 
     def _normalize_columns(self) -> bool:
         """
-        Normalize column order: required/system fields at left, user-defined fields at right.
+        Normalize column order: system fields at left, user-defined fields at right.
         Preserves all data while reordering columns.
+        
+        System columns are placed first (in SYSTEM_COLUMNS order).
+        User-defined columns are moved to the right (preserving their relative order).
         
         Returns True if normalization was performed, False otherwise.
         """
@@ -965,30 +975,30 @@ class CSVEditor(App):
         headers = self.data[0]
         headers_lower = [h.lower() for h in headers]
         
-        # Build ordered list: required columns first (in REQUIRED_COLUMNS order), then user columns
-        required_cols = []
+        # Build ordered list: system columns first (in SYSTEM_COLUMNS order), then user columns
+        system_cols = []
         user_cols = []
         
-        # Add required columns in the order defined in REQUIRED_COLUMNS
-        for req_col in self.REQUIRED_COLUMNS:
-            req_lower = req_col.lower()
-            if req_lower in headers_lower:
+        # Add system columns in the order defined in SYSTEM_COLUMNS
+        for sys_col in self.SYSTEM_COLUMNS:
+            sys_lower = sys_col.lower()
+            if sys_lower in headers_lower:
                 # Find the actual column name (may have different case)
-                idx = headers_lower.index(req_lower)
-                required_cols.append(headers[idx])
+                idx = headers_lower.index(sys_lower)
+                system_cols.append(headers[idx])
         
         # Add user-defined columns (preserving their relative order)
         for col in headers:
-            if col.lower() not in [r.lower() for r in self.REQUIRED_COLUMNS]:
+            if col.lower() not in [s.lower() for s in self.SYSTEM_COLUMNS]:
                 user_cols.append(col)
         
         # Check if columns are already in correct order
-        expected_order = required_cols + user_cols
+        expected_order = system_cols + user_cols
         if headers == expected_order:
             return False  # Already normalized
         
         # Build mapping from old position to new position
-        new_order = required_cols + user_cols
+        new_order = system_cols + user_cols
         col_mapping = {old_idx: new_order.index(headers[old_idx]) 
                       for old_idx in range(len(headers))}
         
@@ -1007,7 +1017,7 @@ class CSVEditor(App):
             self.data[row_idx] = new_row
         
         self.notify(
-            f"Normalized column order: {len(required_cols)} required, {len(user_cols)} user-defined",
+            f"Normalized column order: {len(system_cols)} system, {len(user_cols)} user-defined",
             title="Column Normalization",
             severity="information"
         )
