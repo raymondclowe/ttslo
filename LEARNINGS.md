@@ -2,297 +2,54 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
-## Profit Tracking Implementation (2025-11-04)
+## CSV Column Organization - System vs User Fields (2025-11-10)
 
-**Problem**: Need to track profits from trades suggested by issue #195.
+**Context**: Production config files have mix of system fields (used by TTSLO) and user-defined fields (personal tracking).
 
-**Solution**: Implemented comprehensive profit tracking system:
-- `ProfitTracker` class records trades from trigger to fill
-- Automatic profit calculation based on direction (buy vs sell)
-- Executive summary reports via `tools/profit_report.py`
+**System/Internal Fields** (kept on left in this order):
+1. `id` - Unique identifier 
+2. `pair` - Trading pair
+3. `threshold_price` - Trigger price
+4. `threshold_type` - "above"/"below"
+5. `direction` - "buy"/"sell"
+6. `volume` - Trade amount
+7. `trailing_offset_percent` - TSL offset
+8. `enabled` - Status (true/false/pending/canceled)
+9. `linked_order_id` - Chained order ID
+10. `order_id` - Kraken order ID (added when triggered)
+11. `trigger_time` - Trigger timestamp
+12. `trigger_price` - Price at trigger
 
-**Key Insights**:
-1. **CSV handling**: Must initialize file before reading to avoid empty file issues
-   - Check file exists AND has content before assuming headers present
-   - Use `os.path.getsize()` to verify file not empty
-   
-2. **Profit calculation logic**:
-   - SELL orders: profit = (entry - exit) × volume (sell high, buy back low)
-   - BUY orders: profit = (exit - entry) × volume (buy low, sell high)
-   - Always use Decimal for financial calculations (avoid float rounding)
-
-3. **Test mocking**:
-   - When adding optional parameters to classes, update ALL test instantiations
-   - Mock `get_normalized_balances()` not `get_balance()` for balance checks
-   - Mock `get_asset_pair_info()` for minimum volume validation
-
-4. **Integration pattern**:
-   - Pass tracker as optional parameter to TTSLO constructor
-   - Record at two points: order trigger (entry) and order fill (exit)
-   - Handle case where fill occurs without tracked entry (standalone fills)
-
-**Files Created**:
-- `profit_tracker.py`: Core tracking logic
-- `tools/profit_report.py`: Reporting tool
-- `tests/test_profit_tracker.py`: Test suite
-- `PROFIT_TRACKING.md`: User documentation
-
-**Related Issue**: #195 (suggestions for profitable trades)
-
-## Terminology Overlap Analysis (2025-11-04)
-
-**Problem**: Multiple terms with overlapping meanings cause confusion:
-- "trigger" = 3 different meanings (threshold met, TSL execution, API parameter)
-- "offset" = 2 different meanings (TSL trailing %, distance to threshold)
-- "TTSLO" vs "TSL" = 2 operational layers with similar terms
-
-**Analysis**: Comprehensive report created in `TERMINOLOGY_ANALYSIS_REPORT.md`
-
-**Key Findings**:
-1. **"Trigger" HIGH confusion**: 
-   - TTSLO threshold reached (activation)
-   - TSL order fills on Kraken (execution)
-   - Kraken API price source parameter
-   
-2. **"Offset" MEDIUM confusion**:
-   - Config: `trailing_offset_percent` (TSL parameter)
-   - Validation: gap/distance to threshold (also a percentage)
-
-3. **Layer confusion**: TTSLO (monitor) vs TSL (Kraken orders) use same terms
-
-**Recommendations**:
-- Phase 1: Documentation improvements (glossary, comments) - NO CODE CHANGES
-- Phase 2: Field renames if doing major refactor (requires migration)
-- Phase 3: Comprehensive rename (40+ hours estimated)
-
-**Current Action**: Documentation-first approach per issue requirements.
-
-**Related Files**:
-- `TERMINOLOGY_ANALYSIS_REPORT.md`: Complete analysis with solutions
-- GitHub Issue: "Terminology problems"
-
----
-
-## Dashboard Order Details Grid Removal (2025-11-04)
-
-**Problem**: Order details cards in dashboard were too cramped with 2-column grid layout, reducing readability.
-
-**Root Cause**:
-- `.order-details` CSS used `display: grid` with `grid-template-columns: repeat(2, 1fr)`
-- Forced detail rows into 2 columns, making cards narrow and cramped
-- Especially problematic with longer labels like "Direction: Sell WAL to buy USD"
-
-**Solution**: Removed grid layout to allow full-width detail rows
-```css
-/* BEFORE - cramped 2-column layout */
-.order-details {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 14px;
-}
-
-/* AFTER - full-width rows, easier to read */
-.order-details {
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 14px;
-}
-```
-
-**Key Insights**:
-1. **Grid not always better**: 2-column grid works for short labels, but fails with descriptive text
-2. **Vertical space is cheap**: Stacking details vertically improves readability
-3. **Each row still uses flexbox**: `.detail-row { display: flex; justify-content: space-between; }` provides label/value alignment
-4. **Mobile media query cleanup**: Removed redundant `.order-details { grid-template-columns: 1fr; }` rule
-
-**Visual Impact**:
-- Before: Details cramped in 2 columns, hard to scan
-- After: Each detail on its own row, full card width, easy to read
-
-**Related Files**:
-- `templates/dashboard.html`: Lines 217-221 (main CSS), 464-468 (media query)
-- `tests/test_dashboard.py`: All tests passing (HTML structure unchanged)
-
----
-
-## CSV Editor Column Normalization (2025-11-04)
-
-**Problem**: Users add custom columns (worker, notes, tags) to config.csv for their own tracking, making it hard to read in csv_editor. Columns appear in random order mixing system fields with user fields.
-
-**Solution**: Automatic column normalization that reorders columns on every load/save:
-- Required/system columns at left (in REQUIRED_COLUMNS order)
-- User-defined columns at right (preserving their relative order)
-- All data preserved during reordering
-- Case-insensitive column matching
+**User-Defined Fields** (moved to right, preserve relative order):
+- `coin` - Personal label
+- `W's holding` - Custom tracking
+- `valud USD` - User calculation
+- `new vol` - Custom volume
+- `tx value USD` - Transaction tracking
+- Any other custom columns users add
 
 **Implementation**:
-```python
-def _normalize_columns(self) -> bool:
-    # Identify required vs user-defined columns
-    required_cols = []
-    for req_col in self.REQUIRED_COLUMNS:
-        if req_lower in headers_lower:
-            required_cols.append(headers[headers_lower.index(req_lower)])
-    
-    user_cols = [col for col in headers 
-                 if col.lower() not in [r.lower() for r in self.REQUIRED_COLUMNS]]
-    
-    # Build new order: required first, user-defined after
-    new_order = required_cols + user_cols
-    
-    # Remap data to new column positions
-    # ... (mapping and reordering logic)
-```
-
-**Applied**:
-- `read_csv_to_table()`: Normalizes after loading file
-- `action_save_csv()`: Normalizes before saving file
-- User notified when normalization occurs: "(normalized)"
+- `SYSTEM_COLUMNS` constant defines canonical order
+- `_normalize_columns()` enforces left (system) / right (user) split
+- Normalization runs on file load and before save
+- User column order preserved within their section
+- **All CSV generators** output all 12 system columns (even when blank):
+  - `config.py`: `create_sample_config()` 
+  - `tools/coin_stats.py`: `generate_config_suggestions()`
+  - CSV editor creates new rows with all system fields
 
 **Key Insights**:
-1. **Preserve relative order**: User columns maintain their order relative to each other
-2. **REQUIRED_COLUMNS order matters**: System fields appear in this exact order
-3. **Case-insensitive**: "ID" and "id" both recognized as required column
-4. **No-op when already normalized**: Returns False if columns already in correct order
-5. **Data preservation critical**: Cell values must move with their columns
-
-**Example**:
-```
-BEFORE: worker,notes,id,pair,threshold_price,...,tags,priority
-AFTER:  id,pair,threshold_price,...,worker,notes,tags,priority
-        ^-- Required fields --^    ^-- User fields ----^
-```
-
-**Testing**: 8 comprehensive tests covering:
-- Column reordering correctness
-- Data preservation
-- Already-normalized files (no-op)
-- Only required columns
-- Empty files
-- Case-insensitive matching
-- Normalization on load
-- Empty cell preservation
+1. **Separate concerns**: System fields for logic, user fields for notes/tracking
+2. **Preserve user data**: Never delete unknown columns, just move to right
+3. **Consistent order**: System columns always in same order for diff clarity
+4. **Non-destructive**: Normalization preserves all data, just reorders
+5. **Two-tier structure**: Required subset ⊂ System columns ⊂ All columns
+6. **Complete headers**: All generators include all 12 system fields (blank trigger fields for new configs)
 
 **Related Files**:
-- `csv_editor.py`: Lines 955-1007 (_normalize_columns), 1171-1173 (load), 1225-1227 (save)
-- `tests/test_csv_column_normalization.py`: Complete test suite (8 tests)
-
----
-
-## Kraken API Credentials Security - Debug Logging (2025-11-03)
-
-**Problem**: Private API requests logged full headers (including `API-Key` and `API-Sign`) and payload in debug output:
-```
-[DEBUG] Headers: {'API-Key': 'test_key', 'API-Sign': 'bOEi9vdpGkT0...', 'Content-Type': 'application/json'}
-[DEBUG] Payload: {"nonce": "1762154978402"}
-```
-
-**Security Issue**: Credentials exposed in:
-- Console output
-- Log files
-- Test output
-- CI/CD logs
-
-**Root Cause**:
-- Lines 504-505 in `kraken_api.py`: `print(f"[DEBUG] Headers: {headers}")` and `print(f"[DEBUG] Payload: {json_data}")`
-- Lines 509-510: `print(f"[DEBUG] Response headers={response.headers}")` and `print(f"[DEBUG] Response body={response.text}")`
-- Debug output included all headers without filtering sensitive values
-
-**Solution**: Remove sensitive debug logging, keep only safe information:
-```python
-# BEFORE (unsafe)
-print(f"[DEBUG] Headers: {headers}")  # ❌ Exposes API-Key and API-Sign
-print(f"[DEBUG] Payload: {json_data}")  # ❌ Exposes nonce and params
-print(f"[DEBUG] Response headers={response.headers}")  # ❌ May expose sensitive data
-print(f"[DEBUG] Response body={response.text}")  # ❌ Exposes account balances
-
-# AFTER (safe)
-print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")  # ✅ Safe
-print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")  # ✅ Safe
-```
-
-**Testing**:
-- Created `tests/test_api_credentials_not_logged.py` with 4 comprehensive tests
-- Tests verify credentials NOT in captured output
-- Tests verify safe logging still present (method, URL, status)
-- All 45 API tests pass
-
-**Key Insights**:
-1. **Never log full headers** - Always filter sensitive fields (Authorization, API-Key, API-Sign)
-2. **Never log request/response bodies** - May contain sensitive account data
-3. **Log safe identifiers only** - Method name, URL, status code, error types
-4. **Test security** - Explicitly test that credentials don't appear in logs
-5. **Defense in depth** - Even debug/development logging should be secure
-
-**Best Practice for Debug Logging**:
-```python
-# Safe debug logging pattern
-safe_headers = {k: v for k, v in headers.items() if k.lower() not in ['api-key', 'api-sign', 'authorization']}
-print(f"[DEBUG] Headers (filtered): {safe_headers}")
-
-# Or just log specific safe fields
-print(f"[DEBUG] Content-Type: {headers.get('Content-Type')}")
-```
-
-**Related Files**:
-- `kraken_api.py`: Lines 502-510 (removed unsafe logging)
-- `tests/test_api_credentials_not_logged.py`: Complete security test suite
-- GitHub Issue: "Stop logging Kraken API credentials in private request debug output"
-## Dashboard Linked Order Annotations (2025-11-04)
-
-**Problem**: Linked orders feature lacked context in dashboard. Users couldn't tell:
-- Why a pending order was disabled (waiting for parent)
-- Whether parent order was active or not triggered yet
-- What would happen when active order fills
-
-**Key Insight**: When parent order triggers (moves to Active), child order is STILL `enabled='false'` waiting for parent to FILL. Child must show in Pending pane with clear "waiting" status.
-
-**Solution**:
-1. **Build parent_order_map**: Map child_id → parent_id to identify waiting relationships
-2. **Show disabled linked orders**: Include `enabled='false'` orders IF they're waiting for parent
-3. **Add parent_is_active flag**: Check if parent has `triggered='true'` and `order_id`
-4. **Visual annotations**:
-   - Pending: "⏳ Waiting for [parent] to be filled" (yellow background)
-   - Pending: "🔗 Will Enable: [child]" (for active orders with linked_order_id)
-   - Active: "🎯 When Filled: Will enable [child]" (green background)
-
-**Implementation**:
-```python
-# dashboard.py - Build parent map
-parent_order_map = {}  # child_id -> parent_id
-for config in configs:
-    linked_id = config.get('linked_order_id', '').strip()
-    if linked_id:
-        parent_order_map[linked_id] = config.get('id')
-
-# Check if order is waiting for parent
-waiting_for_parent = None
-parent_is_active = False
-if config_id in parent_order_map:
-    parent_id = parent_order_map[config_id]
-    waiting_for_parent = parent_id
-    parent_state = state.get(parent_id, {})
-    if parent_state.get('triggered') == 'true' and parent_state.get('order_id'):
-        parent_is_active = True
-
-# Show if enabled OR waiting for parent
-should_show = (enabled or enabled_raw == 'pending' or (waiting_for_parent and not enabled))
-```
-
-**Key Patterns**:
-1. **Inverse relationships**: Build maps for both directions (A→B and B→A lookups)
-2. **State checking**: Use `triggered='true'` + `order_id` to detect active orders
-3. **Conditional display**: Show different annotations based on relationship type
-4. **Visual hierarchy**: Use background colors to distinguish status types
-
-**Testing**: 4 tests covering all cases (waiting, active parent, linked orders, disabled)
-
-**Related Files**:
-- `dashboard.py`: Lines 247-274 (parent map), 260-281 (show logic), 350-382 (data structure)
-- `templates/dashboard.html`: Lines 803-827 (pending display), 1024-1032 (active display)
-- `tests/test_dashboard_linked_annotations.py`: Complete test suite
+- `csv_editor.py`: Lines 1117-1125 (SYSTEM_COLUMNS), 1168-1213 (_normalize_columns)
+- `config.py`: Lines 341-343 (state.csv fieldnames), 393-429 (create_sample_config)
+- `tools/coin_stats.py`: Lines 1236-1242 (fieldnames), 1328-1395 (writerow calls)
 
 ---
 
@@ -3381,142 +3138,3 @@ elif quote == 'EUR':
 **User Impact**: Users can now transact with small gaps (with warnings) instead of being completely blocked.
 
 ---
-
----
-
-## Sell-Then-Buy Strategy Implementation (2025-11-04)
-
-**Feature**: Added `--strategy` parameter to coin_stats.py for generating chained orders with two strategies.
-
-**Problem**: Current system only supports "buy dip then sell" strategy. Users holding long-term assets (BTC, ETH) want "sell boom then buy back" for taking profit while maintaining position.
-
-**Solution**: Added strategy parameter with two options:
-1. **buy-then-sell** (default): Buy dip first (enabled), sell high after (linked)
-2. **sell-then-buy** (new): Sell boom first (enabled), buy back after (linked)
-
-**Implementation Details**:
-
-1. **Parameter Addition** (`tools/coin_stats.py`):
-   - Added `--strategy` argument with choices=['buy-then-sell', 'sell-then-buy']
-   - Default is 'buy-then-sell' (preserves existing behavior)
-   - Passed through to `generate_config_suggestions()` function
-
-2. **Config Generation Logic**:
-   - Both strategies create TWO chained orders using `linked_order_id`
-   - Order structure differs based on strategy:
-     
-     **Buy-then-sell**:
-     ```csv
-     buy_id,PAIR,lower_price,below,buy,volume,offset,true,sell_id
-     sell_id,PAIR,upper_price,above,sell,volume,offset,false,
-     ```
-     
-     **Sell-then-buy**:
-     ```csv
-     sell_id,PAIR,upper_price,above,sell,volume,offset,true,buy_id
-     buy_id,PAIR,lower_price,below,buy,volume,offset,false,
-     ```
-
-3. **CSV Output**:
-   - Added `linked_order_id` to fieldnames
-   - First order has enabled=true and links to second
-   - Second order has enabled=false and no link
-
-4. **Output Messages**:
-   - Updated console output to describe strategy
-   - Added clear explanation of order flow
-   - Indicated best use cases for each strategy
-
-**Testing**:
-- Fixed 2 existing tests to be order-agnostic (find by direction, not index)
-- Added 3 new comprehensive tests covering both strategies
-- All 21 coin_stats tests pass
-- All 32 chained_orders tests pass
-
-**Key Insights**:
-
-1. **Reuse Existing Features**: Used existing `linked_order_id` feature instead of creating new mechanism
-2. **Order Matters**: First order written is enabled, second is disabled (linked)
-3. **Backward Compatible**: Default behavior unchanged, new feature is opt-in
-4. **Test Brittleness**: Tests assuming order matters (rows[0], rows[1]) broke easily
-
-5. **Strategy Trade-offs**:
-   - Buy-then-sell: Risk buying falling knife, captures upside
-   - Sell-then-buy: Risk missing gains, takes profit and re-enters
-
-**Documentation**:
-- Updated README.md with strategy examples
-- Updated docs/COIN_STATS.md with comprehensive strategy guide
-- Added comparison table and execution flow examples
-
-**Related Files**:
-- `tools/coin_stats.py`: Main implementation (lines 1108-1365)
-- `tests/test_coin_stats_strategy.py`: New test file (3 tests)
-- `tests/test_coin_stats.py`: Fixed existing tests (lines 409-420, 569-580)
-- `README.md`: Added strategy examples
-- `docs/COIN_STATS.md`: Added comprehensive strategy section
-
-**User Impact**: Users can now generate configs for both accumulation strategies (buy-then-sell) and profit-taking strategies (sell-then-buy) for long-term holdings.
-
----
-
----
-
-## Linked Order Status Fix (2025-11-06)
-
-**Problem**: Dashboard showed inaccurate status for linked orders after parent filled.
-- Parent "buy the dip" orders filled and moved to completed
-- Linked "sell" orders still showed "⏳ Waiting for [parent] to be filled"
-- Status should change once parent completes and child is enabled
-
-**Root Cause**:
-- Dashboard checked if parent was *active* (`triggered='true'` + `order_id`)
-- Did NOT check if parent had *completed* (`fill_notified='true'`)
-- Once parent filled → child enabled → but status still showed "waiting"
-
-**Solution** (dashboard.py lines 266-280):
-1. Check `parent_state.get('fill_notified')` to detect completed parent
-2. Only show "waiting" if parent is active AND not yet filled
-3. Only apply waiting status if child is not enabled (`enabled != 'true'`)
-4. Once parent fills and child enabled → show as normal pending order
-
-**Key Code Changes**:
-```python
-# Check if parent has filled
-parent_has_filled = parent_state.get('fill_notified') == 'true'
-
-# Only mark as active if parent triggered but NOT filled
-if parent_state.get('triggered') == 'true' and parent_state.get('order_id') and not parent_has_filled:
-    parent_is_active = True
-
-# Only check parent status if child is not yet enabled
-if config_id in parent_order_map and not enabled:
-    # ... check parent status
-```
-
-**Key Insights**:
-1. **Multiple States**: Orders have multiple states - pending → active → filled
-2. **State Transitions**: Check ALL relevant state fields, not just one
-3. **Lifecycle Awareness**: Once child is enabled, it's no longer "waiting for parent"
-4. **UI Accuracy**: Status messages must reflect current state, not historical relationships
-
-**State Fields Involved**:
-- `triggered='true'` - Order threshold met, TSL order created
-- `order_id` - Kraken order ID (proves order exists)
-- `fill_notified='true'` - Order has filled (completed)
-- `enabled='true'/'false'` - Config enabled status
-
-**Testing**:
-- Created 4 comprehensive tests covering all scenarios
-- All tests pass including the critical "parent filled" scenario
-- Manual UI verification with before/after comparison
-
-**Related Files**:
-- `dashboard.py`: Lines 266-280 (status logic fix)
-- `tests/test_pending_link_order_status.py`: Complete test suite (4 tests)
-- GitHub Issue: "Status of pending link orders should change after the order is filled"
-
-**Visual Impact**: See PR screenshot showing before (incorrect "waiting") vs after (normal pending status)
-
----
-
