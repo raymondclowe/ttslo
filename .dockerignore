@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker/
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Instance data (will be mounted as volumes)
+instance*/
+
+# Logs and cache
+*.log
+.cache/
+logs/
+*.csv
+
+# Docs and examples
+*.md
+docs/
+demos/
+deliverables_48h/
+api-docs/
+graphs/
+example_of_production_data/
+
+# Scripts
+*.sh
+update_prod.sh
+setup-ttslo.sh
+security-harden.sh
+remove-security-harden.sh
+
+# Service files
+*.service
+
+# Test files
+tests/
+query-order-temp

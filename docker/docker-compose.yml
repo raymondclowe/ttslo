@@ -1,0 +1,34 @@
+services:
+  ttslo_instance1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ttslo_instance1
+    environment:
+      - KRAKEN_API_KEY=your_ro_key_1
+      - KRAKEN_API_SECRET=your_ro_secret_1
+      - KRAKEN_API_KEY_RW=your_rw_key_1
+      - KRAKEN_API_SECRET_RW=your_rw_secret_1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DASHBOARD_PORT=8001
+    volumes:
+      - ../instance1:/config
+    ports:
+      - "8001:8001"
+
+  ttslo_instance2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ttslo_instance2
+    environment:
+      - KRAKEN_API_KEY=your_ro_key_2
+      - KRAKEN_API_SECRET=your_ro_secret_2
+      - KRAKEN_API_KEY_RW=your_rw_key_2
+      - KRAKEN_API_SECRET_RW=your_rw_secret_2
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - DASHBOARD_PORT=8002
+    volumes:
+      - ../instance2:/config
+    ports:
+      - "8002:8002"
