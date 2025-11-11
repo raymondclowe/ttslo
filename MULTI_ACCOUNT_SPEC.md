@@ -71,7 +71,7 @@ Account information is implicit through the config_id relationship.
 
 ### 4. logs.csv Schema
 
-**Optional enhancement:** Add `account` column to logs for easier filtering
+**Enhancement:** Add `account` column to logs for easier filtering
 
 **Column Definition:**
 - **Name:** `account`
