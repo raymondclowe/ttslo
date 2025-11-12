@@ -229,3 +229,6 @@ deliverables_48h/suggested_config.csv
 
 tools/graphs/*.png
 tools/*.csv
+
+# 
+docker/docker-compose.yml
