@@ -1121,15 +1121,22 @@ class TTSLO:
             return
         
         # Step 2: Find config for this order to check if it has a linked order
+        # IMPORTANT: Must load ALL configs from CSV, not just self.configs
+        # Config might have been disabled after triggering
         config = None
-        if self.configs:
-            for cfg in self.configs:
+        try:
+            all_configs = self.config_manager.load_config()
+            for cfg in all_configs:
                 if cfg.get('id') == config_id:
                     config = cfg
                     break
+        except Exception as e:
+            self.log('ERROR', f'Failed to load configs when checking for linked order: {str(e)}',
+                    config_id=config_id, error=str(e))
+            return
         
         if not config:
-            self.log('DEBUG', f'Config {config_id} not found in current configs',
+            self.log('DEBUG', f'Config {config_id} not found in config file',
                     config_id=config_id)
             return
         
@@ -1143,12 +1150,20 @@ class TTSLO:
                 config_id=config_id, linked_id=linked_id)
         
         # Step 4: Find the linked config
+        # IMPORTANT: Must load ALL configs from CSV, not just self.configs
+        # self.configs only contains enabled='true' configs from validation
+        # But linked child might have enabled='false' or 'pending'
         linked_config = None
-        if self.configs:
-            for cfg in self.configs:
+        try:
+            all_configs = self.config_manager.load_config()
+            for cfg in all_configs:
                 if cfg.get('id') == linked_id:
                     linked_config = cfg
                     break
+        except Exception as e:
+            self.log('ERROR', f'Failed to load configs when searching for linked order {linked_id}: {str(e)}',
+                    config_id=config_id, linked_id=linked_id, error=str(e))
+            return
         
         if not linked_config:
             self.log('ERROR', f'Linked order {linked_id} not found in config for {config_id}',

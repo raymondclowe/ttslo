@@ -39,6 +39,40 @@ def action_force_quit(self) -> None:
 **Related Files**:
 - `csv_editor.py`: Lines 21-24 (docstring), 926 (binding), 1509-1511 (action), 786 (help)
 - `tests/test_csv_editor.py`: Lines 467-561 (3 new tests)
+## Linked Order Activation Bug - Must Search All Configs (2025-11-14)
+
+**Problem**: Linked child orders with enabled='false' or 'pending' never got activated when parent filled.
+
+**Root Cause**:
+- `activate_linked_order_if_needed()` searched for child config in `self.configs`
+- But `self.configs` = `result.configs` from validator (line 1690)
+- Validator only includes enabled='true' configs in `result.configs` (validator.py:111-112)
+- If child has enabled='false' or 'pending', it's NOT in `self.configs`
+- Search fails → logs ERROR → returns early WITHOUT activating child
+- Child stays disabled forever, even though parent filled
+
+**Why This Happened**:
+1. At startup: validator filters configs to only enabled='true'
+2. `self.configs` only contains validated enabled configs
+3. When parent fills: searches for child in `self.configs`
+4. Child not found because it's disabled
+5. Activation fails silently
+
+**The Fix** (ttslo.py lines 1123-1163):
+- Load ALL configs from CSV using `self.config_manager.load_config()`
+- Search in complete config list, not filtered `self.configs`
+- Applied to both parent search (lines 1123-1137) and child search (lines 1145-1163)
+- Added error handling for config load failures
+
+**Key Insight**: 
+- `self.configs` is for runtime processing (only enabled configs)
+- When managing config relationships (linked orders), must load ALL configs from CSV
+- Raw CSV load bypasses validation filter, includes disabled/pending configs
+
+**Related Files**:
+- `ttslo.py`: Lines 1106-1194 (activate_linked_order_if_needed)
+- `tests/test_linked_order_disabled_child.py`: Tests for disabled/pending children
+- `validator.py`: Lines 110-116 (where filtering happens)
 
 ---
 
