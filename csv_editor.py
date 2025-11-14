@@ -21,6 +21,7 @@ Key Bindings:
     Ctrl+S: Save the CSV file
     Ctrl+Q: Quit the application
     ESC: Quit the application
+    Ctrl+X: Quit without saving (force quit)
     Ctrl+N: Add a new row
     Ctrl+D: Delete the current row
     Enter: Edit the selected cell
@@ -781,8 +782,9 @@ class HelpScreen(ModalScreen):
 
 [bold yellow]File Operations:[/bold yellow]
   Ctrl+S           Save CSV file
-  Ctrl+Q           Quit editor
-  ESC              Quit editor
+  Ctrl+Q           Quit editor (with save prompt)
+  ESC              Quit editor (with save prompt)
+  Ctrl+X           Force quit without saving
 
 [bold yellow]Help:[/bold yellow]
   ?                Show this help screen
@@ -924,6 +926,7 @@ class CSVEditor(App):
         Binding("ctrl+s", "save_csv", "Save CSV"),
         Binding("ctrl+q", "quit", "Quit"),
         Binding("escape", "quit", "Quit"),
+        Binding("ctrl+x", "force_quit", "Force Quit"),
         Binding("ctrl+n", "add_row", "Add Row"),
         Binding("ctrl+d", "delete_row", "Delete Row"),
         Binding("ctrl+shift+d", "duplicate_row", "Duplicate Row"),
@@ -1505,6 +1508,10 @@ class CSVEditor(App):
         else:
             # No unsaved changes, quit immediately
             self.exit()
+    
+    def action_force_quit(self) -> None:
+        """Force quit the application without saving (no confirmation)."""
+        self.exit()
     
     def action_edit_cell(self) -> None:
         """Edit the currently selected cell."""

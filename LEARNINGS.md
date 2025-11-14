@@ -2,6 +2,46 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## CSV Editor Quit-Without-Saving Option (2025-11-14)
+
+**Feature**: Added Ctrl+X keybinding for immediate quit without saving, bypassing the confirmation dialog.
+
+**Problem**: Users wanted a quick way to discard changes without going through the confirmation dialog.
+
+**Solution**: 
+- Added `Ctrl+X` keybinding mapped to `action_force_quit()`
+- Force quit immediately exits without checking `modified` flag or showing confirmation
+- Existing `Ctrl+Q` / `ESC` behavior unchanged (still shows confirmation when unsaved changes exist)
+
+**Implementation**:
+```python
+def action_force_quit(self) -> None:
+    """Force quit the application without saving (no confirmation)."""
+    self.exit()
+```
+
+**Key Bindings**:
+- `Ctrl+Q` / `ESC`: Quit with confirmation dialog when unsaved changes exist
+- `Ctrl+X`: Force quit immediately without any prompts (new)
+- `Ctrl+S`: Save changes
+
+**Testing**: Added 3 comprehensive tests:
+1. `test_force_quit_binding_exists`: Verifies Ctrl+X binding exists
+2. `test_force_quit_always_exits_without_prompt`: Tests force quit with/without unsaved changes
+3. `test_regular_quit_still_prompts_with_unsaved_changes`: Ensures regular quit unchanged
+
+**Key Insights**:
+1. **User Control**: Give users both safe (Ctrl+Q) and fast (Ctrl+X) exit options
+2. **Minimal Changes**: Only 3 lines added + help screen update + tests
+3. **Keep Existing Behavior**: Don't change Ctrl+Q/ESC behavior users expect
+4. **Clear Documentation**: Update help screen, docstring, and keybinding display
+
+**Related Files**:
+- `csv_editor.py`: Lines 21-24 (docstring), 926 (binding), 1509-1511 (action), 786 (help)
+- `tests/test_csv_editor.py`: Lines 467-561 (3 new tests)
+
+---
+
 ## CSV Column Organization - System vs User Fields (2025-11-10)
 
 **Context**: Production config files have mix of system fields (used by TTSLO) and user-defined fields (personal tracking).
