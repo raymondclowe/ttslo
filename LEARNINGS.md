@@ -2,6 +2,40 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Enabled Field Must Support Multiple Formats (2025-11-18)
+
+**Problem**: Orders with `enabled='yes'` or `enabled='1'` showed as "READY TO TRIGGER" in dashboard but never triggered automatically.
+
+**Root Cause**: 
+- `validator.py` line 111: Only added configs to `result.configs` if `enabled == 'true'`
+- `validator.py` line 115: Validated configs if `enabled in ['true', 'yes', '1']`
+- Result: Configs with `enabled='yes'` or `enabled='1'` passed validation but weren't included in active monitoring
+
+**Solution**: Reordered logic to add configs to `result.configs` AFTER the enabled check passes
+```python
+# BEFORE (buggy):
+if config.get('enabled', 'false').lower() == 'true':
+    result.configs.append(config)
+if config.get('enabled', 'false').lower() not in ['true', 'yes', '1']:
+    continue
+
+# AFTER (fixed):
+enabled_value = config.get('enabled', 'false').lower()
+if enabled_value not in ['true', 'yes', '1']:
+    continue
+result.configs.append(config)
+```
+
+**Key Insights**:
+1. **Consistency matters**: If you accept multiple formats for validation, include them all in active configs
+2. **Order matters**: Check eligibility BEFORE adding to result set
+3. **Dashboard ≠ Service**: Dashboard reads CSV directly, but service uses validated configs from memory
+4. **Test all variants**: `enabled` supports `'true'`, `'yes'`, `'1'` (case-insensitive)
+
+**Related Files**:
+- `validator.py`: Lines 107-116 (fixed logic)
+- `tests/test_enabled_field_variants.py`: Comprehensive test coverage for all enabled variants
+
 ## CSV Column Organization - System vs User Fields (2025-11-10)
 
 **Context**: Production config files have mix of system fields (used by TTSLO) and user-defined fields (personal tracking).
