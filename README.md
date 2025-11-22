@@ -953,6 +953,14 @@ diff config.csv open_orders.csv
 
 This is useful when config.csv or state.csv may be out of sync with actual open orders on Kraken. See [EXTRACT_ORDERS_README.md](docs/EXTRACT_ORDERS_README.md) for details.
 
+## Documentation
+
+- [DOCKER_REBUILD_GUIDE.md](DOCKER_REBUILD_GUIDE.md) - How to rebuild Docker images, common issues and solutions
+- [LEARNINGS.md](LEARNINGS.md) - Key learnings and gotchas discovered during development
+- [DOCKER.md](DOCKER.md) - Docker deployment guide
+- [SECURITY.md](docs/SECURITY.md) - Security guarantees and fail-safe design
+- [AGENTS.md](AGENTS.md) - Instructions for AI agents working with this codebase
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.

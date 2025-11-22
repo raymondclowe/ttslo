@@ -26,10 +26,7 @@ ENV/
 .gitignore
 
 # Docker
-docker/
-Dockerfile
 docker-compose.yml
-.dockerignore
 
 # Instance data (will be mounted as volumes)
 instance*/

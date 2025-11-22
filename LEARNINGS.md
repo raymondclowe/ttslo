@@ -2,6 +2,9 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+**Quick Links:**
+- [Docker rebuild issues and solutions](DOCKER_REBUILD_GUIDE.md)
+
 ## Enabled Field Must Support Multiple Formats (2025-11-18)
 
 **Problem**: Orders with `enabled='yes'` or `enabled='1'` showed as "READY TO TRIGGER" in dashboard but never triggered automatically.
