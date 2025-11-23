@@ -3175,3 +3175,186 @@ elif quote == 'EUR':
 **User Impact**: Users can now transact with small gaps (with warnings) instead of being completely blocked.
 
 ---
+
+---
+
+## Investigation: No Buy Orders Created Despite Market Down (2025-10-27)
+
+**Issue**: Market significantly down (DYDX -6%, POPCAT -4%, PONKE -5.3%), yet no buy orders being created.
+
+**Current Prices** (verified via live API):
+- DYDXUSD: $0.3347
+- POPCATUSD: $0.1573  
+- PONKEUSD: $0.0647
+
+**Root Cause Analysis**:
+
+### How Buy Orders SHOULD Work
+
+For BUY orders when market drops:
+```
+threshold_type = 'below'
+threshold_price < current_price  (threshold BELOW current)
+When: current_price <= threshold_price → Trigger & create TSL buy order
+```
+
+Example:
+- Current: $0.33, Threshold: $0.31 (6% below)
+- When price drops to $0.31 → Creates buy order
+- TSL tracks price down, triggers when bounces back by trailing offset %
+
+### Why No Orders Created - Most Likely Scenarios
+
+**Scenario A**: Thresholds set with insufficient gap
+- Current: $0.33, Threshold: $0.326 (1-2% below)
+- Market dropped 6% total, but from HIGHER starting point
+- Example: Started at $0.36, dropped to $0.33 (6% drop)
+- But threshold is $0.326, still 1% away
+- Result: Validation passes (WARNING after PR #144), but threshold NOT MET
+- Solution: Price needs to drop another 1-2% to trigger
+
+**Scenario B**: Threshold already met, order already created
+- Order triggered when price was at bottom of dip
+- Now price recovering, order visible in active orders
+- Check: state.csv for `triggered='true'` entries
+- Check: Kraken open orders API
+
+**Scenario C**: Validation still blocking configs
+- "Threshold already met" ERROR (lines 419-425 of validator.py)
+- Applies when: `threshold_type='below'` AND `current <= threshold`
+- This means threshold set ABOVE current (wrong direction)
+- Solution: Fix config thresholds
+
+### Impact of PR #144
+
+PR #144 changed "insufficient gap" from ERROR → WARNING:
+```python
+# Before PR #144:
+if gap < trailing_offset:
+    result.add_error(...)  # BLOCKED
+
+# After PR #144:  
+if gap < trailing_offset:
+    result.add_warning(...)  # ALLOWED
+```
+
+This allows orders with small gaps to proceed, BUT:
+- If gap is 1% and market dropped 6%, threshold still not met
+- Orders waiting for ADDITIONAL price drop equal to gap size
+
+### coin_stats.py Bracket Strategy
+
+Generates TWO entries per pair:
+```python
+current_price = $0.33
+bracket_offset = 2%  # Default
+
+# SELL bracket (price goes UP)
+upper_bracket = $0.33 * 1.02 = $0.3366
+threshold_type = 'above'
+direction = 'sell'
+
+# BUY bracket (price goes DOWN)  
+lower_bracket = $0.33 * 0.98 = $0.3234
+threshold_type = 'below'
+direction = 'buy'
+```
+
+If current price is $0.3347:
+- Buy threshold: $0.3234 (current is 3.4% above threshold)
+- Market dropped 6% from higher point (e.g., $0.36 → $0.3347)
+- But still 3.4% away from buy threshold
+- Needs ANOTHER 3.4% drop to $0.3234 to trigger
+
+### Validator Logic (Current State)
+
+1. **Threshold Already Met** (STILL an ERROR):
+   ```python
+   # Line 419-425
+   if threshold_type == 'below' and current_price <= threshold_price:
+       result.add_error(...)  # BLOCKS order
+   ```
+
+2. **Insufficient Gap** (NOW a WARNING after PR #144):
+   ```python
+   # Line 437-442
+   if gap < trailing_offset:
+       result.add_warning(...)  # ALLOWS order
+   ```
+
+### Diagnostic Steps
+
+To diagnose specific production issue:
+
+1. **Check config.csv**:
+   ```bash
+   grep "direction.*buy" config.csv | head -5
+   # Look at threshold_price vs current price
+   ```
+
+2. **Check state.csv**:
+   ```bash
+   grep "triggered.*true" state.csv
+   # See if orders already created
+   ```
+
+3. **Check open orders**:
+   ```bash
+   uv run python extract_open_orders.py
+   # See actual orders on Kraken
+   ```
+
+4. **Run validator**:
+   ```bash
+   uv run ttslo.py --validate-config
+   # See which configs pass/fail
+   ```
+
+### Solutions
+
+**If thresholds are set wrong** (too close to current):
+- Option A: Wait for market to drop more (passive)
+- Option B: Adjust thresholds in config.csv to current - X% (active)
+- Option C: Use Force button in dashboard to trigger immediately (manual)
+
+**If configs are being blocked**:
+- Check validator output
+- Fix threshold_price to be below current price
+- Ensure gap >= trailing_offset for clean validation
+
+**If orders were already created**:
+- Check active orders in dashboard
+- Check Kraken UI for open orders
+- Verify state.csv has order_id entries
+
+### Key Learnings
+
+1. **Market Drop ≠ Threshold Met**: 
+   - Market can drop 6% from peak
+   - But if threshold set 2% below CURRENT, still waiting
+
+2. **PR #144 Impact**:
+   - Small gap configs now PASS validation (WARNING)
+   - But threshold still must be MET for trigger
+   - Changed blocker → waiter
+
+3. **Bracket Strategy Math**:
+   - 2% bracket from current means ±2% from CURRENT
+   - Not ±2% from yesterday's price
+   - Thresholds recalculated if running coin_stats.py again
+
+4. **Two Separate Checks**:
+   - "Threshold already met" → ERROR (unchanged)
+   - "Insufficient gap" → WARNING (changed in PR #144)
+
+### Related Files
+- `validator.py`: Lines 419-425 (threshold met), 437-442 (insufficient gap)
+- `tools/coin_stats.py`: Lines 754-899 (bracket generation)
+- `ttslo.py`: Lines 165-205 (threshold checking logic)
+
+### Next Steps for User
+1. Check actual config.csv thresholds vs current prices
+2. Check state.csv for triggered orders
+3. Check Kraken for open orders
+4. Decide: wait, adjust thresholds, or manual trigger
+
