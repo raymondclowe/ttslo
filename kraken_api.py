@@ -56,6 +56,38 @@ class KrakenAPIRateLimitError(KrakenAPIError):
         super().__init__(message, error_type="rate_limit", details=details)
 
 
+class NonceGenerator:
+    """
+    Thread-safe nonce generator that ensures monotonically increasing values.
+    
+    Prevents nonce collisions in multi-threaded environments by using a lock
+    and tracking the last nonce to guarantee uniqueness.
+    """
+    
+    def __init__(self):
+        """Initialize nonce generator."""
+        self.lock = threading.Lock()
+        self.last_nonce = 0
+    
+    def generate(self):
+        """
+        Generate a unique, monotonically increasing nonce.
+        
+        Returns:
+            str: Nonce value as string
+        """
+        with self.lock:
+            # Use microseconds for better precision
+            current_nonce = int(time.time() * 1_000_000)
+            
+            # Ensure nonce is always increasing (handle clock adjustments/collisions)
+            if current_nonce <= self.last_nonce:
+                current_nonce = self.last_nonce + 1
+            
+            self.last_nonce = current_nonce
+            return str(current_nonce)
+
+
 class WebSocketPriceProvider:
     """
     Real-time price provider using Kraken WebSocket API.
@@ -354,6 +386,12 @@ class KrakenAPI:
         self.base_url = base_url
         self.use_websocket = use_websocket and WEBSOCKET_AVAILABLE
         
+        # Initialize thread-safe nonce generator
+        self.nonce_generator = NonceGenerator()
+        
+        # Lock to serialize API requests (prevents concurrent requests with same nonce)
+        self._request_lock = threading.Lock()
+        
         # Initialize WebSocket provider if needed
         if self.use_websocket:
             with KrakenAPI._ws_provider_lock:
@@ -461,14 +499,18 @@ class KrakenAPI:
                 details={'method': method, 'url': url}
             ) from e
     
-    def _query_private(self, method, params=None, timeout=30):
+    def _query_private(self, method, params=None, timeout=30, max_retries=3):
         """
         Query private Kraken API endpoint (requires authentication).
+        
+        Includes retry logic with exponential backoff for nonce errors (handles
+        multiple instances using the same API key).
         
         Args:
             method: API method name
             params: Optional parameters dictionary
             timeout: Request timeout in seconds (default: 30)
+            max_retries: Maximum number of retries for nonce errors (default: 3)
             
         Returns:
             API response as dictionary
@@ -482,69 +524,134 @@ class KrakenAPI:
         """
         if not self.api_key or not self.api_secret:
             raise ValueError("API key and secret required for private endpoints")
+        
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                # Serialize requests within this instance
+                with self._request_lock:
+                    urlpath = f"/0/private/{method}"
+                    url = f"{self.base_url}{urlpath}"
+                    
+                    data = params or {}
+                    nonce = self.nonce_generator.generate()
+                    data['nonce'] = nonce
+                    
+                    # Convert to JSON string for the request body
+                    json_data = json.dumps(data)
+                    
+                    headers = {
+                        'API-Key': self.api_key,
+                        'API-Sign': self._get_kraken_signature(urlpath, json_data, nonce),
+                        'Content-Type': 'application/json'
+                    }
+                    
+                    if attempt > 0:
+                        print(f"[DEBUG] KrakenAPI._query_private: Retry attempt {attempt+1}/{max_retries} for {method}")
+                    print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}, nonce={nonce}")
+                    
+                    response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
+                    print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
+                    
+                    # Check for rate limiting
+                    if response.status_code == 429:
+                        raise KrakenAPIRateLimitError(
+                            f"Kraken API rate limit exceeded for {method}",
+                            details={'method': method, 'url': url}
+                        )
+                    
+                    # Check for server errors (5xx)
+                    if response.status_code >= 500:
+                        raise KrakenAPIServerError(
+                            f"Kraken API server error (HTTP {response.status_code}) for {method}",
+                            status_code=response.status_code,
+                            details={'method': method, 'url': url, 'response': response.text[:500]}
+                        )
+                    
+                    # Raise for other HTTP errors (4xx)
+                    response.raise_for_status()
+                    
+                    # Parse response to check for nonce errors specifically
+                    result = response.json()
+                    
+                    # Check for nonce-related errors and provide detailed debugging
+                    if result.get('error'):
+                        errors = result['error']
+                        if any('nonce' in str(err).lower() for err in errors):
+                            import datetime
+                            system_time = datetime.datetime.now(datetime.timezone.utc)
+                            print(f"[ERROR] Nonce error detected on attempt {attempt+1}/{max_retries}")
+                            print(f"[ERROR] System time (UTC): {system_time.isoformat()}")
+                            print(f"[ERROR] Nonce used: {nonce}")
+                            print(f"[ERROR] Method: {method}")
+                            print(f"[ERROR] Errors: {errors}")
+                            
+                            # If this is not the last attempt, wait and retry
+                            if attempt < max_retries - 1:
+                                # Exponential backoff: 0.1s, 0.2s, 0.4s, etc.
+                                backoff = 0.1 * (2 ** attempt)
+                                print(f"[RETRY] Waiting {backoff:.2f}s before retry...")
+                                time.sleep(backoff)
+                                last_error = KrakenAPIError(
+                                    f"Kraken API nonce error for {method}: {errors}",
+                                    error_type="nonce_error",
+                                    details={
+                                        'method': method, 
+                                        'nonce': nonce,
+                                        'system_time_utc': system_time.isoformat(),
+                                        'errors': errors,
+                                        'attempt': attempt + 1
+                                    }
+                                )
+                                continue  # Retry
+                            else:
+                                # Last attempt failed, raise error
+                                raise KrakenAPIError(
+                                    f"Kraken API nonce error for {method} after {max_retries} attempts: {errors}",
+                                    error_type="nonce_error",
+                                    details={
+                                        'method': method, 
+                                        'nonce': nonce,
+                                        'system_time_utc': system_time.isoformat(),
+                                        'errors': errors,
+                                        'attempts': max_retries
+                                    }
+                                )
+                    
+                    return result
             
-        urlpath = f"/0/private/{method}"
-        url = f"{self.base_url}{urlpath}"
-        
-        data = params or {}
-        nonce = str(int(time.time() * 1000))
-        data['nonce'] = nonce
-        
-        # Convert to JSON string for the request body
-        json_data = json.dumps(data)
-        
-        headers = {
-            'API-Key': self.api_key,
-            'API-Sign': self._get_kraken_signature(urlpath, json_data, nonce),
-            'Content-Type': 'application/json'
-        }
-        
-        print(f"[DEBUG] KrakenAPI._query_private: Calling {url} with params={params}")
-        
-        
-        try:
-            response = requests.post(url, headers=headers, data=json_data, timeout=timeout)
-            print(f"[DEBUG] KrakenAPI._query_private: Response status={response.status_code}")
-
-            # Check for rate limiting
-            if response.status_code == 429:
-                raise KrakenAPIRateLimitError(
-                    f"Kraken API rate limit exceeded for {method}",
+            except KrakenAPIError as e:
+                # If it's a nonce error and we can retry, continue
+                if e.error_type == "nonce_error" and attempt < max_retries - 1:
+                    last_error = e
+                    continue
+                # Otherwise re-raise
+                raise
+                
+            except requests.exceptions.Timeout as e:
+                raise KrakenAPITimeoutError(
+                    f"Request to Kraken API timed out after {timeout}s for {method}",
+                    details={'method': method, 'url': url, 'timeout': timeout}
+                ) from e
+                
+            except requests.exceptions.ConnectionError as e:
+                raise KrakenAPIConnectionError(
+                    f"Failed to connect to Kraken API for {method}: {str(e)}",
                     details={'method': method, 'url': url}
-                )
-            
-            # Check for server errors (5xx)
-            if response.status_code >= 500:
-                raise KrakenAPIServerError(
-                    f"Kraken API server error (HTTP {response.status_code}) for {method}",
-                    status_code=response.status_code,
-                    details={'method': method, 'url': url, 'response': response.text[:500]}
-                )
-            
-            # Raise for other HTTP errors (4xx)
-            response.raise_for_status()
-            
-            return response.json()
-            
-        except requests.exceptions.Timeout as e:
-            raise KrakenAPITimeoutError(
-                f"Request to Kraken API timed out after {timeout}s for {method}",
-                details={'method': method, 'url': url, 'timeout': timeout}
-            ) from e
-            
-        except requests.exceptions.ConnectionError as e:
-            raise KrakenAPIConnectionError(
-                f"Failed to connect to Kraken API for {method}: {str(e)}",
-                details={'method': method, 'url': url}
-            ) from e
-            
-        except requests.exceptions.RequestException as e:
-            # Catch any other requests exceptions
-            raise KrakenAPIError(
-                f"Request failed for {method}: {str(e)}",
-                error_type="request_error",
-                details={'method': method, 'url': url}
-            ) from e
+                ) from e
+                
+            except requests.exceptions.RequestException as e:
+                # Catch any other requests exceptions
+                raise KrakenAPIError(
+                    f"Request failed for {method}: {str(e)}",
+                    error_type="request_error",
+                    details={'method': method, 'url': url}
+                ) from e
+        
+        # If we get here, all retries failed
+        if last_error:
+            raise last_error
     
     def get_ticker(self, pair):
         """

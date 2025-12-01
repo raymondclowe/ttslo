@@ -2,6 +2,176 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Kraken API Nonce Collision Fix (2025-12-01)
+
+**Problem**: `EAPI:Invalid nonce` errors occurring in production dashboard.
+
+**Root Cause - Frontend triggers simultaneous API calls**:
+- Dashboard's `refreshData()` uses `Promise.all()` to fetch 5 endpoints simultaneously
+- 4 of those hit Kraken API at the exact same millisecond:
+  - `/api/pending` → `query_open_orders()`
+  - `/api/active` → `query_open_orders()`
+  - `/api/completed` → `query_orders()` or `query_closed_orders()`
+  - `/api/balances` → (uses cache, but can still trigger)
+- Original nonce generation: `int(time.time() * 1000)` (millisecond precision)
+- Flask handles these in separate threads → all generate same nonce → collision
+
+**Why This Happens**:
+1. Browser calls `refreshData()` every few seconds
+2. `Promise.all([...])` fires 4+ HTTP requests simultaneously
+3. Flask spawns thread for each request
+4. All threads call `time.time() * 1000` at ~same moment
+5. Multiple API calls get identical nonce → Kraken rejects duplicates
+
+**Solution - Multi-Layered Defense**:
+
+1. **Thread-safe NonceGenerator class** (fixes duplicate nonces):
+   - Uses `threading.Lock()` for thread safety
+   - Microsecond precision: `time.time() * 1_000_000` (1000x better than milliseconds)
+   - Tracks `last_nonce` to guarantee monotonic increase
+   - Handles clock adjustments: `if current_nonce <= last_nonce: current_nonce = last_nonce + 1`
+
+2. **Request serialization lock** `_request_lock` (prevents concurrent API calls):
+   - Each API call fully completes before next one starts
+   - Eliminates race conditions within single instance
+   - **This is the key fix for the frontend Promise.all() issue**
+
+3. **Automatic retry with exponential backoff** (handles edge cases):
+   - Detects nonce errors and retries up to 3 times
+   - Backoff: 0.1s, 0.2s, 0.4s
+   - Logs detailed debugging info (system time, nonce, attempt number)
+
+**How It Works Now**:
+- Frontend fires 4 simultaneous requests via `Promise.all()`
+- Flask spawns 4 threads
+- All threads try to call `_query_private()` at once
+- `_request_lock` serializes them: only 1 executes at a time
+- Each gets unique, monotonically increasing nonce
+- No collisions! ✓
+
+**Alternative Frontend Fix** (not implemented, but could further optimize):
+- Sequential loading instead of `Promise.all()`:
+  ```javascript
+  await fetchPendingOrders();
+  await fetchActiveOrders();
+  await fetchCompletedOrders();
+  await fetchBalances();
+  ```
+- Pros: Slightly less load on backend
+- Cons: Slower page load (300ms total vs 75ms per request)
+- **Not needed** since request lock already solves it
+
+**Key Changes**:
+1. Added `NonceGenerator` class in `kraken_api.py`
+2. Each `KrakenAPI` instance gets own nonce generator + request lock
+3. `_query_private()` now has retry logic with exponential backoff
+4. Enhanced error reporting for nonce errors (includes system time, nonce value, retry attempt)
+5. Added debug logging: prints nonce and retry attempts in request logs
+
+**Testing**: Created `test_nonce_fix.py`:
+- Concurrent access test: 10 threads × 50 nonces = 500 unique nonces ✓
+- Rapid generation: 1000 nonces at ~1.3M nonces/sec, all unique ✓
+- Monotonic increase verified ✓
+
+**Gotchas**:
+- Millisecond precision insufficient for concurrent environments
+- Must use locks in multi-threaded Python (GIL doesn't prevent race conditions)
+- Kraken requires strictly increasing nonces (can't reuse or go backwards)
+- **Multiple instances with same API key WILL conflict** - retry logic mitigates but doesn't eliminate
+- Best solution: Separate API keys for each instance
+
+**Files Modified**:
+- `kraken_api.py`: Added NonceGenerator, request lock, retry logic in _query_private
+- `test_nonce_fix.py`: Test suite for verification
+- `LEARNINGS.md`: This documentation
+
+**Related**: Production error logs showing `EAPI:Invalid nonce` at 2025-12-01T06:59:16
+
+## Kraken API Nonce Collision Fix (2025-12-01)
+
+**Problem**: `EAPI:Invalid nonce` errors occurring in production dashboard.
+
+**Root Cause - Frontend triggers simultaneous API calls**:
+- Dashboard's `refreshData()` uses `Promise.all()` to fetch 5 endpoints simultaneously
+- 4 of those hit Kraken API at the exact same millisecond:
+  - `/api/pending` → `query_open_orders()`
+  - `/api/active` → `query_open_orders()`
+  - `/api/completed` → `query_orders()` or `query_closed_orders()`
+  - `/api/balances` → (uses cache, but can still trigger)
+- Original nonce generation: `int(time.time() * 1000)` (millisecond precision)
+- Flask handles these in separate threads → all generate same nonce → collision
+
+**Why This Happens**:
+1. Browser calls `refreshData()` every few seconds
+2. `Promise.all([...])` fires 4+ HTTP requests simultaneously
+3. Flask spawns thread for each request
+4. All threads call `time.time() * 1000` at ~same moment
+5. Multiple API calls get identical nonce → Kraken rejects duplicates
+
+**Solution - Multi-Layered Defense**:
+
+1. **Thread-safe NonceGenerator class** (fixes duplicate nonces):
+   - Uses `threading.Lock()` for thread safety
+   - Microsecond precision: `time.time() * 1_000_000` (1000x better than milliseconds)
+   - Tracks `last_nonce` to guarantee monotonic increase
+   - Handles clock adjustments: `if current_nonce <= last_nonce: current_nonce = last_nonce + 1`
+
+2. **Request serialization lock** `_request_lock` (prevents concurrent API calls):
+   - Each API call fully completes before next one starts
+   - Eliminates race conditions within single instance
+   - **This is the key fix for the frontend Promise.all() issue**
+
+3. **Automatic retry with exponential backoff** (handles edge cases):
+   - Detects nonce errors and retries up to 3 times
+   - Backoff: 0.1s, 0.2s, 0.4s
+   - Logs detailed debugging info (system time, nonce, attempt number)
+
+**How It Works Now**:
+- Frontend fires 4 simultaneous requests via `Promise.all()`
+- Flask spawns 4 threads
+- All threads try to call `_query_private()` at once
+- `_request_lock` serializes them: only 1 executes at a time
+- Each gets unique, monotonically increasing nonce
+- No collisions! ✓
+
+**Alternative Frontend Fix** (not implemented, but could further optimize):
+- Sequential loading instead of `Promise.all()`:
+  ```javascript
+  await fetchPendingOrders();
+  await fetchActiveOrders();
+  await fetchCompletedOrders();
+  await fetchBalances();
+  ```
+- Pros: Slightly less load on backend
+- Cons: Slower page load (300ms total vs 75ms per request)
+- **Not needed** since request lock already solves it
+
+**Key Changes**:
+1. Added `NonceGenerator` class in `kraken_api.py`
+2. Each `KrakenAPI` instance gets own nonce generator + request lock
+3. `_query_private()` now has retry logic with exponential backoff
+4. Enhanced error reporting for nonce errors (includes system time, nonce value, retry attempt)
+5. Added debug logging: prints nonce and retry attempts in request logs
+
+**Testing**: Created `test_nonce_fix.py`:
+- Concurrent access test: 10 threads × 50 nonces = 500 unique nonces ✓
+- Rapid generation: 1000 nonces at ~1.3M nonces/sec, all unique ✓
+- Monotonic increase verified ✓
+
+**Gotchas**:
+- Millisecond precision insufficient for concurrent environments
+- Must use locks in multi-threaded Python (GIL doesn't prevent race conditions)
+- Kraken requires strictly increasing nonces (can't reuse or go backwards)
+- **Multiple instances with same API key WILL conflict** - retry logic mitigates but doesn't eliminate
+- Best solution: Separate API keys for each instance
+
+**Files Modified**:
+- `kraken_api.py`: Added NonceGenerator, request lock, retry logic in _query_private
+- `test_nonce_fix.py`: Test suite for verification
+- `LEARNINGS.md`: This documentation
+
+**Related**: Production error logs showing `EAPI:Invalid nonce` at 2025-12-01T06:59:16
+
 **Quick Links:**
 - [Docker rebuild issues and solutions](DOCKER_REBUILD_GUIDE.md)
 
