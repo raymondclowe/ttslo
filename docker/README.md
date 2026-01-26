@@ -1,19 +1,46 @@
-# ttslo Docker Multi-Instance Setup
+# ttslo Docker Setup
 
-Run multiple ttslo instances on one machine, each with unique config, state, and Kraken API keys.
+Run ttslo in a Docker container with both the monitoring service and web dashboard.
+
+## What Runs in the Container
+
+The Docker container runs **BOTH** of these services using supervisord:
+
+1. **ttslo monitor** (`ttslo.py`) - Background service that:
+   - Monitors price thresholds every 60 seconds
+   - Automatically triggers orders when thresholds are met
+   - Tracks order status and completion
+
+2. **ttslo dashboard** (`dashboard.py`) - Web UI that:
+   - Shows pending, active, and completed orders
+   - Allows manual order cancellation/forcing
+   - Displays real-time balances and risks
 
 ## Quick Start
 
-### 1. Prepare Instance Folders
+### 1. Prepare Configuration
+
+Create a config directory with your configuration:
+
 ```bash
-cd /home/tc3/ttslo
-# Copy your config to each instance folder
-cp config.csv instance1/config.csv
-cp config.csv instance2/config.csv
-# Edit each config as needed
+cd docker
+mkdir -p config
+cp ../config_sample.csv config/config.csv
+# Edit config/config.csv with your trading rules
 ```
 
-### 2. Set Up Telegram (Optional - Shared Across All Instances)
+### 2. Set Kraken API Keys
+
+Edit `docker-compose.yml` and replace the placeholder API keys:
+- `KRAKEN_API_KEY` - Read-only API key (for price checks)
+- `KRAKEN_API_SECRET` - Read-only API secret
+- `KRAKEN_API_KEY_RW` - Read-write API key (for creating orders)
+- `KRAKEN_API_SECRET_RW` - Read-write API secret
+
+⚠️ **Important**: The read-write key needs "Create & Modify Orders" permission.
+
+### 3. Optional: Set Up Telegram Notifications
+
 ```bash
 cd docker
 cp .env.example .env
@@ -25,78 +52,162 @@ To get a Telegram bot token:
 2. Send `/newbot` and follow instructions
 3. Copy the token to `.env`
 
-### 3. Set Kraken API Keys
-Edit `docker/docker-compose.yml` and replace placeholder keys for each instance:
-- `KRAKEN_API_KEY` (read-only)
-- `KRAKEN_API_SECRET` (read-only)
-- `KRAKEN_API_KEY_RW` (read-write)
-- `KRAKEN_API_SECRET_RW` (read-write)
+Then configure recipients in `config/notifications.ini` (see `../notifications.ini.example`).
 
-### 4. Configure Telegram Recipients (Per Instance)
-Edit `instanceX/notifications.ini` for each instance to configure who receives alerts.
-See `notifications.ini.example` in the project root for format.
+### 4. Build & Run
 
-### 5. Build & Run
 ```bash
-cd /home/tc3/ttslo
-docker compose -f docker/docker-compose.yml up -d
+cd docker
+docker compose up -d
 ```
 
-### 6. Access Dashboards
-- Instance1: http://localhost:8001
-- Instance2: http://localhost:8002
+### 5. Access Dashboard
 
-### 7. Check Status & Logs
+Open your browser to: http://localhost:5000
+
+### 6. Check Logs
+
 ```bash
-# View running containers
-docker compose -f docker/docker-compose.yml ps
+# View all logs
+docker compose logs -f
 
-# View logs
-docker compose -f docker/docker-compose.yml logs -f
+# View only monitor logs
+docker compose exec ttslo tail -f /var/log/supervisor/ttslo-monitor.out.log
 
-# Stop containers
-docker compose -f docker/docker-compose.yml down
+# View only dashboard logs
+docker compose exec ttslo tail -f /var/log/supervisor/ttslo-dashboard.out.log
 ```
 
-## Add More Instances
+### 7. Monitor Status
 
-1. Create new instance folder:
-   ```bash
-   mkdir instance3
-   cp config.csv instance3/config.csv
-   ```
+```bash
+# Check if both services are running
+docker compose exec ttslo supervisorctl status
 
-2. Add service to `docker/docker-compose.yml`:
-   ```yaml
-   ttslo_instance3:
-     build:
-       context: ..
-       dockerfile: docker/Dockerfile
-     container_name: ttslo_instance3
-     environment:
-       - KRAKEN_API_KEY=your_ro_key_3
-       - KRAKEN_API_SECRET=your_ro_secret_3
-       - KRAKEN_API_KEY_RW=your_rw_key_3
-       - KRAKEN_API_SECRET_RW=your_rw_secret_3
-       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-       - DASHBOARD_PORT=8003
-     volumes:
-       - ../instance3:/config
-     ports:
-       - "8003:8003"
-   ```
-
-3. Restart:
-   ```bash
-   docker compose -f docker/docker-compose.yml up -d
-   ```
+# Restart a specific service
+docker compose exec ttslo supervisorctl restart ttslo-monitor
+docker compose exec ttslo supervisorctl restart ttslo-dashboard
+```
 
 ## Data Persistence
-- Config/state/logs are stored in `instanceX/` folders on host
-- Survives container restarts and rebuilds
+
+- Config, state, and logs are stored in `docker/config/` on the host
+- Data survives container restarts and rebuilds
+- The monitor service (`ttslo.py`) creates orders when thresholds are met
+- The dashboard shows real-time status
+
+## Troubleshooting
+
+### Orders Not Triggering
+
+**Symptom**: Orders show "READY TO TRIGGER" but nothing happens.
+
+**Solution**: Ensure the monitor service is running:
+```bash
+docker compose exec ttslo supervisorctl status ttslo-monitor
+```
+
+If stopped, start it:
+```bash
+docker compose exec ttslo supervisorctl start ttslo-monitor
+```
+
+### Nonce Errors
+
+**Symptom**: Logs show `EAPI:Invalid nonce` errors.
+
+**Cause**: Each service (monitor and dashboard) uses the same API keys and nonces can collide.
+
+**Solution**: The code already implements thread-safe nonce generation with retry logic. If errors persist:
+1. Check if you're using the same API keys elsewhere
+2. Increase the nonce window in your Kraken API settings
+3. Create separate API keys for different services
+
+### Dashboard Not Accessible
+
+**Symptom**: Cannot access http://localhost:5000
+
+**Solution**: 
+```bash
+# Check if dashboard service is running
+docker compose exec ttslo supervisorctl status ttslo-dashboard
+
+# Check if port is mapped correctly
+docker compose ps
+
+# View dashboard logs
+docker compose exec ttslo tail -f /var/log/supervisor/ttslo-dashboard.out.log
+```
+
+## Run Multiple Instances
+
+To run multiple independent instances (e.g., different accounts):
+
+1. Copy the service definition in `docker-compose.yml`
+2. Change the container name, ports, and volume paths
+3. Use different API keys for each instance
+
+Example:
+```yaml
+ttslo_instance2:
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  container_name: ttslo_instance2
+  environment:
+    - KRAKEN_API_KEY=your_key_2
+    - KRAKEN_API_SECRET=your_secret_2
+    - KRAKEN_API_KEY_RW=your_rw_key_2
+    - KRAKEN_API_SECRET_RW=your_rw_secret_2
+    - DASHBOARD_PORT=5001
+  volumes:
+    - ./instance2:/config
+  ports:
+    - "5001:5001"
+  restart: unless-stopped
+```
+
+Then access the second dashboard at http://localhost:5001
+
+## Architecture
+
+The Docker container uses **supervisord** to manage both processes:
+
+```
+┌─────────────────────────────────────┐
+│         Docker Container            │
+│                                     │
+│  ┌──────────────────────────────┐  │
+│  │      Supervisord             │  │
+│  │                              │  │
+│  │  ┌────────────────────────┐  │  │
+│  │  │  ttslo-monitor         │  │  │
+│  │  │  (ttslo.py)            │  │  │
+│  │  │  - Checks thresholds   │  │  │
+│  │  │  - Creates orders       │  │  │
+│  │  │  - Runs every 60s      │  │  │
+│  │  └────────────────────────┘  │  │
+│  │                              │  │
+│  │  ┌────────────────────────┐  │  │
+│  │  │  ttslo-dashboard       │  │  │
+│  │  │  (dashboard.py)        │  │  │
+│  │  │  - Web UI              │  │  │
+│  │  │  - Port 5000           │  │  │
+│  │  └────────────────────────┘  │  │
+│  └──────────────────────────────┘  │
+│                                     │
+│  Both share:                        │
+│  - /config volume (state/logs)     │
+│  - Kraken API credentials          │
+│  - Thread-safe nonce generation    │
+└─────────────────────────────────────┘
+```
 
 ## Security Notes
-- For production, use Docker secrets or .env files instead of hardcoding keys
+
+- Each service instance has its own thread-safe nonce generator
+- API calls are serialized within each service to prevent nonce collisions
+- Use Docker secrets or environment files for production (not hardcoded keys)
 - Each instance runs isolated with its own config and API keys
 - Dashboard runs on Flask dev server; consider production WSGI for public deployments
 

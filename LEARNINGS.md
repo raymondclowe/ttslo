@@ -3345,3 +3345,111 @@ elif quote == 'EUR':
 **User Impact**: Users can now transact with small gaps (with warnings) instead of being completely blocked.
 
 ---
+
+---
+
+## Docker Container Not Triggering Orders (2026-01-26)
+
+**Problem**: Orders showing "READY TO TRIGGER" in dashboard but never actually triggering in Docker deployment.
+
+**Root Cause**: The Docker container (`docker/entrypoint.sh`) only ran `dashboard.py` (web UI), not `ttslo.py` (the monitoring service that checks thresholds and creates orders).
+
+**Investigation**:
+1. User reported order `btc_usdc_sell_spending_2026p3` at "READY TO TRIGGER" status
+2. Current price ($88,530) was above threshold ($88,000) 
+3. Should have triggered immediately but nothing happened
+4. Also saw `EAPI:Invalid nonce` errors in logs (secondary issue)
+
+**Architecture Understanding**:
+- `ttslo.py` - Main monitoring service that runs continuously:
+  - Checks price thresholds every 60 seconds
+  - Calls `process_config()` → `check_threshold()` → `create_tsl_order()`
+  - Creates orders via `kraken_api_readwrite.add_trailing_stop_loss()`
+  
+- `dashboard.py` - Web UI Flask application:
+  - Displays pending/active/completed orders
+  - Allows manual actions (Force/Cancel)
+  - Does NOT automatically trigger orders on its own
+
+**Original Docker Setup (Broken)**:
+```bash
+# docker/entrypoint.sh (old)
+uv run python dashboard.py --host 0.0.0.0 --port ${DASHBOARD_PORT:-5000}
+```
+Only the dashboard ran - no monitoring service!
+
+**Solution**: Use supervisord to run BOTH services:
+
+1. **Updated `docker/Dockerfile`**:
+   - Install `supervisor` package
+   - Copy supervisord configuration
+   - Create log directories
+
+2. **Created `docker/supervisord.conf`**:
+   - `[program:ttslo-monitor]` - Runs `ttslo.py --interval 60`
+   - `[program:ttslo-dashboard]` - Runs `dashboard.py` web UI
+   - Both auto-restart on failure
+   - Separate log files for debugging
+
+3. **Updated `docker/entrypoint.sh`**:
+   - Now runs `supervisord` instead of just dashboard
+   - Exports all required environment variables
+   - Both services share same config/state/logs
+
+4. **Created `docker/docker-compose.yml`**:
+   - Template for easy deployment
+   - Health check on dashboard endpoint
+   - Volume for persistent data
+
+**Benefits**:
+- Orders now trigger automatically when thresholds met
+- Dashboard still shows real-time status
+- Both services supervised and auto-restart
+- Separate logs for each service
+- Can monitor service status: `supervisorctl status`
+
+**Commands**:
+```bash
+# Build and run
+cd docker && docker compose up -d
+
+# Check both services running
+docker compose exec ttslo supervisorctl status
+
+# View monitor logs (where triggering happens)
+docker compose exec ttslo tail -f /var/log/supervisor/ttslo-monitor.out.log
+
+# View dashboard logs (web UI)
+docker compose exec ttslo tail -f /var/log/supervisor/ttslo-dashboard.out.log
+
+# Restart individual service
+docker compose exec ttslo supervisorctl restart ttslo-monitor
+```
+
+**Nonce Errors (Secondary Issue)**:
+- The `EAPI:Invalid nonce` errors in logs are from concurrent API calls
+- Each service (monitor + dashboard) uses same API keys
+- Existing nonce fix in `kraken_api.py` handles this:
+  - Thread-safe `NonceGenerator` with lock
+  - Microsecond precision timestamps
+  - Monotonic increase guarantee
+  - Automatic retry on nonce errors (up to 3 attempts)
+- Both services create separate `KrakenAPI` instances
+- Each instance has its own nonce generator
+- Should work but may need nonce window increase in Kraken API settings if errors persist
+
+**Testing**:
+- Verify both services start: `supervisorctl status`
+- Check monitor logs show threshold checking
+- Confirm orders trigger when threshold met
+- Ensure dashboard accessible on configured port
+
+**Files Modified**:
+- `docker/Dockerfile` - Added supervisor
+- `docker/entrypoint.sh` - Launch supervisord
+- `docker/supervisord.conf` - New file
+- `docker/docker-compose.yml` - New file  
+- `docker/README.md` - Complete rewrite
+- `DOCKER.md` - Updated with fix details
+
+**Related**: Issue about nonce errors from 2025-12-01 (already fixed in kraken_api.py)
