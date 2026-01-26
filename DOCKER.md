@@ -14,6 +14,8 @@ This repository supports running ttslo in Docker containers with both the monito
 
 ```bash
 cd docker
+cp docker-compose.example.yml docker-compose.yml
+# Edit docker-compose.yml and add your Kraken API keys
 docker compose up -d
 ```
 
@@ -36,7 +38,7 @@ See detailed instructions in `docker/README.md`
 - `docker/Dockerfile` - Container image with supervisord
 - `docker/supervisord.conf` - Process manager configuration  
 - `docker/entrypoint.sh` - Startup script
-- `docker/docker-compose.yml` - Service configuration
+- `docker/docker-compose.example.yml` - Template (copy to docker-compose.yml and edit)
 - `docker/README.md` - Detailed documentation
 - `docker/config/` - Per-instance data folder (created on first run)
 
@@ -44,7 +46,7 @@ See detailed instructions in `docker/README.md`
 
 Each instance requires separate Kraken API keys and runs on a different port.
 
-Example in `docker-compose.yml`:
+Example (edit `docker-compose.yml`):
 ```yaml
 ttslo_instance2:
   environment:

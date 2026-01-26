@@ -29,7 +29,13 @@ cp ../config_sample.csv config/config.csv
 # Edit config/config.csv with your trading rules
 ```
 
-### 2. Set Kraken API Keys
+### 2. Copy and Configure docker-compose.yml
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+```
+
+### 3. Set Kraken API Keys
 
 Edit `docker-compose.yml` and replace the placeholder API keys:
 - `KRAKEN_API_KEY` - Read-only API key (for price checks)
@@ -39,7 +45,7 @@ Edit `docker-compose.yml` and replace the placeholder API keys:
 
 ⚠️ **Important**: The read-write key needs "Create & Modify Orders" permission.
 
-### 3. Optional: Set Up Telegram Notifications
+### 4. Optional: Set Up Telegram Notifications
 
 ```bash
 cd docker
@@ -54,18 +60,18 @@ To get a Telegram bot token:
 
 Then configure recipients in `config/notifications.ini` (see `../notifications.ini.example`).
 
-### 4. Build & Run
+### 5. Build & Run
 
 ```bash
 cd docker
 docker compose up -d
 ```
 
-### 5. Access Dashboard
+### 6. Access Dashboard
 
 Open your browser to: http://localhost:5000
 
-### 6. Check Logs
+### 7. Check Logs
 
 ```bash
 # View all logs
@@ -78,7 +84,7 @@ docker compose exec ttslo tail -f /var/log/supervisor/ttslo-monitor.out.log
 docker compose exec ttslo tail -f /var/log/supervisor/ttslo-dashboard.out.log
 ```
 
-### 7. Monitor Status
+### 8. Monitor Status
 
 ```bash
 # Check if both services are running
