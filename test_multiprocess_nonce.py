@@ -27,8 +27,7 @@ def generate_nonces_in_process(process_id, count, nonce_file, result_queue):
     for i in range(count):
         nonce = generator.generate()
         nonces.append(int(nonce))
-        # Small delay to simulate real API call timing
-        time.sleep(0.01)
+        # NO DELAY - test for race conditions by generating as fast as possible
     
     print(f"Process {process_id}: Generated {count} nonces, range {min(nonces)} to {max(nonces)}")
     result_queue.put((process_id, nonces))
@@ -54,10 +53,11 @@ def test_multiprocess_nonces():
     
     # Spawn multiple processes (simulating ttslo.py and dashboard.py)
     num_processes = 3
-    nonces_per_process = 20
+    nonces_per_process = 50  # Increased from 20 to stress test more
     
     print(f"Spawning {num_processes} processes, each generating {nonces_per_process} nonces...")
-    print("This simulates ttslo.py and dashboard.py running simultaneously\n")
+    print("This simulates ttslo.py and dashboard.py running simultaneously")
+    print("NO delays between nonce generation to test race conditions\n")
     
     processes = []
     start_time = time.time()
@@ -69,8 +69,7 @@ def test_multiprocess_nonces():
         )
         processes.append(p)
         p.start()
-        # Small stagger to make it more realistic
-        time.sleep(0.05)
+        # NO stagger - start all at once to maximize contention
     
     # Wait for all processes to complete
     for p in processes:
