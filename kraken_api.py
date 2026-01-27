@@ -92,9 +92,10 @@ class NonceGenerator:
             try:
                 with open(self.nonce_file, 'w') as f:
                     f.write('0')
-            except (IOError, OSError):
+            except (IOError, OSError) as e:
                 # If we can't create the file, we'll fall back to in-memory only
-                pass
+                # Log a warning as multi-process synchronization will be compromised.
+                print(f"WARNING: Could not create nonce file {self.nonce_file}. Falling back to in-memory nonce tracking. Multi-process safety compromised: {e}")
     
     def _read_nonce_from_file(self):
         """Read the last nonce from the shared file with file locking."""
@@ -110,8 +111,10 @@ class NonceGenerator:
                 content = f.read().strip()
                 return int(content) if content else 0
                 # Lock automatically released when file closes
-        except (IOError, OSError, ValueError):
+        except (IOError, OSError, ValueError) as e:
             # If file operations fail, return 0
+            # Log a warning as multi-process synchronization will be compromised.
+            print(f"WARNING: Could not read nonce from file {self.nonce_file}. Falling back to 0. Multi-process safety compromised: {e}")
             return 0
     
     def _write_nonce_to_file(self, nonce):
@@ -131,9 +134,10 @@ class NonceGenerator:
                 f.flush()
                 os.fsync(f.fileno())  # Ensure it's written to disk
                 # Lock automatically released when file closes
-        except (IOError, OSError):
+        except (IOError, OSError) as e:
             # If file operations fail, continue with in-memory tracking only
-            pass
+            # Log a warning as multi-process synchronization will be compromised.
+            print(f"WARNING: Could not write nonce to file {self.nonce_file}. Continuing with in-memory nonce tracking. Multi-process safety compromised: {e}")
     
     def generate(self):
         """
