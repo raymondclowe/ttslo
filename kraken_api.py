@@ -99,15 +99,17 @@ class NonceGenerator:
     def _read_nonce_from_file(self):
         """Read the last nonce from the shared file with file locking."""
         try:
-            with open(self.nonce_file, 'r+') as f:
+            # Ensure file exists before reading
+            if not os.path.exists(self.nonce_file):
+                with open(self.nonce_file, 'w') as f:
+                    f.write('0')
+            
+            with open(self.nonce_file, 'r') as f:
                 # Acquire exclusive lock
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    content = f.read().strip()
-                    return int(content) if content else 0
-                finally:
-                    # Release lock
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                content = f.read().strip()
+                return int(content) if content else 0
+                # Lock automatically released when file closes
         except (IOError, OSError, ValueError):
             # If file operations fail, return 0
             return 0
@@ -115,18 +117,20 @@ class NonceGenerator:
     def _write_nonce_to_file(self, nonce):
         """Write the nonce to the shared file with file locking."""
         try:
+            # Ensure file exists before writing
+            if not os.path.exists(self.nonce_file):
+                with open(self.nonce_file, 'w') as f:
+                    f.write('0')
+            
             with open(self.nonce_file, 'r+') as f:
                 # Acquire exclusive lock
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    f.seek(0)
-                    f.write(str(nonce))
-                    f.truncate()
-                    f.flush()
-                    os.fsync(f.fileno())  # Ensure it's written to disk
-                finally:
-                    # Release lock
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                f.seek(0)
+                f.write(str(nonce))
+                f.truncate()
+                f.flush()
+                os.fsync(f.fileno())  # Ensure it's written to disk
+                # Lock automatically released when file closes
         except (IOError, OSError):
             # If file operations fail, continue with in-memory tracking only
             pass
