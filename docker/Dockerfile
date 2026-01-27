@@ -15,8 +15,10 @@ COPY . /app
 # Install Python dependencies
 RUN /root/.local/bin/uv sync
 
-# Copy supervisor configuration
+# Copy supervisor configuration and make scripts executable
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/run-dashboard.sh /app/docker/run-dashboard.sh
+RUN chmod +x /app/docker/run-dashboard.sh
 
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
