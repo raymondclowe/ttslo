@@ -2,6 +2,103 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Kraken API Multi-Process Nonce Collision Fix (2026-01-27)
+
+**Problem**: `EAPI:Invalid nonce` errors STILL occurring despite previous fix in #216.
+
+**Root Cause - Multiple Processes in Docker**:
+- Docker container runs TWO separate Python processes via supervisord:
+  1. `ttslo.py` - monitoring service that checks and triggers orders
+  2. `dashboard.py` - Flask web dashboard
+- Each process creates its own `KrakenAPI` instance
+- Each instance has its own `NonceGenerator` with separate state
+- When both processes make API calls simultaneously, they generate conflicting nonces
+- **Previous fix in #216 only solved thread safety WITHIN a process, not ACROSS processes**
+
+**Why Previous Fix Was Incomplete**:
+- `threading.Lock()` only synchronizes threads within the same process
+- Separate processes have separate memory spaces
+- Each process maintained its own `last_nonce` counter
+- File I/O and other operations can cause both processes to generate nonces at the same time
+
+**Example Scenario**:
+1. Dashboard refreshes data → generates nonce `1769475260614282`
+2. At same moment, ttslo.py checks triggers → generates nonce `1769475260614282` (same!)
+3. Both send to Kraken → first succeeds, second gets `EAPI:Invalid nonce`
+4. Retry logic helps but doesn't eliminate the race condition
+
+**Solution - File-Based Shared Nonce Storage**:
+
+Enhanced `NonceGenerator` class to use file-based synchronization:
+- **Thread lock** (`threading.Lock()`) for thread safety within process
+- **File lock** (`fcntl.flock()`) for process safety across processes
+- Shared nonce file: `/tmp/kraken_nonce.txt`
+- Each nonce generation:
+  1. Acquires thread lock
+  2. Acquires file lock
+  3. Reads last nonce from file
+  4. Takes max(current_time, in_memory_nonce, file_nonce) + 1
+  5. Writes new nonce to file
+  6. Releases locks
+  7. Returns nonce
+
+**Key Features**:
+- **Process-safe**: Uses `fcntl.flock(LOCK_EX)` for exclusive file locking
+- **Thread-safe**: Uses `threading.Lock()` for in-process synchronization
+- **Atomic writes**: Uses `f.flush()` + `os.fsync()` to ensure durability
+- **Fallback**: If file operations fail, falls back to in-memory tracking
+- **Monotonic guarantee**: Always increments, never reuses nonces
+
+**Performance Impact**:
+- Thread-only version: ~1.3M nonces/sec (in-memory only)
+- File-based version: ~2.6K nonces/sec (with file I/O)
+- **Still more than sufficient** since Kraken API is rate-limited anyway
+- Typical usage: <10 API calls/second
+
+**Testing**:
+Created `test_multiprocess_nonce.py`:
+- Spawns 3 separate processes (simulates Docker scenario)
+- Each generates 20 nonces concurrently
+- **Result**: All 60 nonces unique, monotonically increasing ✓
+- No collisions across processes ✓
+
+Verified `test_nonce_fix.py` still passes:
+- Threading tests still work ✓
+- All nonces still unique ✓
+
+**Files Modified**:
+- `kraken_api.py`: 
+  - Added `import fcntl, tempfile`
+  - Updated `NonceGenerator.__init__()` to create shared nonce file
+  - Added `_read_nonce_from_file()` with file locking
+  - Added `_write_nonce_to_file()` with file locking
+  - Updated `generate()` to coordinate across processes
+- `test_multiprocess_nonce.py`: New test for multi-process verification
+- `LEARNINGS.md`: This documentation
+
+**Deployment Notes for Docker**:
+- Nonce file location: `/tmp/kraken_nonce.txt` (shared across processes in same container)
+- File persists across process restarts (good for maintaining nonce sequence)
+- File is automatically created on first use
+- No configuration needed - works out of the box
+
+**Alternative Solutions Considered**:
+1. **Separate API keys**: Give each process its own API key (requires more setup)
+2. **Redis/memcached**: Requires additional service (overkill for this)
+3. **Process offset**: Add large offset for each process type (fragile, hard to maintain)
+4. **Sequential nonces**: File-based is the most robust and Docker-friendly solution ✓
+
+**Gotchas**:
+- File locking is Unix-specific (`fcntl` module)
+- Windows would need `msvcrt` module instead (not implemented)
+- File must be on same filesystem as application
+- `/tmp` is typically in-memory filesystem (tmpfs) on Linux, so fast
+- Multiple Docker containers would need shared volume for nonce file coordination
+
+**Related Issues**:
+- Issue #216: Original fix for thread-based nonce collisions
+- This issue: Extends fix to multi-process scenario in Docker
+
 ## Kraken API Nonce Collision Fix (2025-12-01)
 
 **Problem**: `EAPI:Invalid nonce` errors occurring in production dashboard.

@@ -10,6 +10,8 @@ import json
 import requests
 import os
 import threading
+import fcntl
+import tempfile
 from typing import Optional, Dict
 
 try:
@@ -58,20 +60,83 @@ class KrakenAPIRateLimitError(KrakenAPIError):
 
 class NonceGenerator:
     """
-    Thread-safe nonce generator that ensures monotonically increasing values.
+    Thread and process-safe nonce generator that ensures monotonically increasing values.
     
-    Prevents nonce collisions in multi-threaded environments by using a lock
-    and tracking the last nonce to guarantee uniqueness.
+    Prevents nonce collisions in multi-threaded AND multi-process environments by using:
+    - Threading lock for thread safety within a process
+    - File-based storage with file locking for cross-process synchronization
+    
+    This solves the issue where ttslo.py and dashboard.py run as separate processes
+    in Docker and both create their own KrakenAPI instances.
     """
     
-    def __init__(self):
-        """Initialize nonce generator."""
+    def __init__(self, nonce_file=None):
+        """
+        Initialize nonce generator.
+        
+        Args:
+            nonce_file: Path to shared nonce file (default: /tmp/kraken_nonce.txt)
+        """
         self.lock = threading.Lock()
         self.last_nonce = 0
+        
+        # Use a shared file for cross-process nonce coordination
+        if nonce_file is None:
+            # Use temp directory but with a fixed name for sharing across processes
+            self.nonce_file = os.path.join(tempfile.gettempdir(), 'kraken_nonce.txt')
+        else:
+            self.nonce_file = nonce_file
+        
+        # Ensure the file exists
+        if not os.path.exists(self.nonce_file):
+            try:
+                with open(self.nonce_file, 'w') as f:
+                    f.write('0')
+            except (IOError, OSError):
+                # If we can't create the file, we'll fall back to in-memory only
+                pass
+    
+    def _read_nonce_from_file(self):
+        """Read the last nonce from the shared file with file locking."""
+        try:
+            with open(self.nonce_file, 'r+') as f:
+                # Acquire exclusive lock
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                try:
+                    content = f.read().strip()
+                    return int(content) if content else 0
+                finally:
+                    # Release lock
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        except (IOError, OSError, ValueError):
+            # If file operations fail, return 0
+            return 0
+    
+    def _write_nonce_to_file(self, nonce):
+        """Write the nonce to the shared file with file locking."""
+        try:
+            with open(self.nonce_file, 'r+') as f:
+                # Acquire exclusive lock
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                try:
+                    f.seek(0)
+                    f.write(str(nonce))
+                    f.truncate()
+                    f.flush()
+                    os.fsync(f.fileno())  # Ensure it's written to disk
+                finally:
+                    # Release lock
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        except (IOError, OSError):
+            # If file operations fail, continue with in-memory tracking only
+            pass
     
     def generate(self):
         """
         Generate a unique, monotonically increasing nonce.
+        
+        Uses both in-memory and file-based tracking to ensure uniqueness
+        across threads and processes.
         
         Returns:
             str: Nonce value as string
@@ -80,12 +145,20 @@ class NonceGenerator:
             # Use microseconds for better precision
             current_nonce = int(time.time() * 1_000_000)
             
-            # Ensure nonce is always increasing (handle clock adjustments/collisions)
-            if current_nonce <= self.last_nonce:
-                current_nonce = self.last_nonce + 1
+            # Read last nonce from file (cross-process coordination)
+            file_nonce = self._read_nonce_from_file()
             
-            self.last_nonce = current_nonce
-            return str(current_nonce)
+            # Take the maximum of current time, last in-memory nonce, and file nonce
+            max_nonce = max(current_nonce, self.last_nonce, file_nonce)
+            
+            # Ensure nonce is always increasing
+            new_nonce = max_nonce + 1
+            
+            # Update both in-memory and file
+            self.last_nonce = new_nonce
+            self._write_nonce_to_file(new_nonce)
+            
+            return str(new_nonce)
 
 
 class WebSocketPriceProvider:
