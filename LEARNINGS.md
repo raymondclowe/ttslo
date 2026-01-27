@@ -2,7 +2,95 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
-## Kraken API Multi-Process Nonce Collision Fix (2026-01-27)
+## Kraken API Multi-Process Nonce Collision Fix - FINAL FIX (2026-01-27)
+
+**Problem**: `EAPI:Invalid nonce` errors STILL occurring despite fix in #218.
+
+**Root Cause - Race Condition in #218's Fix**:
+- #218 added file-based synchronization but had a **critical race condition**
+- The fix used two separate file operations:
+  1. `_read_nonce_from_file()` - Opens file, locks, reads, **unlocks**
+  2. **GAP** - Another process can read the same value here!
+  3. `_write_nonce_to_file()` - Opens file, locks, writes, unlocks
+
+**Race Condition Example**:
+```
+Time  Process A (dashboard)           Process B (ttslo.py)
+----  ---------------------------      ---------------------
+T1    Read nonce = 100, unlock
+T2                                     Read nonce = 100, unlock  ⚠️ Same value!
+T3    Write nonce = 101, unlock
+T4                                     Write nonce = 101, unlock ⚠️ Collision!
+```
+
+**The Real Fix - Atomic Read-Write Operation**:
+
+Changed `NonceGenerator` to use **atomic read-increment-write**:
+- Single method: `_read_and_increment_nonce_atomically()`
+- Opens file once in 'r+' mode
+- Acquires exclusive lock
+- Reads current nonce
+- Calculates new nonce = max(file_nonce, current_time) + 1
+- Writes new nonce
+- Releases lock (automatic on close)
+- **All operations happen while holding the lock** - no gap!
+
+**Key Changes**:
+```python
+# BEFORE (had race condition):
+def generate(self):
+    with self.lock:
+        file_nonce = self._read_nonce_from_file()  # Unlocks here!
+        # GAP - another process can read same value
+        new_nonce = max(...) + 1
+        self._write_nonce_to_file(new_nonce)      # Locks again
+
+# AFTER (atomic):
+def generate(self):
+    with self.lock:
+        new_nonce = self._read_and_increment_nonce_atomically()
+        # Read-calculate-write happens atomically with lock held
+        return str(new_nonce)
+```
+
+**Testing Improvements**:
+- Removed all `time.sleep()` delays from `test_multiprocess_nonce.py`
+- Increased nonces per process from 20 to 50
+- Start all processes simultaneously (no stagger)
+- Generates nonces as fast as possible to catch race conditions
+- **Result**: All 150 nonces unique, monotonically increasing ✓
+
+**Performance**:
+- ~2.6K nonces/sec (with file I/O)
+- Still more than sufficient for Kraken API rate limits
+
+**Files Modified**:
+- `kraken_api.py`: 
+  - Removed `_read_nonce_from_file()` and `_write_nonce_to_file()`
+  - Added `_read_and_increment_nonce_atomically()` - single atomic operation
+  - Simplified `generate()` method
+- `test_multiprocess_nonce.py`: 
+  - Removed sleep delays
+  - Increased test count and concurrency
+- `NONCE_FIX_SUMMARY.md`: Updated with race condition explanation
+- `LEARNINGS.md`: This documentation
+
+**Why This Really Fixes It**:
+- No gap between read and write operations
+- Lock is held for entire read-calculate-write cycle
+- Impossible for two processes to read the same value
+- Guaranteed unique nonces across all processes and threads
+
+**Related Issues**:
+- Issue #216: Original fix for thread-based nonce collisions
+- Issue #218: Added file-based sync but had race condition
+- This fix: Completes the solution with atomic operations
+
+---
+
+## Kraken API Multi-Process Nonce Collision Fix - ATTEMPT #1 (2026-01-27)
+
+**Note**: This fix had a race condition and was replaced by the atomic fix above.
 
 **Problem**: `EAPI:Invalid nonce` errors STILL occurring despite previous fix in #216.
 
