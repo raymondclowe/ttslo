@@ -100,51 +100,6 @@ class NonceGenerator:
                 # Log a warning as multi-process synchronization will be compromised.
                 print(f"WARNING: Could not create nonce file {self.nonce_file}. Falling back to in-memory nonce tracking. Multi-process safety compromised: {e}")
     
-    def _read_and_increment_nonce_atomically(self):
-        """
-        Atomically read, increment, and write the nonce in a single locked operation.
-        
-        This prevents race conditions where two processes could read the same value
-        before either writes, which would cause nonce collisions.
-        
-        Returns:
-            The new nonce value (after incrementing)
-        """
-        try:
-            # Ensure file exists before reading/writing
-            if not os.path.exists(self.nonce_file):
-                with open(self.nonce_file, 'w') as f:
-                    f.write('0')
-            
-            # Open in r+ mode for read and write, keep lock for entire operation
-            with open(self.nonce_file, 'r+') as f:
-                # Acquire exclusive lock - held until file closes
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                
-                # Read current nonce
-                content = f.read().strip()
-                file_nonce = int(content) if content else 0
-                
-                # Calculate new nonce: max of file nonce and current time
-                current_nonce = int(time.time() * self.MICROSECONDS_MULTIPLIER)
-                new_nonce = max(file_nonce, current_nonce) + 1
-                
-                # Write new nonce
-                f.seek(0)
-                f.write(str(new_nonce))
-                f.truncate()
-                f.flush()
-                os.fsync(f.fileno())  # Ensure it's written to disk
-                
-                # Lock automatically released when file closes
-                return new_nonce
-                
-        except (IOError, OSError, ValueError) as e:
-            # If file operations fail, fall back to time-based nonce
-            # Log a warning as multi-process synchronization will be compromised.
-            print(f"WARNING: Could not read/write nonce file {self.nonce_file}. Falling back to time-based nonce. Multi-process safety compromised: {e}")
-            return int(time.time() * self.MICROSECONDS_MULTIPLIER)
-    
     def generate(self):
         """
         Generate a unique, monotonically increasing nonce.
@@ -157,13 +112,44 @@ class NonceGenerator:
             str: Nonce value as string
         """
         with self.lock:
-            # Atomically read, increment, and write the nonce in the file
-            # This ensures no other process can read the same value
-            new_nonce = self._read_and_increment_nonce_atomically()
+            new_nonce = None
+            try:
+                # Ensure file exists before reading/writing
+                if not os.path.exists(self.nonce_file):
+                    with open(self.nonce_file, 'w') as f:
+                        f.write('0')
+                
+                # Open in r+ mode for read and write, keep lock for entire operation
+                with open(self.nonce_file, 'r+') as f:
+                    # Acquire exclusive lock - held until file closes
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    
+                    # Read current nonce from file
+                    content = f.read().strip()
+                    file_nonce = int(content) if content else 0
+                    
+                    # Calculate new nonce: max of file nonce, current time, and in-memory nonce
+                    current_nonce = int(time.time() * self.MICROSECONDS_MULTIPLIER)
+                    new_nonce = max(file_nonce, current_nonce, self.last_nonce) + 1
+                    
+                    # Write new nonce back to file
+                    f.seek(0)
+                    f.write(str(new_nonce))
+                    f.truncate()
+                    f.flush()
+                    os.fsync(f.fileno())  # Ensure it's written to disk
+            except (IOError, OSError, ValueError) as e:
+                # If file operations fail, log a warning. We'll fall back to in-memory only.
+                print(f"WARNING: Could not read/write nonce file {self.nonce_file}. Falling back to in-memory nonce. Multi-process safety compromised: {e}")
             
-            # Update in-memory tracking (file is the source of truth)
+            # If file operations failed, new_nonce is still None.
+            # Generate one using in-memory logic.
+            if new_nonce is None:
+                current_nonce = int(time.time() * self.MICROSECONDS_MULTIPLIER)
+                new_nonce = max(current_nonce, self.last_nonce) + 1
+            
+            # Update in-memory nonce and return
             self.last_nonce = new_nonce
-            
             return str(new_nonce)
 
 
