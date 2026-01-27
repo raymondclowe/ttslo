@@ -26,6 +26,7 @@ services:
       - "5000:5000"
     restart: unless-stopped
     healthcheck:
+      # Note: Uses hardcoded port. If you change DASHBOARD_PORT, update this too.
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
