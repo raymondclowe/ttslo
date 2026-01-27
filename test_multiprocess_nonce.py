@@ -53,7 +53,7 @@ def test_multiprocess_nonces():
     
     # Spawn multiple processes (simulating ttslo.py and dashboard.py)
     num_processes = 3
-    nonces_per_process = 50  # Increased from 20 to stress test more
+    nonces_per_process = 50  # Increased to stress test more thoroughly
     
     print(f"Spawning {num_processes} processes, each generating {nonces_per_process} nonces...")
     print("This simulates ttslo.py and dashboard.py running simultaneously")

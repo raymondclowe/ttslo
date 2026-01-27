@@ -161,8 +161,8 @@ class NonceGenerator:
             # This ensures no other process can read the same value
             new_nonce = self._read_and_increment_nonce_atomically()
             
-            # Also track in memory for thread safety within this process
-            self.last_nonce = max(new_nonce, self.last_nonce)
+            # Update in-memory tracking (file is the source of truth)
+            self.last_nonce = new_nonce
             
             return str(new_nonce)
 
