@@ -1,53 +1,77 @@
-# Docker Multi-Instance Deployment
+# Docker Deployment
 
-This repository supports running multiple ttslo instances in isolated Docker containers, each with its own configuration and Kraken API keys.
+This repository supports running ttslo in Docker containers with both the monitoring service and web dashboard.
+
+## Key Change: Both Services Now Run
+
+**Previous Setup (Broken):** Only ran `dashboard.py` (web UI), so orders never triggered.
+
+**New Setup (Fixed):** Runs BOTH services using supervisord:
+1. **ttslo-monitor** - Background service that triggers orders when thresholds are met
+2. **ttslo-dashboard** - Web UI for monitoring and manual control
 
 ## Quick Start
 
 ```bash
-# From project root
-docker compose -f docker/docker-compose.yml up -d
+cd docker
+cp docker-compose.example.yml docker-compose.yml
+# Edit docker-compose.yml and add your Kraken API keys
+docker compose up -d
 ```
 
-Access dashboards:
-- Instance 1: http://localhost:8001
-- Instance 2: http://localhost:8002
+Access dashboard: http://localhost:5000
+
+See detailed instructions in `docker/README.md`
+
+## What This Fixes
+
+**Issue**: Orders showing "READY TO TRIGGER" but never triggering.
+
+**Root Cause**: The Docker container only ran the dashboard web UI (`dashboard.py`), not the monitoring service (`ttslo.py`) that actually checks thresholds and creates orders.
+
+**Solution**: Use supervisord to run both processes in the same container:
+- Monitor service checks every 60 seconds and triggers orders
+- Dashboard provides real-time visibility and manual controls
 
 ## Files
-- `docker/Dockerfile` - Container image definition
+
+- `docker/Dockerfile` - Container image with supervisord
+- `docker/supervisord.conf` - Process manager configuration  
 - `docker/entrypoint.sh` - Startup script
-- `docker/docker-compose.yml` - Multi-instance configuration
+- `docker/docker-compose.example.yml` - Template (copy to docker-compose.yml and edit)
 - `docker/README.md` - Detailed documentation
-- `instance1/`, `instance2/` - Per-instance data folders
+- `docker/config/` - Per-instance data folder (created on first run)
 
-## Configuration
+## Multiple Instances
 
-Each instance requires 4 environment variables in `docker-compose.yml`:
-- `KRAKEN_API_KEY` - Read-only API key
-- `KRAKEN_API_SECRET` - Read-only API secret
-- `KRAKEN_API_KEY_RW` - Read-write API key
-- `KRAKEN_API_SECRET_RW` - Read-write API secret
+Each instance requires separate Kraken API keys and runs on a different port.
 
-Shared across all instances (set in `docker/.env`):
-- `TELEGRAM_BOT_TOKEN` - Telegram bot token for notifications (optional)
-
-Plus per-instance:
-- `DASHBOARD_PORT` - Port for the dashboard (must match container port mapping)
-
-## Key Commands
-
-```bash
-# Start all instances
-docker compose -f docker/docker-compose.yml up -d
-
-# View logs
-docker compose -f docker/docker-compose.yml logs -f
-
-# Stop all instances
-docker compose -f docker/docker-compose.yml down
-
-# Rebuild after code changes
-docker compose -f docker/docker-compose.yml up --build -d
+Example (edit `docker-compose.yml`):
+```yaml
+ttslo_instance2:
+  environment:
+    - DASHBOARD_PORT=5001
+  volumes:
+    - ./instance2:/config
+  ports:
+    - "5001:5001"
 ```
 
-See `docker/README.md` for full documentation.
+Access: http://localhost:5001
+
+## Architecture
+
+```
+Docker Container
+├── supervisord (process manager)
+│   ├── ttslo-monitor (runs ttslo.py every 60s)
+│   └── ttslo-dashboard (runs dashboard.py on port 5000)
+└── /config volume (state, logs, config)
+```
+
+Both services share:
+- Kraken API credentials
+- Config/state files
+- Thread-safe nonce generation
+
+See `docker/README.md` for troubleshooting, logs, and advanced configuration.

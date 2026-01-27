@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  ttslo:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ttslo
+    environment:
+      # Kraken API Keys (REQUIRED - Replace with your actual keys)
+      - KRAKEN_API_KEY=your_readonly_api_key_here
+      - KRAKEN_API_SECRET=your_readonly_api_secret_here
+      - KRAKEN_API_KEY_RW=your_readwrite_api_key_here
+      - KRAKEN_API_SECRET_RW=your_readwrite_api_secret_here
+      
+      # Optional: Telegram notifications
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      
+      # Dashboard port
+      - DASHBOARD_PORT=5000
+    volumes:
+      # Mount config directory (contains config.csv, state.csv, logs.csv)
+      - ./config:/config
+    ports:
+      # Dashboard web UI
+      - "5000:5000"
+    restart: unless-stopped
+    healthcheck:
+      # Note: Docker healthcheck doesn't support env var expansion in test command
+      # If you change DASHBOARD_PORT from default 5000, manually update this port too
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Example: Second instance (uncomment and configure to run multiple instances)
+  # ttslo_instance2:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/Dockerfile
+  #   container_name: ttslo_instance2
+  #   environment:
+  #     - KRAKEN_API_KEY=your_readonly_api_key_2_here
+  #     - KRAKEN_API_SECRET=your_readonly_api_secret_2_here
+  #     - KRAKEN_API_KEY_RW=your_readwrite_api_key_2_here
+  #     - KRAKEN_API_SECRET_RW=your_readwrite_api_secret_2_here
+  #     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+  #     - DASHBOARD_PORT=5001
+  #   volumes:
+  #     - ./instance2:/config
+  #   ports:
+  #     - "5001:5001"
+  #   restart: unless-stopped
