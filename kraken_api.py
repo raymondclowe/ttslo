@@ -70,6 +70,9 @@ class NonceGenerator:
     in Docker and both create their own KrakenAPI instances.
     """
     
+    # Nonce precision: microseconds (1 second = 1,000,000 microseconds)
+    MICROSECONDS_MULTIPLIER = 1_000_000
+    
     def __init__(self, nonce_file=None):
         """
         Initialize nonce generator.
@@ -123,7 +126,7 @@ class NonceGenerator:
                 file_nonce = int(content) if content else 0
                 
                 # Calculate new nonce: max of file nonce and current time
-                current_nonce = int(time.time() * 1_000_000)
+                current_nonce = int(time.time() * self.MICROSECONDS_MULTIPLIER)
                 new_nonce = max(file_nonce, current_nonce) + 1
                 
                 # Write new nonce
@@ -140,7 +143,7 @@ class NonceGenerator:
             # If file operations fail, fall back to time-based nonce
             # Log a warning as multi-process synchronization will be compromised.
             print(f"WARNING: Could not read/write nonce file {self.nonce_file}. Falling back to time-based nonce. Multi-process safety compromised: {e}")
-            return int(time.time() * 1_000_000)
+            return int(time.time() * self.MICROSECONDS_MULTIPLIER)
     
     def generate(self):
         """

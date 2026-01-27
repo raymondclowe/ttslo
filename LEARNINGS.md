@@ -2,10 +2,6 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
-# LEARNINGS
-
-Key learnings and gotchas discovered during TTSLO development.
-
 ## Kraken API Multi-Process Nonce Collision Fix - FINAL FIX (2026-01-27)
 
 **Problem**: `EAPI:Invalid nonce` errors STILL occurring despite fix in #218.
