@@ -141,9 +141,11 @@ class ConfigValidator:
             if is_enabled:
                 result.configs.append(config)
             else:
-                # Add info message for disabled configs
-                result.add_info(config_id, 'enabled', 
-                               f'Config is disabled (enabled={enabled_value}). Set to "true" to activate.')
+                # Add info message for disabled configs (only if no errors on this config)
+                # Don't add info if the config already has validation errors
+                if config_id not in result.configs_with_errors:
+                    result.add_info(config_id, 'enabled', 
+                                   f'Config is disabled (enabled={enabled_value}). Set to "true" to activate.')
         
         # Validate linked_order_id references after all configs loaded
         self._validate_linked_order_ids(configs, result)

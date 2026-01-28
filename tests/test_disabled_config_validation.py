@@ -82,9 +82,10 @@ def test_disabled_configs_are_validated():
     assert len(result.configs) == 1
     assert result.configs[0]['id'] == 'enabled_valid'
     
-    # Should have info messages for disabled configs
+    # Should have info message for disabled_valid (but not disabled_invalid_pair since it has errors)
     disabled_infos = [i for i in result.infos if 'disabled' in i['message'].lower()]
-    assert len(disabled_infos) == 2  # Two disabled configs
+    assert len(disabled_infos) == 1  # Only one disabled config without errors gets info message
+    assert disabled_infos[0]['config_id'] == 'disabled_valid'
 
 
 def test_disabled_config_info_messages():
@@ -138,8 +139,8 @@ def test_all_enabled_values_except_true_are_disabled():
 
     validator = ConfigValidator(kraken_api=api)
     
-    # Test various disabled values
-    disabled_values = ['false', 'False', 'FALSE', 'no', 'No', '0', 'paused', 'canceled', 'pending', '']
+    # Test various disabled values (excluding empty which should trigger validation error)
+    disabled_values = ['false', 'False', 'FALSE', 'no', 'No', '0', 'paused', 'canceled', 'pending']
     
     for disabled_value in disabled_values:
         configs = [
@@ -160,9 +161,46 @@ def test_all_enabled_values_except_true_are_disabled():
         # Config should not be in execution list
         assert len(result.configs) == 0, f"Config with enabled='{disabled_value}' should not be in execution list"
         
-        # Should have info message about being disabled
-        disabled_infos = [i for i in result.infos if i['field'] == 'enabled']
-        assert len(disabled_infos) >= 1, f"No info message for enabled='{disabled_value}'"
+        # For valid disabled values (false, no, 0), should have info message
+        # For invalid values (paused, canceled, pending), will have error instead
+        if disabled_value.lower() in ['false', 'no', '0']:
+            disabled_infos = [i for i in result.infos if i['field'] == 'enabled' and i['config_id'] == f'test_{disabled_value}']
+            assert len(disabled_infos) >= 1, f"No info message for enabled='{disabled_value}'"
+
+
+def test_empty_enabled_field_triggers_error():
+    """Test that empty 'enabled' field causes validation error, not just info message."""
+    api = FakeKrakenAPI(
+        balance={'XXBT': '1.0'},
+        prices={'XBTUSDT': Decimal('90000')}
+    )
+
+    validator = ConfigValidator(kraken_api=api)
+    configs = [
+        {
+            'id': 'test_empty',
+            'pair': 'XBTUSDT',
+            'threshold_price': '95000',
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.1',
+            'trailing_offset_percent': '2.0',
+            'enabled': '',
+        }
+    ]
+    
+    result = validator.validate_config_file(configs)
+    
+    # Validation should FAIL due to missing required field
+    assert not result.is_valid()
+    
+    # Should have error for required field 'enabled'
+    enabled_errors = [e for e in result.errors if e['field'] == 'enabled']
+    assert len(enabled_errors) >= 1
+    
+    # Should NOT have info message since there's an error
+    disabled_infos = [i for i in result.infos if i['field'] == 'enabled' and i['config_id'] == 'test_empty']
+    assert len(disabled_infos) == 0, "Should not have info message when there's a validation error"
 
 
 def test_enabled_values_are_active():
