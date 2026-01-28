@@ -21,12 +21,26 @@ class TestIndexUnavailableFallback:
         self.kraken_api_readwrite = Mock(spec=KrakenAPI)
         
         # Mock get_balance to return sufficient balance
-        self.kraken_api_readwrite.get_balance = Mock(return_value={
+        balance_data = {
             'XXBT': '10.0',
             'XETH': '100.0',
             'SOL': '1000.0',  # For SOL tests
             'ZUSD': '100000.0'
-        })
+        }
+        self.kraken_api_readwrite.get_balance = Mock(return_value=balance_data)
+        
+        # Add get_normalized_balances using the real normalization logic
+        def get_normalized_balances():
+            from kraken_api import KrakenAPI
+            result = {}
+            for k, v in balance_data.items():
+                norm = KrakenAPI._normalize_asset_key(k)
+                result[norm] = float(v)
+            return result
+        self.kraken_api_readwrite.get_normalized_balances = Mock(side_effect=get_normalized_balances)
+        
+        # Add get_asset_pair_info to skip minimum volume check
+        self.kraken_api_readwrite.get_asset_pair_info = Mock(return_value=None)
         
         # Create TTSLO instance
         self.ttslo = TTSLO(

@@ -1,8 +1,8 @@
 """Tests for cache invalidation after force button action."""
 import tempfile
 import csv
+import importlib
 from unittest.mock import patch
-import dashboard
 from config import ConfigManager
 
 
@@ -13,6 +13,9 @@ def test_force_button_invalidates_caches():
     This ensures the "Manual" tag doesn't appear after force button,
     which was the bug reported in the issue.
     """
+    # Import dashboard fresh to ensure we have the decorated functions with invalidate methods
+    import dashboard
+    importlib.reload(dashboard)
     # Create temporary files
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as f:
         config_file = f.name
@@ -58,6 +61,12 @@ def test_force_button_invalidates_caches():
                 }
             }
             
+            # Store original invalidate methods BEFORE patching
+            original_state_invalidate = dashboard.get_cached_state.invalidate
+            original_active_invalidate = dashboard.get_active_orders.invalidate
+            original_pending_invalidate = dashboard.get_pending_orders.invalidate
+            original_config_invalidate = dashboard.get_cached_config.invalidate
+            
             # Patch config manager
             with patch.object(dashboard, 'config_manager', config_manager):
                 # Patch get_cached_config to return our config
@@ -78,11 +87,6 @@ def test_force_button_invalidates_caches():
                     active_invalidate_called = False
                     pending_invalidate_called = False
                     config_invalidate_called = False
-                    
-                    original_state_invalidate = dashboard.get_cached_state.invalidate
-                    original_active_invalidate = dashboard.get_active_orders.invalidate
-                    original_pending_invalidate = dashboard.get_pending_orders.invalidate
-                    original_config_invalidate = dashboard.get_cached_config.invalidate
                     
                     def track_state_invalidate():
                         nonlocal state_invalidate_called

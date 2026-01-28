@@ -11,18 +11,38 @@ from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
 
 
+def setup_mock_api_with_balance(balance_dict):
+    """Helper to set up mock API with get_balance and get_normalized_balances."""
+    mock_api = Mock()
+    mock_api.get_balance.return_value = balance_dict
+    
+    # Add get_normalized_balances using real normalization logic
+    def get_normalized_balances():
+        from kraken_api import KrakenAPI
+        result = {}
+        for k, v in balance_dict.items():
+            norm = KrakenAPI._normalize_asset_key(k)
+            result[norm] = float(v)
+        return result
+    mock_api.get_normalized_balances = get_normalized_balances
+    # Add _normalize_asset_key to the mock
+    from kraken_api import KrakenAPI
+    mock_api._normalize_asset_key = KrakenAPI._normalize_asset_key
+    
+    return mock_api
+
+
 def test_cost_check_passes_when_cost_sufficient():
     """Test that cost check passes when order cost meets minimum."""
     # Import here to avoid issues with circular imports
     import dashboard
     
     # Mock kraken_api
-    mock_api = Mock()
+    mock_api = setup_mock_api_with_balance({'NEAR': '10.0', 'ZUSD': '100.0'})
     mock_api.get_asset_pair_info.return_value = {
         'ordermin': '0.1',
         'costmin': '5.0'  # Minimum order cost is $5
     }
-    mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
     
     # Patch kraken_api in dashboard module
     with patch.object(dashboard, 'kraken_api', mock_api):
@@ -57,12 +77,11 @@ def test_cost_check_fails_when_cost_too_low():
     import dashboard
     
     # Mock kraken_api
-    mock_api = Mock()
+    mock_api = setup_mock_api_with_balance({'NEAR': '10.0', 'ZUSD': '100.0'})
     mock_api.get_asset_pair_info.return_value = {
         'ordermin': '0.1',
         'costmin': '5.0'  # Minimum order cost is $5
     }
-    mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
     
     # Patch kraken_api in dashboard module
     with patch.object(dashboard, 'kraken_api', mock_api):
@@ -99,12 +118,11 @@ def test_cost_check_handles_missing_costmin():
     import dashboard
     
     # Mock kraken_api - pair info without costmin
-    mock_api = Mock()
+    mock_api = setup_mock_api_with_balance({'NEAR': '10.0', 'ZUSD': '100.0'})
     mock_api.get_asset_pair_info.return_value = {
         'ordermin': '0.1'
         # No costmin field
     }
-    mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:
@@ -136,12 +154,11 @@ def test_cost_check_handles_missing_current_price():
     import dashboard
     
     # Mock kraken_api
-    mock_api = Mock()
+    mock_api = setup_mock_api_with_balance({'NEAR': '10.0', 'ZUSD': '100.0'})
     mock_api.get_asset_pair_info.return_value = {
         'ordermin': '0.1',
         'costmin': '5.0'
     }
-    mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:
@@ -173,12 +190,11 @@ def test_cost_check_with_buy_order():
     import dashboard
     
     # Mock kraken_api
-    mock_api = Mock()
+    mock_api = setup_mock_api_with_balance({'NEAR': '10.0', 'ZUSD': '100.0'})
     mock_api.get_asset_pair_info.return_value = {
         'ordermin': '0.1',
         'costmin': '10.0'  # Minimum order cost is $10
     }
-    mock_api.get_balance.return_value = {'NEAR': '1.0', 'ZUSD': '100.0'}
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:
@@ -212,12 +228,11 @@ def test_cost_and_volume_both_too_low():
     import dashboard
     
     # Mock kraken_api
-    mock_api = Mock()
+    mock_api = setup_mock_api_with_balance({'NEAR': '10.0', 'ZUSD': '100.0'})
     mock_api.get_asset_pair_info.return_value = {
         'ordermin': '1.0',  # Minimum 1.0 NEAR
         'costmin': '10.0'   # Minimum $10
     }
-    mock_api.get_balance.return_value = {'NEAR': '10.0', 'ZUSD': '100.0'}
     
     with patch.object(dashboard, 'kraken_api', mock_api):
         with patch.object(dashboard, 'get_cached_config') as mock_config:
