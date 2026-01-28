@@ -244,11 +244,13 @@ class TTSLO:
         # Known mappings for common pairs
         pair_mappings = {
             'XBTUSDT': 'XXBT',
+            'XBTUSDC': 'XXBT',
             'XBTUSD': 'XXBT',
             'XXBTZEUR': 'XXBT',
             'XXBTZGBP': 'XXBT',
             'XXBTZUSD': 'XXBT',
             'ETHUSDT': 'XETH',
+            'ETHUSDC': 'XETH',
             'ETHUSD': 'XETH',
             'XETHZEUR': 'XETH',
             'XETHZUSD': 'XETH',
@@ -266,7 +268,7 @@ class TTSLO:
         
         # Try to extract from pattern
         # Note: Order matters - check longer suffixes first (e.g., USDT before USD)
-        for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
+        for quote in ['USDC', 'USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
             if pair.endswith(quote):
                 base = pair[:-len(quote)]
                 if base:
@@ -293,7 +295,7 @@ class TTSLO:
         """
         # Try to extract from pattern
         # Note: Order matters - check longer suffixes first (e.g., USDT before USD)
-        for quote in ['USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
+        for quote in ['USDC', 'USDT', 'ZUSD', 'ZEUR', 'EUR', 'ZGBP', 'GBP', 'ZJPY', 'JPY', 'USD']:
             if pair.endswith(quote):
                 # Normalize to Kraken's internal notation (Z-prefixed for fiat)
                 if quote == 'USD':
@@ -305,7 +307,7 @@ class TTSLO:
                 elif quote == 'JPY':
                     return 'ZJPY'
                 else:
-                    # Already in correct format (ZUSD, ZEUR, USDT, etc)
+                    # Already in correct format (ZUSD, ZEUR, USDT, USDC, etc)
                     return quote
         
         return ''
