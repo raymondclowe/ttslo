@@ -2,6 +2,51 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Test Isolation and Module Reloading (2026-01-28)
+
+**Problem**: Test `test_force_button_cache_invalidation` failed with `AttributeError: 'function' object has no attribute 'invalidate'` when running full test suite, but passed when run individually.
+
+**Root Cause**:
+- Dashboard module imported at test file module level: `import dashboard`
+- When full test suite runs, module may be cached/modified by previous tests
+- The `@ttl_cache` decorator adds an `invalidate` method to wrapped functions at import time
+- If dashboard is imported before decorators are applied, functions lack `invalidate` method
+- Test isolation issue: module state polluted between tests
+
+**Solution**: Reload dashboard module within the test function:
+```python
+def test_force_button_invalidates_caches():
+    # Import dashboard fresh to ensure decorated functions have invalidate methods
+    import dashboard
+    importlib.reload(dashboard)
+    
+    # Now access invalidate methods
+    original_state_invalidate = dashboard.get_cached_state.invalidate
+```
+
+**Key Insights**:
+1. **Module-level imports can cause test isolation issues** in large test suites
+2. **Decorator attributes may not be present** if module imported at wrong time
+3. **Use `importlib.reload()`** to get fresh module instance in tests
+4. **Test individually vs full suite** - different behavior indicates isolation issues
+5. **Store references before patching** - get decorator attributes before `patch.object()`
+
+**Alternative Solutions**:
+- Move import inside test function (but loses IDE type hints)
+- Use fixtures to ensure clean module state
+- Check `hasattr()` before accessing decorator methods
+
+**Related Files**:
+- `tests/test_force_button_cache_invalidation.py`: Line 16-17 (reload solution)
+- `dashboard.py`: Lines 41-103 (ttl_cache decorator with invalidate method)
+
+**Testing Impact**:
+- Single test run: Works (dashboard imported fresh)
+- Full suite: Failed without reload (dashboard cached from previous tests)
+- With reload: Works in both scenarios
+
+---
+
 ## Kraken Balance Normalization - Double Prefix Bug (2025-11-04)
 
 **Problem**: Assets with double prefixes (XXBT, XXETH) failed to normalize correctly, breaking balance aggregation.
