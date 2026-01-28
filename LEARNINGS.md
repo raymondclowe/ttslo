@@ -2,6 +2,58 @@
 
 Key learnings and gotchas discovered during TTSLO development.
 
+## Kraken Pair Names: Altnames vs Pair Codes (2026-01-28)
+
+**Problem**: User entered `XBTUSD` in config but got validation error saying it's not a valid Kraken pair.
+
+**Root Cause**:
+- Kraken API has two identifiers for each trading pair:
+  1. **Pair Code** (the key in AssetPairs response): e.g., `XXBTZUSD`
+  2. **Altname** (the human-readable name): e.g., `XBTUSD`
+- For Bitcoin/USD: Pair code is `XXBTZUSD`, altname is `XBTUSD`
+- For Bitcoin/USDC: Pair code AND altname are both `XBTUSDC`
+- Validator only checked pair codes, not altnames
+
+**Solution**:
+- Updated `validator.py`'s `_get_known_pairs()` to include both:
+  - Pair codes from API keys
+  - Altnames from pair info values
+- This allows users to enter either `XBTUSD` or `XXBTZUSD` and both will validate
+
+**USDC Support**:
+- Added `XBTUSDC` and `ETHUSDC` to pair mappings in `ttslo.py`
+- Added `USDC` to quote asset lists (before `USD` to prevent matching `USD` first)
+- Order matters: Check `USDC` before `USD`, `USDT` before `USD`, etc.
+
+**Example**:
+```python
+# Kraken API response structure:
+{
+  "XXBTZUSD": {
+    "altname": "XBTUSD",  # Human-readable name
+    "wsname": "XBT/USD",
+    ...
+  },
+  "XBTUSDC": {
+    "altname": "XBTUSDC",  # Same as pair code
+    "wsname": "XBT/USDC",
+    ...
+  }
+}
+```
+
+**Testing**:
+- Added `tests/test_xbtusd_support.py` with comprehensive tests
+- Verified both `XBTUSD` and `XXBTZUSD` are accepted by validator
+- Verified pair matcher resolves `XBTUSD` → `XXBTZUSD`
+
+**Files Modified**:
+- `validator.py`: Include altnames in known pairs cache
+- `ttslo.py`: Add USDC to pair mappings and quote lists
+- `tests/test_xbtusd_support.py`: New test file
+
+---
+
 ## Kraken API Multi-Process Nonce Collision Fix - FINAL FIX (2026-01-27)
 
 **Problem**: `EAPI:Invalid nonce` errors STILL occurring despite fix in #218.
