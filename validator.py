@@ -178,8 +178,8 @@ class ConfigValidator:
                 
                 # Extract both pair codes (keys) and altnames (values)
                 pair_codes = set(pairs_data.keys())
-                altnames = {pair_info.get('altname', '').upper() 
-                           for pair_info in pairs_data.values() 
+                altnames = {pair_info['altname'].upper()
+                           for pair_info in pairs_data.values()
                            if pair_info.get('altname')}
                 
                 # Combine both sets to accept either format
