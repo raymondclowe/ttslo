@@ -172,18 +172,18 @@ class ConfigValidator:
         """Get the set of known Kraken pairs from cache (refreshed daily)."""
         if self._known_pairs_cache is None:
             try:
-                from kraken_pairs_util import get_cached_pairs, fetch_kraken_pairs
-                # Get pair IDs
-                self._known_pairs_cache = get_cached_pairs()
-                # Also add altnames to allow user-friendly names like XBTUSD
-                try:
-                    pairs_data = fetch_kraken_pairs()
-                    altnames = {pair_info.get('altname', '').upper() 
-                               for pair_info in pairs_data.values() 
-                               if pair_info.get('altname')}
-                    self._known_pairs_cache = self._known_pairs_cache.union(altnames)
-                except Exception:
-                    pass  # If we can't get altnames, just use pair IDs
+                from kraken_pairs_util import fetch_kraken_pairs
+                # Fetch full pairs data once (uses cache if available)
+                pairs_data = fetch_kraken_pairs()
+                
+                # Extract both pair codes (keys) and altnames (values)
+                pair_codes = set(pairs_data.keys())
+                altnames = {pair_info.get('altname', '').upper() 
+                           for pair_info in pairs_data.values() 
+                           if pair_info.get('altname')}
+                
+                # Combine both sets to accept either format
+                self._known_pairs_cache = pair_codes.union(altnames)
             except Exception:
                 # If we can't fetch pairs, return empty set (validation will still work with live check)
                 self._known_pairs_cache = set()

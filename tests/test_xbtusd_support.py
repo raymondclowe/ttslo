@@ -69,9 +69,9 @@ class TestUSDCSupport:
             dry_run=True
         )
         
-        # Test _extract_base_asset for USDC pairs
-        assert ttslo._extract_base_asset('XBTUSDC') == 'XXBT' or ttslo._extract_base_asset('XBTUSDC') == 'XBT'
-        assert ttslo._extract_base_asset('ETHUSDC') == 'XETH' or ttslo._extract_base_asset('ETHUSDC') == 'ETH'
+        # Test _extract_base_asset for USDC pairs - should match known mappings
+        assert ttslo._extract_base_asset('XBTUSDC') == 'XXBT'
+        assert ttslo._extract_base_asset('ETHUSDC') == 'XETH'
         
         # Test _extract_quote_asset for USDC pairs
         assert ttslo._extract_quote_asset('XBTUSDC') == 'USDC'
