@@ -480,7 +480,7 @@ def get_active_orders():
                     'id': order_id,
                     'order_id': order_id,
                     'pair': descr.get('pair'),
-                    'trigger_price': None,
+                    'trigger_price': order_info.get('stopprice'),
                     'trigger_time': None,
                     'volume': order_info.get('vol'),
                     'executed_volume': order_info.get('vol_exec', '0'),
