@@ -15,6 +15,7 @@ class ValidationResult:
         self.infos = []
         self.configs = []
         self.configs_with_errors = set()  # Track which configs have errors
+        self.total_configs_validated = 0  # Track total configs validated (including disabled)
         
     def add_error(self, config_id: str, field: str, message: str):
         """Add a validation error."""
@@ -107,13 +108,12 @@ class ConfigValidator:
         for idx, config in enumerate(configs):
             config_id = config.get('id', f'row_{idx+1}')
 
-            # if disabled skip to next item
-            enabled_value = config.get('enabled', 'false').lower()
-            if enabled_value not in ['true', 'yes', '1']:
-                continue
+            # Count all configs validated
+            result.total_configs_validated += 1
 
-            # only use enabled configs for summary (after validation check)
-            result.configs.append(config)
+            # Check if config is enabled
+            enabled_value = config.get('enabled', 'false').lower()
+            is_enabled = enabled_value in ['true', 'yes', '1']
 
             # Validate required fields
             self._validate_required_fields(config, config_id, result)
@@ -136,6 +136,16 @@ class ConfigValidator:
             
             # Cross-field validation (warnings)
             self._validate_logic(config, config_id, result)
+
+            # Only add enabled configs to result.configs for execution
+            if is_enabled:
+                result.configs.append(config)
+            else:
+                # Add info message for disabled configs (only if no errors on this config)
+                # Don't add info if the config already has validation errors
+                if config_id not in result.configs_with_errors:
+                    result.add_info(config_id, 'enabled', 
+                                   f'Config is disabled (enabled={enabled_value}). Set to "true" to activate.')
         
         # Validate linked_order_id references after all configs loaded
         self._validate_linked_order_ids(configs, result)
@@ -1053,9 +1063,12 @@ def format_validation_result(result: ValidationResult, verbose: bool = False) ->
     lines.append("")
     
     # Summary
-    total_configs = len(result.configs)
+    total_validated = getattr(result, 'total_configs_validated', len(result.configs))
+    enabled_configs = len(result.configs)
+    disabled_configs = total_validated - enabled_configs
     error_count = len(result.errors)
     warning_count = len(result.warnings)
+    info_count = len(result.infos) if hasattr(result, 'infos') else 0
     
     if result.is_valid():
         lines.append(f"✓ VALIDATION PASSED")
@@ -1063,9 +1076,13 @@ def format_validation_result(result: ValidationResult, verbose: bool = False) ->
         lines.append(f"✗ VALIDATION FAILED")
     
     lines.append("")
-    lines.append(f"Configurations checked: {total_configs}")
+    lines.append(f"Total configurations: {total_validated}")
+    lines.append(f"  - Enabled: {enabled_configs}")
+    lines.append(f"  - Disabled: {disabled_configs}")
     lines.append(f"Errors found: {error_count}")
     lines.append(f"Warnings found: {warning_count}")
+    if verbose and info_count > 0:
+        lines.append(f"Info messages: {info_count}")
     lines.append("")
     
     # Errors
