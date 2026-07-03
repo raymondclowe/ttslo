@@ -890,6 +890,7 @@ class CSVEditor(App):
     SYSTEM_COLUMNS = [
         'id', 'pair', 'threshold_price', 'threshold_type', 
         'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id',
+        'trigger_type', 'trigger_datetime', 'fiat_amount',
         'order_id', 'trigger_time', 'trigger_price'
     ]
     

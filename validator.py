@@ -2,6 +2,7 @@
 Configuration validation for TTSLO.
 """
 import re
+from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 from decimal import Decimal, InvalidOperation, getcontext, ROUND_DOWN
 
@@ -61,9 +62,14 @@ class ValidationResult:
 class ConfigValidator:
     """Validates TTSLO configuration files."""
     
-    # Required fields in configuration
+    # Required fields in configuration (price-triggered lines)
     REQUIRED_FIELDS = ['id', 'pair', 'threshold_price', 'threshold_type', 
                        'direction', 'volume', 'trailing_offset_percent', 'enabled']
+
+    # Required fields for date-triggered DCA lines (trigger_type=date).
+    # threshold_price/threshold_type/volume are replaced by trigger_datetime/fiat_amount.
+    DATE_REQUIRED_FIELDS = ['id', 'pair', 'direction', 'trailing_offset_percent',
+                            'enabled', 'trigger_datetime', 'fiat_amount']
     
     # Optional fields in configuration
     OPTIONAL_FIELDS = []
@@ -72,6 +78,7 @@ class ConfigValidator:
     VALID_THRESHOLD_TYPES = ['above', 'below']
     VALID_DIRECTIONS = ['buy', 'sell']
     VALID_ENABLED_VALUES = ['true', 'false', 'yes', 'no', '1', '0']
+    VALID_TRIGGER_TYPES = ['price', 'date']
     
     def __init__(self, kraken_api=None, debug_mode=False):
         """
@@ -115,8 +122,12 @@ class ConfigValidator:
             # only use enabled configs for summary (after validation check)
             result.configs.append(config)
 
-            # Validate required fields
-            self._validate_required_fields(config, config_id, result)
+            # Determine trigger type (price default, or date for DCA lines)
+            trigger_type = self._get_trigger_type(config)
+            self._validate_trigger_type(config, config_id, result)
+
+            # Validate required fields (depends on trigger type)
+            self._validate_required_fields(config, config_id, result, trigger_type)
             
             # Check for duplicate IDs
             if config_id in seen_ids:
@@ -124,18 +135,30 @@ class ConfigValidator:
                                f'Duplicate configuration ID: {config_id}')
             seen_ids.add(config_id)
             
-            # Validate individual fields
+            # Validate individual fields common to all line types
             self._validate_id(config, config_id, result)
             self._validate_pair(config, config_id, result)
-            self._validate_threshold_price(config, config_id, result)
-            self._validate_threshold_type(config, config_id, result)
             self._validate_direction(config, config_id, result)
-            self._validate_volume(config, config_id, result)
             self._validate_trailing_offset(config, config_id, result)
             self._validate_enabled(config, config_id, result)
-            
-            # Cross-field validation (warnings)
-            self._validate_logic(config, config_id, result)
+
+            if trigger_type == 'date':
+                # DCA lines: validate date/FIAT fields
+                self._validate_trigger_datetime(config, config_id, result)
+                self._validate_fiat_amount(config, config_id, result)
+            else:
+                # Price lines: validate threshold/volume fields
+                self._validate_threshold_price(config, config_id, result)
+                self._validate_threshold_type(config, config_id, result)
+                self._validate_volume(config, config_id, result)
+
+            # Cross-field checks for the new DCA columns (mutual exclusivity etc.)
+            self._validate_dca_cross_fields(config, config_id, result, trigger_type)
+
+            # Cross-field validation (warnings) - threshold logic only applies to
+            # price-triggered lines.
+            if trigger_type != 'date':
+                self._validate_logic(config, config_id, result)
         
         # Validate linked_order_id references after all configs loaded
         self._validate_linked_order_ids(configs, result)
@@ -143,13 +166,86 @@ class ConfigValidator:
         return result
     
     def _validate_required_fields(self, config: Dict, config_id: str, 
-                                  result: ValidationResult):
-        """Check that all required fields are present."""
-        for field in self.REQUIRED_FIELDS:
+                                  result: ValidationResult, trigger_type: str = 'price'):
+        """Check that all required fields are present (per trigger type)."""
+        required = self.DATE_REQUIRED_FIELDS if trigger_type == 'date' else self.REQUIRED_FIELDS
+        for field in required:
             if field not in config or not config[field] or not config[field].strip():
                 result.add_error(config_id, field, 
                                f'Required field "{field}" is missing or empty')
-    
+
+    @staticmethod
+    def _get_trigger_type(config: Dict) -> str:
+        """Return the trigger type ('price' default, or 'date'). Blank => price."""
+        raw = config.get('trigger_type')
+        if raw is None:
+            return 'price'
+        value = str(raw).strip().lower()
+        return value if value else 'price'
+
+    def _validate_trigger_type(self, config: Dict, config_id: str,
+                               result: ValidationResult):
+        """Validate the trigger_type discriminator column."""
+        raw = config.get('trigger_type')
+        if raw is None or not str(raw).strip():
+            return  # Blank/missing is valid (defaults to 'price')
+        value = str(raw).strip().lower()
+        if value not in self.VALID_TRIGGER_TYPES:
+            result.add_error(config_id, 'trigger_type',
+                           f'Invalid trigger_type: "{value}". '
+                           f'Must be one of: {", ".join(self.VALID_TRIGGER_TYPES)}')
+
+    def _validate_trigger_datetime(self, config: Dict, config_id: str,
+                                   result: ValidationResult):
+        """Validate the trigger_datetime for DCA lines (ISO-8601, treated as UTC)."""
+        raw = config.get('trigger_datetime', '')
+        text = str(raw).strip() if raw is not None else ''
+        if not text:
+            return  # Already caught by required fields
+        # Support a trailing 'Z' (UTC) which fromisoformat rejects on older Python
+        normalized = text[:-1] + '+00:00' if text.endswith('Z') else text
+        try:
+            datetime.fromisoformat(normalized)
+        except (ValueError, TypeError):
+            result.add_error(config_id, 'trigger_datetime',
+                           f'Invalid trigger_datetime: "{text}". '
+                           'Must be an ISO-8601 date/time (e.g., 2025-01-01T00:00:00Z)')
+
+    def _validate_fiat_amount(self, config: Dict, config_id: str,
+                              result: ValidationResult):
+        """Validate the fiat_amount for DCA lines (must be a positive number)."""
+        raw = config.get('fiat_amount', '')
+        text = str(raw).strip() if raw is not None else ''
+        if not text:
+            return  # Already caught by required fields
+        try:
+            fiat_amount = Decimal(text)
+            if fiat_amount <= 0:
+                result.add_error(config_id, 'fiat_amount',
+                               f'fiat_amount must be positive, got: {fiat_amount}')
+        except (ValueError, InvalidOperation):
+            result.add_error(config_id, 'fiat_amount',
+                           f'Invalid fiat_amount: "{text}". '
+                           'Must be a positive number (e.g., 100)')
+
+    def _validate_dca_cross_fields(self, config: Dict, config_id: str,
+                                   result: ValidationResult, trigger_type: str):
+        """Validate cross-field rules for the DCA columns."""
+        volume = str(config.get('volume', '') or '').strip()
+        fiat_amount = str(config.get('fiat_amount', '') or '').strip()
+
+        # volume and fiat_amount are mutually exclusive
+        if volume and fiat_amount:
+            result.add_error(config_id, 'fiat_amount',
+                           'volume and fiat_amount are mutually exclusive; '
+                           'set volume for price lines or fiat_amount for date lines, not both')
+
+        # fiat_amount on a price line is ignored - warn the user
+        if trigger_type != 'date' and fiat_amount:
+            result.add_warning(config_id, 'fiat_amount',
+                             'fiat_amount is only used for date-triggered (DCA) lines '
+                             'and will be ignored for this price line')
+
     def _validate_id(self, config: Dict, config_id: str, result: ValidationResult):
         """Validate the configuration ID."""
         id_value = config.get('id', '').strip()
