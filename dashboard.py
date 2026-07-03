@@ -369,6 +369,9 @@ def get_pending_orders():
                     linked_order_enabled = linked_config.get('enabled', '').lower() == 'true'
                     break
         
+        trigger_type = config.get('trigger_type', '').strip().lower() or 'price'
+        fiat_amount = config.get('fiat_amount', '')
+
         pending.append({
             'id': config_id,
             'pair': pair,
@@ -379,6 +382,8 @@ def get_pending_orders():
             'direction': direction,
             'volume': config.get('volume'),
             'trailing_offset_percent': config.get('trailing_offset_percent'),
+            'trigger_type': trigger_type,
+            'fiat_amount': fiat_amount,
             'current_price': current_price,
             'distance': distance,
             'insufficient_balance': insufficient_balance,
