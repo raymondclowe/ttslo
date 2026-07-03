@@ -858,7 +858,7 @@ def get_balances_and_risks():
             if not base_asset:
                 continue
             
-            volume = float(order.get('volume', 0))
+            volume = float(order.get('volume') or 0)
             direction = order.get('direction', '')
             
             # Initialize asset tracking if needed
