@@ -6,6 +6,7 @@ import os
 import tempfile
 import csv
 from dashboard import app, config_manager
+import dashboard
 
 
 @pytest.fixture
@@ -375,7 +376,6 @@ def test_pending_orders_include_trigger_type_and_fiat_amount(client, monkeypatch
     ]
     fake_state = {}
 
-    import dashboard
     monkeypatch.setattr(dashboard, 'get_cached_config', lambda: fake_configs)
     monkeypatch.setattr(dashboard, 'get_cached_state', lambda: fake_state)
     monkeypatch.setattr(dashboard, 'get_current_prices', lambda: {'XXBTZUSD': 60000.0})
