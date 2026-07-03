@@ -317,7 +317,8 @@ def get_pending_orders():
         cost_too_low = False
         cost_message = None
         
-        volume = float(config.get('volume', 0))
+     #   volume = float(config.get('volume', 0))  # crash when it is " "
+        volume = float(config.get('volume') or 0)
         direction = config.get('direction', '')
         
         # Check minimum volume and cost requirements
