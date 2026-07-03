@@ -369,8 +369,8 @@ def get_pending_orders():
                     linked_order_enabled = linked_config.get('enabled', '').lower() == 'true'
                     break
         
-        trigger_type = config.get('trigger_type', '').strip().lower() or 'price'
-        fiat_amount = config.get('fiat_amount', '')
+        trigger_type = str(config.get('trigger_type') or '').strip().lower() or 'price'
+        fiat_amount = str(config.get('fiat_amount') or '')
 
         pending.append({
             'id': config_id,
