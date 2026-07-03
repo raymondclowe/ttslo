@@ -316,7 +316,7 @@ def test_validator_invalid_trigger_type():
     assert any(e['field'] == 'trigger_type' for e in result.errors)
 
 
-def test_validator_fiat_amount_on_price_line_warns():
+def test_validator_fiat_amount_on_price_line_with_volume_errors():
     validator = ConfigValidator()
     price_cfg = {
         'id': 'btc_1',

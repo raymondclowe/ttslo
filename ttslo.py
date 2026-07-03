@@ -328,18 +328,18 @@ class TTSLO:
             return (None, 'fiat_amount is missing')
         try:
             fiat_amount = Decimal(str(fiat_amount_str).strip())
+            if not fiat_amount.is_finite() or fiat_amount <= 0:
+                return (None, f'fiat_amount must be a finite positive number, got {fiat_amount}')
         except (InvalidOperation, ValueError, TypeError):
             return (None, f'fiat_amount "{fiat_amount_str}" is not a valid number')
-        if fiat_amount <= 0:
-            return (None, f'fiat_amount must be positive, got {fiat_amount}')
 
         # Validate current_price
         try:
             price = Decimal(str(current_price))
+            if not price.is_finite() or price <= 0:
+                return (None, f'current_price must be a finite positive number, got {price}')
         except (InvalidOperation, ValueError, TypeError):
             return (None, f'current_price "{current_price}" is not a valid number')
-        if price <= 0:
-            return (None, f'current_price must be positive, got {price}')
 
         # Compute raw volume
         raw_volume = fiat_amount / price
@@ -1780,11 +1780,11 @@ class TTSLO:
                 # Order creation failed - order_id is None
                 # Log that order was not created
                 self.log('WARNING', 
-                        f"Threshold was met but order creation failed for {config_id}",
+                        f"Trigger condition was met but order creation failed for {config_id}",
                         config_id=config_id)
                 # Do NOT mark as triggered - allow retry on next iteration
         else:
-            # Threshold not met - this is normal, do nothing
+            # Trigger condition not met - this is normal, do nothing
             # No need to log at INFO level to reduce noise
             pass
     

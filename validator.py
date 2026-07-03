@@ -241,7 +241,7 @@ class ConfigValidator:
                            'set volume for price lines or fiat_amount for date lines, not both')
 
         # fiat_amount on a price line is ignored - warn the user
-        if trigger_type != 'date' and fiat_amount:
+        if trigger_type != 'date' and fiat_amount and not volume:
             result.add_warning(config_id, 'fiat_amount',
                              'fiat_amount is only used for date-triggered (DCA) lines '
                              'and will be ignored for this price line')
