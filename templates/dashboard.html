@@ -789,7 +789,7 @@
                                     <div class="detail-row">
 ${order.trigger_type === 'date' ? `
                                         <span class="detail-label">Fiat ${order.quote_asset ? order.quote_asset.replace(/^[XZ]+/, '') : ''}:</span>
-                                        <span class="detail-value">${order.fiat_amount ? '$' + parseFloat(order.fiat_amount).toLocaleString() : 'N/A'}</span>
+                                        <span class="detail-value">${order.fiat_amount && !isNaN(parseFloat(order.fiat_amount)) ? '$' + parseFloat(order.fiat_amount).toLocaleString() : 'N/A'}</span>
 ` : `
                                         <span class="detail-label">${formatVolumeLabel(order.direction, order.base_asset)}</span>
                                         <span class="detail-value">${order.volume || 'N/A'}</span>
@@ -904,7 +904,7 @@ ${order.waiting_for_parent ? `
                                     <div class="detail-row">
 ${order.trigger_type === 'date' ? `
                                         <span class="detail-label">Fiat ${order.quote_asset ? order.quote_asset.replace(/^[XZ]+/, '') : ''}:</span>
-                                        <span class="detail-value">${order.fiat_amount ? '$' + parseFloat(order.fiat_amount).toLocaleString() : 'N/A'}</span>
+                                        <span class="detail-value">${order.fiat_amount && !isNaN(parseFloat(order.fiat_amount)) ? '$' + parseFloat(order.fiat_amount).toLocaleString() : 'N/A'}</span>
 ` : `
                                         <span class="detail-label">${formatVolumeLabel(order.direction, order.base_asset)}</span>
                                         <span class="detail-value">${order.volume || 'N/A'}</span>

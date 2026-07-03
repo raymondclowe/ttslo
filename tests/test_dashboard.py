@@ -342,16 +342,58 @@ def test_completed_order_status_tag():
     print("✓ Completed order status tagging verified")
 
 
-def test_pending_orders_include_trigger_type_and_fiat_amount(client):
+def test_pending_orders_include_trigger_type_and_fiat_amount(client, monkeypatch):
     """Test that pending orders include trigger_type and fiat_amount fields."""
+    # Provide deterministic configs so the test always has pending orders
+    fake_configs = [
+        {
+            'id': 'legacy_1',
+            'pair': 'XXBTZUSD',
+            'threshold_price': '50000',
+            'threshold_type': 'above',
+            'direction': 'sell',
+            'volume': '0.01',
+            'trailing_offset_percent': '5.0',
+            'enabled': 'true',
+            'linked_order_id': '',
+            'trigger_type': None,        # legacy row with None trigger_type
+            'fiat_amount': None,          # legacy row with None fiat_amount
+        },
+        {
+            'id': 'dca_1',
+            'pair': 'XXBTZUSD',
+            'threshold_price': '0',
+            'threshold_type': 'above',
+            'direction': 'buy',
+            'volume': '0',
+            'trailing_offset_percent': '0',
+            'enabled': 'true',
+            'linked_order_id': '',
+            'trigger_type': 'date',
+            'fiat_amount': '500',
+        },
+    ]
+    fake_state = {}
+
+    import dashboard
+    monkeypatch.setattr(dashboard, 'get_cached_config', lambda: fake_configs)
+    monkeypatch.setattr(dashboard, 'get_cached_state', lambda: fake_state)
+    monkeypatch.setattr(dashboard, 'get_current_prices', lambda: {'XXBTZUSD': 60000.0})
+    monkeypatch.setattr(dashboard, 'kraken_api', None)
+
     response = client.get('/api/pending')
     assert response.status_code == 200
     data = response.get_json()
+    assert len(data) >= 2
 
-    # If there are pending orders, verify they include the new fields
-    if len(data) > 0:
-        order = data[0]
-        assert 'trigger_type' in order
-        assert 'fiat_amount' in order
-        # trigger_type should default to 'price' for legacy orders
-        assert order['trigger_type'] in ('price', 'date')
+    # Find the legacy and DCA orders
+    legacy = next(o for o in data if o['id'] == 'legacy_1')
+    dca = next(o for o in data if o['id'] == 'dca_1')
+
+    # Legacy order: trigger_type defaults to 'price', fiat_amount is empty string
+    assert legacy['trigger_type'] == 'price'
+    assert legacy['fiat_amount'] == ''
+
+    # DCA order: trigger_type is 'date', fiat_amount is '500'
+    assert dca['trigger_type'] == 'date'
+    assert dca['fiat_amount'] == '500'
