@@ -1027,7 +1027,11 @@ class CSVEditor(App):
     
     def _upgrade_config_if_needed(self) -> bool:
         """
-        Check if the config file is missing required columns and upgrade it.
+        Check if the config file is missing known system columns and upgrade it.
+
+        Legacy config files are accepted as-is by the service, but the editor
+        upgrades them in-place so new DCA/audit fields are available for editing
+        without dropping existing columns such as note.
         
         Returns True if upgrade was performed, False otherwise.
         """
