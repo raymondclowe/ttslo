@@ -9,6 +9,13 @@ import time
 import fcntl
 from datetime import datetime, timezone
 
+CONFIG_SYSTEM_COLUMNS = [
+    'id', 'pair', 'threshold_price', 'threshold_type',
+    'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id',
+    'trigger_type', 'trigger_datetime', 'fiat_amount',
+    'order_id', 'trigger_time', 'trigger_price', 'note'
+]
+
 
 class ConfigManager:
     """Manages configuration, state, and logging using CSV files."""
@@ -258,6 +265,27 @@ class ConfigManager:
                 all_rows.append(row)
         
         return fieldnames, all_rows
+
+    def _normalize_config_fieldnames(self, fieldnames, required_columns=None):
+        """Keep known config columns in canonical order while preserving unknown columns."""
+        existing = list(fieldnames or [])
+        existing_map = {column.lower(): column for column in existing}
+        required = {column.lower() for column in (required_columns or [])}
+        normalized = []
+
+        for column in CONFIG_SYSTEM_COLUMNS:
+            lower_column = column.lower()
+            if lower_column in existing_map:
+                normalized.append(existing_map[lower_column])
+            elif lower_column in required:
+                normalized.append(column)
+
+        system_columns = {column.lower() for column in CONFIG_SYSTEM_COLUMNS}
+        for column in existing:
+            if column.lower() not in system_columns:
+                normalized.append(column)
+
+        return normalized
         
     def load_config(self):
         """
@@ -404,36 +432,34 @@ class ConfigManager:
             # Write header with all system columns (matching csv_editor.py SYSTEM_COLUMNS)
             # order_id, trigger_time, trigger_price are blank for new configs (populated when triggered)
             # trigger_type/trigger_datetime/fiat_amount support date-triggered DCA lines
-            writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 'direction', 
-                           'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id',
-                           'trigger_type', 'trigger_datetime', 'fiat_amount',
-                           'order_id', 'trigger_time', 'trigger_price'])
+            writer.writerow(CONFIG_SYSTEM_COLUMNS)
             
             # Write example rows (with blank trigger fields)
-            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true', '', 'price', '', '', '', '', ''])
-            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true', '', 'price', '', '', '', '', ''])
-            writer.writerow(['# Example: DCA - buy a fixed FIAT amount at a scheduled date/time', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# btc_dca,XXBTZUSD,,,buy,,2.0,true,,date,2025-01-01T00:00:00Z,100,,,', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# On the trigger_datetime, buys 100 (quote currency) of BTC as a trailing stop', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# Example: Chained orders - buy low, then sell high', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# btc_buy,XXBTZUSD,100000,below,buy,0.01,2.0,true,btc_sell', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# btc_sell,XXBTZUSD,120000,above,sell,0.01,2.0,false,', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# When btc_buy fills, btc_sell will be automatically enabled', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# id: Unique identifier for this configuration', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# pair: Kraken trading pair (XXBTZUSD for BTC/USD, XETHZUSD for ETH/USD)', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# threshold_price: Price threshold that triggers the TSL order (price lines only)', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# threshold_type: "above" or "below" - condition for threshold (price lines only)', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# direction: "buy" or "sell" - direction of TSL order', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# volume: Amount to trade (price lines; mutually exclusive with fiat_amount)', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# trailing_offset_percent: Trailing stop offset as percentage (e.g., 5.0 for 5%)', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# enabled: "true", "false", "paused", or "canceled" - order status', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# linked_order_id: (Optional) ID of order to enable when this order fills', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# trigger_type: "price" (default) or "date" - how the line is triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# trigger_datetime: (DCA) ISO-8601 date/time in UTC to trigger, e.g. 2025-01-01T00:00:00Z', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# fiat_amount: (DCA) Amount of quote currency to spend; volume = fiat_amount / price', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# order_id: (Auto-filled) Kraken order ID when order is triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# trigger_time: (Auto-filled) Timestamp when order was triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-            writer.writerow(['# trigger_price: (Auto-filled) Price at which order was triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01', '5.0', 'true', '', 'price', '', '', '', '', '', ''])
+            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.1', '3.5', 'true', '', 'price', '', '', '', '', '', ''])
+            writer.writerow(['# Example: DCA - buy a fixed FIAT amount at a scheduled date/time', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# btc_dca,XXBTZUSD,,,buy,,2.0,true,,date,2025-01-01T00:00:00Z,100,,,,', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# On the trigger_datetime, buys 100 (quote currency) of BTC as a trailing stop', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# Example: Chained orders - buy low, then sell high', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# btc_buy,XXBTZUSD,100000,below,buy,0.01,2.0,true,btc_sell,,,,,,', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# btc_sell,XXBTZUSD,120000,above,sell,0.01,2.0,false,,,,,,,', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# When btc_buy fills, btc_sell will be automatically enabled', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# id: Unique identifier for this configuration', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# pair: Kraken trading pair (XXBTZUSD for BTC/USD, XETHZUSD for ETH/USD)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# threshold_price: Price threshold that triggers the TSL order (price lines only)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# threshold_type: "above" or "below" - condition for threshold (price lines only)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# direction: "buy" or "sell" - direction of TSL order', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# volume: Amount to trade (price lines; mutually exclusive with fiat_amount)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# trailing_offset_percent: Trailing stop offset as percentage (e.g., 5.0 for 5%)', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# enabled: "true", "false", "paused", or "canceled" - order status', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# linked_order_id: (Optional) ID of order to enable when this order fills', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# trigger_type: "price" (default) or "date" - how the line is triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# trigger_datetime: (DCA) ISO-8601 date/time in UTC to trigger, e.g. 2025-01-01T00:00:00Z', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# fiat_amount: (DCA) Amount of quote currency to spend; volume = fiat_amount / price', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# order_id: (Auto-filled) Kraken order ID when order is triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# trigger_time: (Auto-filled) Timestamp when order was triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# trigger_price: (Auto-filled) Price at which order was triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow(['# note: (Optional) Free-form note preserved when configs are edited or triggered', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
     
     def initialize_state_file(self):
         """Initialize an empty state file with headers."""
@@ -473,14 +499,10 @@ class ConfigManager:
         if not fieldnames:
             return
         
-        # Ensure we have the new columns in fieldnames
-        fieldnames = list(fieldnames)
-        if 'order_id' not in fieldnames:
-            fieldnames.append('order_id')
-        if 'trigger_time' not in fieldnames:
-            fieldnames.append('trigger_time')
-        if 'trigger_price' not in fieldnames:
-            fieldnames.append('trigger_price')
+        fieldnames = self._normalize_config_fieldnames(
+            fieldnames,
+            required_columns=['order_id', 'trigger_time', 'trigger_price']
+        )
         
         # Update matching row while preserving all others (including comments/empty)
         for row in all_rows:
@@ -518,6 +540,8 @@ class ConfigManager:
         if not fieldnames:
             return
         
+        fieldnames = self._normalize_config_fieldnames(fieldnames)
+
         # Disable matching rows while preserving all others
         for row in all_rows:
             if row.get('id') in config_ids_set:
@@ -548,6 +572,8 @@ class ConfigManager:
         if not fieldnames:
             raise ValueError("Config file has no headers")
         
+        fieldnames = self._normalize_config_fieldnames(fieldnames)
+
         # Find and update matching row
         found = False
         for row in all_rows:
@@ -585,6 +611,8 @@ class ConfigManager:
         if not fieldnames:
             raise ValueError("Config file has no headers")
         
+        fieldnames = self._normalize_config_fieldnames(fieldnames)
+
         # Find and update matching row
         found = False
         for row in all_rows:

@@ -891,7 +891,7 @@ class CSVEditor(App):
         'id', 'pair', 'threshold_price', 'threshold_type', 
         'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id',
         'trigger_type', 'trigger_datetime', 'fiat_amount',
-        'order_id', 'trigger_time', 'trigger_price'
+        'order_id', 'trigger_time', 'trigger_price', 'note'
     ]
     
     # Required columns for TTSLO config (minimum needed for new configs)
@@ -1037,9 +1037,9 @@ class CSVEditor(App):
         headers = [h.lower() for h in self.data[0]]
         missing_columns = []
         
-        for required in self.REQUIRED_COLUMNS:
-            if required.lower() not in headers:
-                missing_columns.append(required)
+        for system_column in self.SYSTEM_COLUMNS:
+            if system_column.lower() not in headers:
+                missing_columns.append(system_column)
         
         if not missing_columns:
             return False
@@ -1649,10 +1649,9 @@ def main():
             filepath.parent.mkdir(parents=True, exist_ok=True)
             with open(filepath, 'w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                                'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'])
-                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', ''])
-                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', ''])
+                writer.writerow(CSVEditor.SYSTEM_COLUMNS)
+                writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', '', 'price', '', '', '', '', '', ''])
+                writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', '', 'price', '', '', '', '', '', ''])
             print(f"Sample file created: {filepath}")
         else:
             # Provide clear instructions and exit non-interactively
@@ -1667,10 +1666,9 @@ def main():
                         filepath.parent.mkdir(parents=True, exist_ok=True)
                         with open(filepath, 'w', newline='') as f:
                             writer = csv.writer(f)
-                            writer.writerow(['id', 'pair', 'threshold_price', 'threshold_type', 
-                                            'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id'])
-                            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', ''])
-                            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', ''])
+                            writer.writerow(CSVEditor.SYSTEM_COLUMNS)
+                            writer.writerow(['btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01000000', '5.0', 'true', '', 'price', '', '', '', '', '', ''])
+                            writer.writerow(['eth_1', 'XETHZUSD', '3000', 'above', 'sell', '0.10000000', '3.5', 'true', '', 'price', '', '', '', '', '', ''])
                         print(f"Sample file created: {filepath}")
                     else:
                         print("Exiting without creating file.")

@@ -3690,3 +3690,8 @@ docker compose exec ttslo supervisorctl restart ttslo-monitor
 - `DOCKER.md` - Updated with fix details
 
 **Related**: Issue about nonce errors from 2025-12-01 (already fixed in kraken_api.py)
+
+## 2026-07-03 - Config CSV compatibility
+- Canonical config CSV order: `id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount,order_id,trigger_time,trigger_price,note`.
+- `fiat_amount` is separate from `trigger_price`; keep `order_id`, `trigger_time`, `trigger_price`, `note`, and unknown user columns intact when rewriting config files.
+- CSV editor upgrades legacy headers by adding missing system columns, then normalizes to canonical order.

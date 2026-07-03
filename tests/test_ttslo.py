@@ -32,6 +32,13 @@ def test_config_manager():
         sample_config = os.path.join(tmpdir, 'sample.csv')
         cm.create_sample_config(sample_config)
         assert os.path.exists(sample_config), "Sample config should be created"
+        with open(sample_config, 'r', newline='') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+        assert 'fiat_amount' in header, "Sample config should include fiat_amount"
+        assert 'order_id' in header, "Sample config should preserve order_id"
+        assert 'trigger_price' in header, "Sample config should preserve trigger_price"
+        assert 'note' in header, "Sample config should preserve note"
         
         # Test loading empty config
         configs = cm.load_config()
@@ -894,6 +901,64 @@ def test_config_csv_update_on_trigger():
             assert 'trigger_price' in fieldnames, "trigger_price column should exist"
         
         print("✓ Config CSV update on trigger test passed")
+
+
+def test_config_csv_update_on_trigger_preserves_note_and_unknown_columns():
+    """Test trigger updates preserve note and user-defined columns."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_file = os.path.join(tmpdir, 'config.csv')
+        state_file = os.path.join(tmpdir, 'state.csv')
+        log_file = os.path.join(tmpdir, 'logs.csv')
+
+        fieldnames = [
+            'id', 'pair', 'threshold_price', 'threshold_type', 'direction', 'volume',
+            'trailing_offset_percent', 'enabled', 'linked_order_id',
+            'trigger_type', 'trigger_datetime', 'fiat_amount',
+            'order_id', 'trigger_time', 'trigger_price', 'note', 'desk'
+        ]
+        with open(config_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerow({
+                'id': 'btc_dca',
+                'pair': 'XXBTZUSD',
+                'threshold_price': '',
+                'threshold_type': '',
+                'direction': 'buy',
+                'volume': '',
+                'trailing_offset_percent': '2.0',
+                'enabled': 'true',
+                'linked_order_id': '',
+                'trigger_type': 'date',
+                'trigger_datetime': '2026-07-03T00:00:00Z',
+                'fiat_amount': '100',
+                'order_id': '',
+                'trigger_time': '',
+                'trigger_price': '',
+                'note': 'keep me',
+                'desk': 'night'
+            })
+
+        cm = ConfigManager(config_file, state_file, log_file)
+        cm.update_config_on_trigger(
+            config_id='btc_dca',
+            order_id='TEST_ORDER_456',
+            trigger_time='2026-07-03T00:00:00+00:00',
+            trigger_price='108000.0'
+        )
+
+        configs = cm.load_config()
+        assert len(configs) == 1
+        config = configs[0]
+        assert config['fiat_amount'] == '100'
+        assert config['order_id'] == 'TEST_ORDER_456'
+        assert config['trigger_price'] == '108000.0'
+        assert config['note'] == 'keep me'
+        assert config['desk'] == 'night'
+
+        with open(config_file, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            assert reader.fieldnames == fieldnames
 
 
 def test_config_csv_update_integration():
