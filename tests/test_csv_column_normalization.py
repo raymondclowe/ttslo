@@ -292,7 +292,9 @@ def test_upgrade_legacy_config_adds_dca_columns_and_preserves_note():
         normalized = editor._normalize_columns()
 
         assert upgraded is True
-        assert normalized is True
+        # After upgrade, legacy columns are already in canonical order
+        # (new DCA fields appended at end), so no normalization needed
+        assert normalized is False
         assert editor.data[0] == editor.SYSTEM_COLUMNS
         assert editor.data[1][editor.data[0].index('note')] == 'keep me'
         assert editor.data[1][editor.data[0].index('order_id')] == ''

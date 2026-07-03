@@ -1235,8 +1235,8 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         # order_id, trigger_time, trigger_price are blank for new configs (populated when triggered)
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
                      'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id',
-                     'trigger_type', 'trigger_datetime', 'fiat_amount',
-                     'order_id', 'trigger_time', 'trigger_price', 'note']
+                     'order_id', 'trigger_time', 'trigger_price', 'note',
+                     'trigger_type', 'trigger_datetime', 'fiat_amount']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         

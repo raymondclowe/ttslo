@@ -913,8 +913,8 @@ def test_config_csv_update_on_trigger_preserves_note_and_unknown_columns():
         fieldnames = [
             'id', 'pair', 'threshold_price', 'threshold_type', 'direction', 'volume',
             'trailing_offset_percent', 'enabled', 'linked_order_id',
-            'trigger_type', 'trigger_datetime', 'fiat_amount',
-            'order_id', 'trigger_time', 'trigger_price', 'note', 'desk'
+            'order_id', 'trigger_time', 'trigger_price', 'note',
+            'trigger_type', 'trigger_datetime', 'fiat_amount', 'desk'
         ]
         with open(config_file, 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
