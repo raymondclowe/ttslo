@@ -340,3 +340,18 @@ def test_completed_order_status_tag():
     assert is_canceled is False
     
     print("✓ Completed order status tagging verified")
+
+
+def test_pending_orders_include_trigger_type_and_fiat_amount(client):
+    """Test that pending orders include trigger_type and fiat_amount fields."""
+    response = client.get('/api/pending')
+    assert response.status_code == 200
+    data = response.get_json()
+
+    # If there are pending orders, verify they include the new fields
+    if len(data) > 0:
+        order = data[0]
+        assert 'trigger_type' in order
+        assert 'fiat_amount' in order
+        # trigger_type should default to 'price' for legacy orders
+        assert order['trigger_type'] in ('price', 'date')
