@@ -463,6 +463,10 @@ result.configs.append(config)
 10. `order_id` - Kraken order ID (added when triggered)
 11. `trigger_time` - Trigger timestamp
 12. `trigger_price` - Price at trigger
+13. `note` - Free-form note
+14. `trigger_type` - "price" or "date" (DCA)
+15. `trigger_datetime` - DCA trigger date/time
+16. `fiat_amount` - DCA fiat amount
 
 **User-Defined Fields** (moved to right, preserve relative order):
 - `coin` - Personal label
@@ -477,7 +481,7 @@ result.configs.append(config)
 - `_normalize_columns()` enforces left (system) / right (user) split
 - Normalization runs on file load and before save
 - User column order preserved within their section
-- **All CSV generators** output all 12 system columns (even when blank):
+- **All CSV generators** output all 16 system columns (even when blank):
   - `config.py`: `create_sample_config()` 
   - `tools/coin_stats.py`: `generate_config_suggestions()`
   - CSV editor creates new rows with all system fields
@@ -488,7 +492,7 @@ result.configs.append(config)
 3. **Consistent order**: System columns always in same order for diff clarity
 4. **Non-destructive**: Normalization preserves all data, just reorders
 5. **Two-tier structure**: Required subset ⊂ System columns ⊂ All columns
-6. **Complete headers**: All generators include all 12 system fields (blank trigger fields for new configs)
+6. **Complete headers**: All generators include all 16 system fields (blank trigger fields for new configs)
 
 **Related Files**:
 - `csv_editor.py`: Lines 1117-1125 (SYSTEM_COLUMNS), 1168-1213 (_normalize_columns)
@@ -3692,6 +3696,6 @@ docker compose exec ttslo supervisorctl restart ttslo-monitor
 **Related**: Issue about nonce errors from 2025-12-01 (already fixed in kraken_api.py)
 
 ## 2026-07-03 - Config CSV compatibility
-- Canonical config CSV order: `id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount,order_id,trigger_time,trigger_price,note`.
-- `fiat_amount` is separate from `trigger_price`; keep `order_id`, `trigger_time`, `trigger_price`, `note`, and unknown user columns intact when rewriting config files.
-- CSV editor upgrades legacy headers by adding missing system columns, then normalizes to canonical order.
+- Canonical config CSV order: `id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,order_id,trigger_time,trigger_price,note,trigger_type,trigger_datetime,fiat_amount`.
+- New DCA fields (`trigger_type`, `trigger_datetime`, `fiat_amount`) are appended at the end, after the original columns, to preserve backward compatibility with existing data.
+- CSV editor upgrades legacy headers by appending missing system columns at the end, then normalizes to canonical order.
