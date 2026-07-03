@@ -266,6 +266,39 @@ def test_normalization_on_load():
         print("✓ Normalization on load test passed")
 
 
+def test_upgrade_legacy_config_adds_dca_columns_and_preserves_note():
+    """Legacy headers should upgrade for DCA support without dropping note."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_file = os.path.join(tmpdir, 'test.csv')
+
+        with open(test_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                'id', 'pair', 'threshold_price', 'threshold_type', 'direction', 'volume',
+                'trailing_offset_percent', 'enabled', 'linked_order_id',
+                'order_id', 'trigger_time', 'trigger_price', 'note'
+            ])
+            writer.writerow([
+                'btc_1', 'XXBTZUSD', '50000', 'above', 'sell', '0.01',
+                '5.0', 'true', '', '', '', '', 'keep me'
+            ])
+
+        editor = CSVEditor(filename=test_file)
+        with open(test_file, 'r', newline='') as f:
+            reader = csv.reader(f)
+            editor.data = list(reader)
+
+        upgraded = editor._upgrade_config_if_needed()
+        normalized = editor._normalize_columns()
+
+        assert upgraded is True
+        assert normalized is True
+        assert editor.data[0] == editor.SYSTEM_COLUMNS
+        assert editor.data[1][editor.data[0].index('note')] == 'keep me'
+        assert editor.data[1][editor.data[0].index('order_id')] == ''
+        assert editor.data[1][editor.data[0].index('fiat_amount')] == ''
+
+
 def test_normalization_preserves_empty_cells():
     """Test that empty cells are preserved during normalization."""
     with tempfile.TemporaryDirectory() as tmpdir:

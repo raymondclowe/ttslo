@@ -118,9 +118,9 @@ uv run python csv_editor.py config_sample.csv
 
 **Option B: Manual editing**
 ```csv
-id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true
-eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount,order_id,trigger_time,trigger_price,note
+btc_1,XXBTZUSD,50000,above,sell,0.01,5.0,true,,price,,,,,profit target
+eth_1,XETHZUSD,3000,above,sell,0.1,3.5,true,,price,,,,,swing trade
 ```
 
 3. Validate your configuration:
@@ -543,6 +543,10 @@ The configuration file defines your trigger conditions and TSL order parameters:
 | `trigger_type` | (Optional) "price" (default) or "date". Blank/missing is treated as "price" so existing configs are unchanged. Use "date" for scheduled DCA lines. |
 | `trigger_datetime` | (DCA lines) ISO-8601 date/time to trigger, treated as **UTC** when no timezone is given (e.g., `2025-01-01T00:00:00Z`). Required when `trigger_type=date`. |
 | `fiat_amount` | (DCA lines) Amount of the pair's quote currency to spend. At trigger time, `volume = fiat_amount / current_price`. Required when `trigger_type=date`; mutually exclusive with `volume`. |
+| `order_id` | (Auto-filled) Kraken order ID after the line triggers. Preserved when configs are reloaded or edited. |
+| `trigger_time` | (Auto-filled) Timestamp when the line triggered. Preserved when configs are reloaded or edited. |
+| `trigger_price` | (Auto-filled) Market price used when the line triggered. Preserved separately from `fiat_amount`. |
+| `note` | (Optional) Free-form note. Preserved on load/save and ignored by trigger logic. |
 
 #### DCA (date-triggered) lines
 
@@ -551,8 +555,8 @@ In addition to price-triggered lines, you can schedule a **dollar-cost-averaging
 quote currency:
 
 ```csv
-id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount
-btc_dca,XXBTZUSD,,,buy,,2.0,true,,date,2025-01-01T00:00:00Z,100
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount,order_id,trigger_time,trigger_price,note
+btc_dca,XXBTZUSD,,,buy,,2.0,true,,date,2025-01-01T00:00:00Z,100,,,,scheduled DCA
 ```
 
 Behavior:
@@ -814,8 +818,8 @@ For a complete list, see [Kraken's trading pairs documentation](https://support.
 You bought BTC at $45,000 and want to protect profits if it reaches $50,000:
 
 ```csv
-id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-btc_profit,XXBTZUSD,50000,above,sell,0.5,5.0,true
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount,order_id,trigger_time,trigger_price,note
+btc_profit,XXBTZUSD,50000,above,sell,0.5,5.0,true,,price,,,,,profit protection
 ```
 
 When BTC reaches $50,000, a TSL sell order is created with a 5% trailing offset.
@@ -824,8 +828,8 @@ When BTC reaches $50,000, a TSL sell order is created with a 5% trailing offset.
 You want to buy ETH if it drops below $3,000:
 
 ```csv
-id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled
-eth_dip,XETHZUSD,3000,below,buy,1.0,3.0,true
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount,order_id,trigger_time,trigger_price,note
+eth_dip,XETHZUSD,3000,below,buy,1.0,3.0,true,,price,,,,,buy the dip
 ```
 
 When ETH drops below $3,000, a TSL buy order is created with a 3% trailing offset.
@@ -834,9 +838,9 @@ When ETH drops below $3,000, a TSL buy order is created with a 3% trailing offse
 Automatically chain orders to buy low and sell high for profit-taking:
 
 ```csv
-id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id
-btc_buy,XXBTZUSD,100000,below,buy,0.01,2.0,true,btc_sell
-btc_sell,XXBTZUSD,120000,above,sell,0.01,2.0,false,
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount,order_id,trigger_time,trigger_price,note
+btc_buy,XXBTZUSD,100000,below,buy,0.01,2.0,true,btc_sell,price,,,,,entry leg
+btc_sell,XXBTZUSD,120000,above,sell,0.01,2.0,false,,price,,,,,take profit leg
 ```
 
 **How it works:**

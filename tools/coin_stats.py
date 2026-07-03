@@ -1235,7 +1235,8 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
         # order_id, trigger_time, trigger_price are blank for new configs (populated when triggered)
         fieldnames = ['id', 'pair', 'threshold_price', 'threshold_type', 
                      'direction', 'volume', 'trailing_offset_percent', 'enabled', 'linked_order_id',
-                     'order_id', 'trigger_time', 'trigger_price']
+                     'trigger_type', 'trigger_datetime', 'fiat_amount',
+                     'order_id', 'trigger_time', 'trigger_price', 'note']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         
@@ -1341,9 +1342,13 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                     'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
                     'enabled': 'true',
                     'linked_order_id': buy_id,
+                    'trigger_type': 'price',
+                    'trigger_datetime': '',
+                    'fiat_amount': '',
                     'order_id': '',
                     'trigger_time': '',
-                    'trigger_price': ''
+                    'trigger_price': '',
+                    'note': ''
                 })
                 
                 # Second order: BUY when price goes BELOW (enabled=false, activates after sell fills)
@@ -1358,9 +1363,13 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                     'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
                     'enabled': 'false',
                     'linked_order_id': '',
+                    'trigger_type': 'price',
+                    'trigger_datetime': '',
+                    'fiat_amount': '',
                     'order_id': '',
                     'trigger_time': '',
-                    'trigger_price': ''
+                    'trigger_price': '',
+                    'note': ''
                 })
             else:
                 # BUY-THEN-SELL (default): Buy dip first, then sell high
@@ -1376,9 +1385,13 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                     'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
                     'enabled': 'true',
                     'linked_order_id': sell_id,
+                    'trigger_type': 'price',
+                    'trigger_datetime': '',
+                    'fiat_amount': '',
                     'order_id': '',
                     'trigger_time': '',
-                    'trigger_price': ''
+                    'trigger_price': '',
+                    'note': ''
                 })
                 
                 # Second order: SELL when price goes ABOVE (enabled=false, activates after buy fills)
@@ -1393,9 +1406,13 @@ def generate_config_suggestions(results, analyzer, output_file='suggested_config
                     'trailing_offset_percent': f"{trailing_offset_pct_actual:.2f}",
                     'enabled': 'false',
                     'linked_order_id': '',
+                    'trigger_type': 'price',
+                    'trigger_datetime': '',
+                    'fiat_amount': '',
                     'order_id': '',
                     'trigger_time': '',
-                    'trigger_price': ''
+                    'trigger_price': '',
+                    'note': ''
                 })
     
     print(f"\n{'='*70}")
