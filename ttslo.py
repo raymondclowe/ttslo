@@ -11,7 +11,7 @@ import sys
 import time
 import signal
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, getcontext
+from decimal import Decimal, InvalidOperation, getcontext, ROUND_DOWN
 
 from kraken_api import (
     KrakenAPI, KrakenAPIError, KrakenAPITimeoutError, 
@@ -206,7 +206,186 @@ class TTSLO:
                     f'Must be "above" or "below"',
                     config_id=config_id)
             return False
-    
+
+    @staticmethod
+    def get_trigger_type(config):
+        """
+        Determine the trigger type for a config.
+
+        Returns 'price' (default) or 'date'. A missing or blank trigger_type
+        column is treated as 'price' so existing configs behave unchanged.
+        """
+        if not isinstance(config, dict):
+            return 'price'
+        raw = config.get('trigger_type')
+        if raw is None:
+            return 'price'
+        value = str(raw).strip().lower()
+        return value if value else 'price'
+
+    def check_date_trigger(self, config, now=None):
+        """
+        Check if a date/time trigger (DCA line) has been reached.
+
+        SECURITY NOTE: This function will return False (do not trigger) if:
+        - Any required parameter is missing or invalid
+        - trigger_datetime cannot be parsed
+        - Any error occurs during comparison
+
+        Returns False (safe default) on any uncertainty.
+
+        Args:
+            config: Configuration dictionary
+            now: Optional current datetime (timezone-aware UTC). Defaults to
+                 the current UTC time. Primarily used for testing.
+
+        Returns:
+            True if now >= trigger_datetime, False otherwise.
+        """
+        # Step 1: Validate config parameter
+        if not isinstance(config, dict):
+            self.log('ERROR', 'check_date_trigger: config is not a dictionary')
+            return False
+
+        config_id = config.get('id', 'unknown')
+
+        # Step 2: Get trigger_datetime
+        trigger_datetime_str = config.get('trigger_datetime')
+        if not trigger_datetime_str or not str(trigger_datetime_str).strip():
+            self.log('ERROR', 'check_date_trigger: trigger_datetime is missing',
+                    config_id=config_id)
+            return False
+
+        # Step 3: Parse trigger_datetime (ISO-8601, treated as UTC when naive)
+        trigger_dt = self._parse_trigger_datetime(str(trigger_datetime_str).strip())
+        if trigger_dt is None:
+            self.log('ERROR',
+                    f'check_date_trigger: could not parse trigger_datetime '
+                    f'"{trigger_datetime_str}"',
+                    config_id=config_id)
+            return False
+
+        # Step 4: Compare against current time (UTC)
+        if now is None:
+            now = datetime.now(timezone.utc)
+        elif now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+
+        is_met = now >= trigger_dt
+        if self.debug:
+            self.log('DEBUG',
+                    f"check_date_trigger: now={now.isoformat()} "
+                    f"trigger={trigger_dt.isoformat()} -> "
+                    f"{'met' if is_met else 'not met'}",
+                    config_id=config_id)
+        return is_met
+
+    @staticmethod
+    def _parse_trigger_datetime(value):
+        """
+        Parse an ISO-8601 datetime string into a timezone-aware UTC datetime.
+
+        A naive datetime (no timezone) is interpreted as UTC. Returns None if
+        the value cannot be parsed.
+        """
+        text = str(value).strip()
+        if not text:
+            return None
+        # Support a trailing 'Z' (UTC) which fromisoformat rejects on older
+        # Python versions.
+        normalized = text[:-1] + '+00:00' if text.endswith('Z') else text
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except (ValueError, TypeError):
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+
+    def compute_dca_volume(self, config, current_price):
+        """
+        Compute the coin volume for a DCA (date-triggered) line from a fixed
+        FIAT amount: volume = fiat_amount / current_price.
+
+        The result is rounded down to the pair's allowed volume precision
+        (lot_decimals) so we never request more than the FIAT budget allows.
+
+        SAFETY: Returns (None, message) on any error or invalid input so the
+        caller does not create an order.
+
+        Args:
+            config: Configuration dictionary
+            current_price: Current price of the pair (quote currency per unit)
+
+        Returns:
+            Tuple of (volume: Decimal or None, message: str)
+        """
+        config_id = config.get('id', 'unknown')
+
+        # Validate fiat_amount
+        fiat_amount_str = config.get('fiat_amount')
+        if not fiat_amount_str or not str(fiat_amount_str).strip():
+            return (None, 'fiat_amount is missing')
+        try:
+            fiat_amount = Decimal(str(fiat_amount_str).strip())
+            if not fiat_amount.is_finite() or fiat_amount <= 0:
+                return (None, f'fiat_amount must be a finite positive number, got {fiat_amount}')
+        except (InvalidOperation, ValueError, TypeError):
+            return (None, f'fiat_amount "{fiat_amount_str}" is not a valid number')
+
+        # Validate current_price
+        try:
+            price = Decimal(str(current_price))
+            if not price.is_finite() or price <= 0:
+                return (None, f'current_price must be a finite positive number, got {price}')
+        except (InvalidOperation, ValueError, TypeError):
+            return (None, f'current_price "{current_price}" is not a valid number')
+
+        # Compute raw volume
+        raw_volume = fiat_amount / price
+
+        # Round down to the pair's allowed volume precision if available
+        pair = config.get('pair')
+        lot_decimals = self._get_lot_decimals(pair, config_id)
+        if lot_decimals is not None:
+            quantum = Decimal(1).scaleb(-lot_decimals)  # e.g. 8 -> 0.00000001
+            volume = raw_volume.quantize(quantum, rounding=ROUND_DOWN)
+        else:
+            self.log('DEBUG',
+                    f'lot_decimals unavailable for {pair}; using unrounded DCA volume',
+                    config_id=config_id)
+            volume = raw_volume
+
+        if volume <= 0:
+            return (None,
+                    f'Computed volume is zero after rounding '
+                    f'(fiat_amount={fiat_amount}, price={price})')
+
+        return (volume, f'Computed volume {volume} from fiat_amount {fiat_amount} '
+                        f'at price {price}')
+
+    def _get_lot_decimals(self, pair, config_id=None):
+        """
+        Get the volume decimal precision (lot_decimals) for a pair.
+
+        Returns an int, or None if it cannot be determined.
+        """
+        if not pair:
+            return None
+        try:
+            pair_info = self.kraken_api_readonly.get_asset_pair_info(pair)
+            if not pair_info:
+                return None
+            lot_decimals = pair_info.get('lot_decimals')
+            if lot_decimals is None:
+                return None
+            return int(lot_decimals)
+        except Exception as e:
+            self.log('WARNING',
+                    f'Could not determine lot_decimals for {pair}: {e}',
+                    config_id=config_id, error=str(e))
+            return None
+
     def _normalize_asset(self, asset: str) -> str:
         """
         Normalize asset key by removing X prefix and .F suffix.
@@ -1480,40 +1659,78 @@ class TTSLO:
                     f"Could not update last_checked time: {str(e)}",
                     config_id=config_id, error=str(e))
         
-        # Step 12: Check if threshold is met
-        # This returns False if anything is wrong, so it's safe
-        threshold_is_met = self.check_threshold(config, current_price)
-        
+        # Step 12: Check if trigger condition is met
+        # Price lines use a price threshold; DCA lines use a date/time trigger.
+        # This returns False if anything is wrong, so it's safe.
+        trigger_type = self.get_trigger_type(config)
+        if trigger_type == 'date':
+            trigger_is_met = self.check_date_trigger(config)
+        else:
+            trigger_is_met = self.check_threshold(config, current_price)
+
         # Step 13: Decide whether to create order
-        if threshold_is_met:
-            # Threshold is met - log it
-            threshold_price = config.get('threshold_price', 'unknown')
-            threshold_type = config.get('threshold_type', 'unknown')
-            
-            self.log('INFO', 
-                    f"Threshold met for {config_id}: current_price={current_price}, "
-                    f"threshold={threshold_price} ({threshold_type})",
-                    config_id=config_id, pair=pair, price=current_price)
-            
-            # Send notification about trigger price reached (only once)
-            # Check if we've already notified about this trigger to prevent spam
-            if self.notification_manager and not self.state[config_id].get('trigger_notified'):
-                try:
-                    threshold_price_float = float(threshold_price) if threshold_price != 'unknown' else 0
-                    # Get linked order ID if present
-                    linked_order_id = config.get('linked_order_id', '').strip() or None
-                    self.notification_manager.notify_trigger_price_reached(
-                        config_id, pair, float(current_price), 
-                        threshold_price_float, str(threshold_type), linked_order_id
-                    )
-                    # Mark that we've sent the trigger notification
-                    self.state[config_id]['trigger_notified'] = True
-                except Exception as e:
-                    self.log('WARNING', f'Failed to send trigger notification: {str(e)}',
-                            config_id=config_id, error=str(e))
+        if trigger_is_met:
+            # The config passed to create_tsl_order. For DCA lines we inject the
+            # computed volume; for price lines the config is used unchanged.
+            order_config = config
+
+            if trigger_type == 'date':
+                # DCA line: compute volume from the fixed FIAT amount
+                trigger_datetime = config.get('trigger_datetime', 'unknown')
+                fiat_amount = config.get('fiat_amount', 'unknown')
+                self.log('INFO',
+                        f"Date trigger met for {config_id}: "
+                        f"trigger_datetime={trigger_datetime}, "
+                        f"fiat_amount={fiat_amount}, current_price={current_price}",
+                        config_id=config_id, pair=pair, price=current_price)
+
+                dca_volume, dca_msg = self.compute_dca_volume(config, current_price)
+                if dca_volume is None:
+                    # SAFETY: Could not compute a valid volume - do not create order.
+                    # Allow retry on a later iteration (do not mark as triggered).
+                    self.log('WARNING',
+                            f"Cannot create DCA order for {config_id}: {dca_msg}",
+                            config_id=config_id, pair=pair)
+                    if config_id in self.state:
+                        self._handle_order_error_state(config_id, dca_msg)
+                    return
+
+                self.log('INFO',
+                        f"DCA volume for {config_id}: {dca_msg}",
+                        config_id=config_id, pair=pair, volume=str(dca_volume))
+
+                # Inject computed volume without mutating the original config
+                order_config = dict(config)
+                order_config['volume'] = str(dca_volume)
+            else:
+                # Price line: threshold met - log it (unchanged behavior)
+                threshold_price = config.get('threshold_price', 'unknown')
+                threshold_type = config.get('threshold_type', 'unknown')
+
+                self.log('INFO',
+                        f"Threshold met for {config_id}: current_price={current_price}, "
+                        f"threshold={threshold_price} ({threshold_type})",
+                        config_id=config_id, pair=pair, price=current_price)
+
+                # Send notification about trigger price reached (only once)
+                # Check if we've already notified about this trigger to prevent spam
+                if self.notification_manager and not self.state[config_id].get('trigger_notified'):
+                    try:
+                        threshold_price_float = float(threshold_price) if threshold_price != 'unknown' else 0
+                        # Get linked order ID if present
+                        linked_order_id = config.get('linked_order_id', '').strip() or None
+                        self.notification_manager.notify_trigger_price_reached(
+                            config_id, pair, float(current_price), 
+                            threshold_price_float, str(threshold_type), linked_order_id
+                        )
+                        # Mark that we've sent the trigger notification
+                        self.state[config_id]['trigger_notified'] = True
+                    except Exception as e:
+                        self.log('WARNING', f'Failed to send trigger notification: {str(e)}',
+                                config_id=config_id, error=str(e))
             
             # Step 14: Attempt to create TSL order
-            order_id = self.create_tsl_order(config, current_price)
+            order_id = self.create_tsl_order(order_config, current_price)
             
             # Step 15: Check if order was created successfully
             if order_id:
@@ -1563,11 +1780,11 @@ class TTSLO:
                 # Order creation failed - order_id is None
                 # Log that order was not created
                 self.log('WARNING', 
-                        f"Threshold was met but order creation failed for {config_id}",
+                        f"Trigger condition was met but order creation failed for {config_id}",
                         config_id=config_id)
                 # Do NOT mark as triggered - allow retry on next iteration
         else:
-            # Threshold not met - this is normal, do nothing
+            # Trigger condition not met - this is normal, do nothing
             # No need to log at INFO level to reduce noise
             pass
     

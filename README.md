@@ -533,13 +533,41 @@ The configuration file defines your trigger conditions and TSL order parameters:
 |-------|-------------|
 | `id` | Unique identifier for this configuration (must be unique) |
 | `pair` | Kraken trading pair (e.g., `XXBTZUSD` for BTC/USD, `XETHZUSD` for ETH/USD). Use Kraken pair codes (e.g., `XXBTZUSD`, `XETHZUSD`, `SOLUSD`) to avoid formats like `BTC/USD` or `BTCUSD`. |
-| `threshold_price` | Price threshold that triggers the TSL order |
-| `threshold_type` | Condition type: "above" or "below" |
+| `threshold_price` | Price threshold that triggers the TSL order (price lines only) |
+| `threshold_type` | Condition type: "above" or "below" (price lines only) |
 | `direction` | TSL order direction: "buy" or "sell" |
-| `volume` | Amount to trade (in base currency) |
+| `volume` | Amount to trade (in base currency). Price lines only; mutually exclusive with `fiat_amount` |
 | `trailing_offset_percent` | Trailing stop offset as percentage (e.g., 5.0 for 5%) |
 | `enabled` | "true" or "false" - whether this configuration is active |
 | `linked_order_id` | (Optional) ID of another order to enable when THIS order fills successfully. Enables chained orders for automated buy-low/sell-high strategies. |
+| `trigger_type` | (Optional) "price" (default) or "date". Blank/missing is treated as "price" so existing configs are unchanged. Use "date" for scheduled DCA lines. |
+| `trigger_datetime` | (DCA lines) ISO-8601 date/time to trigger, treated as **UTC** when no timezone is given (e.g., `2025-01-01T00:00:00Z`). Required when `trigger_type=date`. |
+| `fiat_amount` | (DCA lines) Amount of the pair's quote currency to spend. At trigger time, `volume = fiat_amount / current_price`. Required when `trigger_type=date`; mutually exclusive with `volume`. |
+
+#### DCA (date-triggered) lines
+
+In addition to price-triggered lines, you can schedule a **dollar-cost-averaging
+(DCA)** line that fires at a specific date/time and spends a fixed amount of the
+quote currency:
+
+```csv
+id,pair,threshold_price,threshold_type,direction,volume,trailing_offset_percent,enabled,linked_order_id,trigger_type,trigger_datetime,fiat_amount
+btc_dca,XXBTZUSD,,,buy,,2.0,true,,date,2025-01-01T00:00:00Z,100
+```
+
+Behavior:
+
+- Triggered when `now >= trigger_datetime` (UTC). `threshold_price`/`threshold_type`
+  are ignored for DCA lines.
+- At trigger time the current price is fetched and the volume is computed as
+  `fiat_amount / current_price`, rounded **down** to the pair's allowed volume
+  precision, then the same trailing stop loss order is created as for price lines.
+- **One-shot**: a DCA line triggers once and is then marked triggered (recurring
+  schedules are out of scope for now).
+- **Past `trigger_datetime`**: if the configured time is already in the past when
+  the line is first seen, it triggers immediately.
+- The same safety guards apply: no order if the price fetch fails, the computed
+  volume is below the pair's minimum, or there is insufficient balance.
 
 ### State File (state.csv)
 
