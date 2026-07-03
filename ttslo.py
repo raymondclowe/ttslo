@@ -351,6 +351,9 @@ class TTSLO:
             quantum = Decimal(1).scaleb(-lot_decimals)  # e.g. 8 -> 0.00000001
             volume = raw_volume.quantize(quantum, rounding=ROUND_DOWN)
         else:
+            self.log('DEBUG',
+                    f'lot_decimals unavailable for {pair}; using unrounded DCA volume',
+                    config_id=config_id)
             volume = raw_volume
 
         if volume <= 0:
